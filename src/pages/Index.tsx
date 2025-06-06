@@ -91,7 +91,7 @@ const Index = () => {
 
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
               <ModernButton asChild size="lg" variant="gradient" className="group">
-                <Link to="/quiz">
+                <Link to="/quiz" className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                   Começar Agora
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -271,7 +271,7 @@ const Index = () => {
           </p>
           
           <ModernButton size="lg" variant="glass" className="text-lg px-10 py-4 group" asChild>
-            <Link to="/quiz">
+            <Link to="/quiz" className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
               Começar Meu Quiz Gratuito
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
