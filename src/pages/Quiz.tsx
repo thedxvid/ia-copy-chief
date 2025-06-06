@@ -147,6 +147,30 @@ const Quiz = () => {
       };
 
       dispatch({ type: 'CREATE_PROJECT', project });
+
+      // Call webhook when quiz is completed
+      try {
+        console.log('Calling webhook for quiz completion...');
+        await fetch('https://n8n.srv830837.hstgr.cloud/webhook/quiz-completed', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            timestamp: new Date().toISOString(),
+            projectId: project.id,
+            answers: state.quizAnswers,
+            generatedContent: {
+              adCopy,
+              videoScript
+            }
+          }),
+        });
+        console.log('Webhook called successfully');
+      } catch (webhookError) {
+        console.error('Error calling webhook:', webhookError);
+        // Don't show error to user, just log it
+      }
       
       toast({
         title: 'Copy gerada com sucesso!',
