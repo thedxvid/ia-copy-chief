@@ -43,13 +43,8 @@ const ModernButton = React.forwardRef<HTMLButtonElement, ModernButtonProps>(
   ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     
-    return (
-      <Comp
-        className={cn(modernButtonVariants({ variant, size }), className)}
-        ref={ref}
-        disabled={disabled || loading}
-        {...props}
-      >
+    const buttonContent = (
+      <>
         {/* Shine effect */}
         <div className="absolute inset-0 rounded-xl opacity-0 transition-opacity duration-700 pointer-events-none group-hover:opacity-100">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
@@ -71,7 +66,31 @@ const ModernButton = React.forwardRef<HTMLButtonElement, ModernButtonProps>(
         <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
           <div className="ripple-container" />
         </div>
-      </Comp>
+      </>
+    );
+
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(modernButtonVariants({ variant, size }), className)}
+          ref={ref}
+          disabled={disabled || loading}
+          {...props}
+        >
+          {React.cloneElement(children as React.ReactElement, {}, buttonContent)}
+        </Slot>
+      );
+    }
+    
+    return (
+      <button
+        className={cn(modernButtonVariants({ variant, size }), className)}
+        ref={ref}
+        disabled={disabled || loading}
+        {...props}
+      >
+        {buttonContent}
+      </button>
     );
   }
 );
