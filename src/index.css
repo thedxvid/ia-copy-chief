@@ -261,7 +261,7 @@
   
   .floating-input input {
     @apply w-full px-4 pt-6 pb-2 bg-transparent border border-border rounded-xl 
-           focus:border-primary focus:ring-0 transition-all duration-200 placeholder:transparent;
+           focus:border-primary focus:ring-0 transition-all duration-200 placeholder-transparent;
   }
   
   .floating-input label {
