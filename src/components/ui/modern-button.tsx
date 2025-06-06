@@ -74,10 +74,11 @@ const ModernButton = React.forwardRef<HTMLButtonElement, ModernButtonProps>(
         <Slot
           className={cn(modernButtonVariants({ variant, size }), className)}
           ref={ref}
-          disabled={disabled || loading}
           {...props}
         >
-          {React.cloneElement(children as React.ReactElement, {}, buttonContent)}
+          {React.cloneElement(children as React.ReactElement, {
+            disabled: disabled || loading,
+          }, buttonContent)}
         </Slot>
       );
     }
