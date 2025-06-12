@@ -1,10 +1,11 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { ChevronLeft, ChevronRight, Check, Sparkles, Target, Clock } from 'lucide-react';
+import { ModernButton } from '@/components/ui/modern-button';
+import { ModernCard } from '@/components/ui/modern-card';
+import { FloatingInput } from '@/components/ui/floating-input';
+import { ModernProgress } from '@/components/ui/modern-progress';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,28 +25,32 @@ const Quiz = () => {
       title: 'Qual é o seu produto ou serviço?',
       subtitle: 'Descreva em detalhes o que você oferece',
       type: 'textarea',
-      placeholder: 'Ex: Curso online de culinária japonesa, Consultoria em marketing digital...'
+      placeholder: 'Ex: Curso online de culinária japonesa, Consultoria em marketing digital...',
+      icon: <Target className="w-5 h-5" />
     },
     {
       id: 'target',
       title: 'Quem é seu público-alvo ideal?',
       subtitle: 'Seja específico sobre idade, interesses, problemas',
       type: 'textarea',
-      placeholder: 'Ex: Mulheres de 25-45 anos interessadas em culinária, que querem aprender...'
+      placeholder: 'Ex: Mulheres de 25-45 anos interessadas em culinária, que querem aprender...',
+      icon: <Target className="w-5 h-5" />
     },
     {
       id: 'pain',
       title: 'Qual a principal dor que seu produto resolve?',
       subtitle: 'O problema mais urgente do seu cliente',
       type: 'textarea',
-      placeholder: 'Ex: Não sabem cozinhar pratos japoneses autênticos em casa...'
+      placeholder: 'Ex: Não sabem cozinhar pratos japoneses autênticos em casa...',
+      icon: <Target className="w-5 h-5" />
     },
     {
       id: 'benefit',
       title: 'Qual o principal benefício oferecido?',
       subtitle: 'A transformação que seu cliente terá',
       type: 'textarea',
-      placeholder: 'Ex: Conseguir preparar sushi profissional em casa em 30 dias...'
+      placeholder: 'Ex: Conseguir preparar sushi profissional em casa em 30 dias...',
+      icon: <Sparkles className="w-5 h-5" />
     },
     {
       id: 'price',
@@ -59,21 +64,24 @@ const Quiz = () => {
         'R$ 501 - R$ 1.000',
         'R$ 1.001 - R$ 2.000',
         'Acima de R$ 2.000'
-      ]
+      ],
+      icon: <Target className="w-5 h-5" />
     },
     {
       id: 'competitors',
       title: 'Quais são seus principais concorrentes?',
       subtitle: 'Nomes ou descrição dos competidores',
       type: 'textarea',
-      placeholder: 'Ex: Curso X, Chef Y, outros cursos de culinária oriental...'
+      placeholder: 'Ex: Curso X, Chef Y, outros cursos de culinária oriental...',
+      icon: <Target className="w-5 h-5" />
     },
     {
       id: 'differential',
       title: 'Qual seu diferencial único?',
       subtitle: 'O que te torna especial no mercado',
       type: 'textarea',
-      placeholder: 'Ex: Única brasileira certificada no Japão, método exclusivo de 30 dias...'
+      placeholder: 'Ex: Única brasileira certificada no Japão, método exclusivo de 30 dias...',
+      icon: <Sparkles className="w-5 h-5" />
     },
     {
       id: 'objective',
@@ -86,7 +94,8 @@ const Quiz = () => {
         'Aumentar o conhecimento da marca',
         'Educar o mercado',
         'Relançar produto'
-      ]
+      ],
+      icon: <Target className="w-5 h-5" />
     }
   ];
 
@@ -191,72 +200,107 @@ const Quiz = () => {
 
   if (isGenerating) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="p-8 max-w-md mx-auto text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-brand-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-            <Check className="w-8 h-8 text-white" />
+      <div className="min-h-screen flex items-center justify-center px-4 safe-top safe-bottom">
+        <ModernCard variant="glass" className="p-8 max-w-md mx-auto text-center animate-scale-in">
+          <div className="w-20 h-20 gradient-primary rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse-glow">
+            <Sparkles className="w-10 h-10 text-white animate-float" />
           </div>
-          <h2 className="text-2xl font-bold mb-4">Gerando suas copies...</h2>
-          <p className="text-muted-foreground mb-6">
+          
+          <h2 className="text-2xl font-bold mb-4 text-gradient">
+            Gerando suas copies...
+          </h2>
+          
+          <p className="text-muted-foreground mb-6 leading-relaxed">
             Nossa IA está analisando suas respostas e criando copies personalizadas para seu negócio.
           </p>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-gradient-to-r from-brand-600 to-purple-600 h-2 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+          
+          <ModernProgress 
+            value={70} 
+            animated={true} 
+            variant="gradient" 
+            size="lg"
+            className="mb-4"
+          />
+          
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Clock className="w-4 h-4" />
+            <span>Isso pode levar alguns segundos...</span>
           </div>
-        </Card>
+        </ModernCard>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-8 px-4">
+    <div className="min-h-screen py-8 px-4 safe-top safe-bottom">
       <div className="max-w-2xl mx-auto">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between text-sm text-muted-foreground mb-2">
-            <span>Pergunta {state.currentQuizStep + 1} de {questions.length}</span>
-            <span>{Math.round(progress)}% completo</span>
+        {/* Progress Section */}
+        <div className="mb-8 animate-fade-in-up">
+          <div className="flex justify-between text-sm text-muted-foreground mb-3">
+            <span className="font-medium">
+              Pergunta {state.currentQuizStep + 1} de {questions.length}
+            </span>
+            <span className="font-semibold text-gradient">
+              {Math.round(progress)}% completo
+            </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-gradient-to-r from-brand-600 to-purple-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
+          
+          <ModernProgress 
+            value={progress} 
+            animated={true} 
+            variant="gradient" 
+            size="md"
+          />
         </div>
 
         {/* Question Card */}
-        <Card className="p-8 animate-fade-in">
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              {currentQuestion?.title}
-            </h1>
-            <p className="text-muted-foreground">
-              {currentQuestion?.subtitle}
-            </p>
+        <ModernCard 
+          variant="glass" 
+          className="p-8 animate-scale-in mb-6"
+          style={{ animationDelay: '200ms' }}
+        >
+          <div className="mb-8">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center flex-shrink-0 animate-pulse-glow">
+                {currentQuestion?.icon}
+              </div>
+              <div className="flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold mb-3 text-gradient">
+                  {currentQuestion?.title}
+                </h1>
+                <p className="text-muted-foreground leading-relaxed">
+                  {currentQuestion?.subtitle}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mb-8">
-            <Label htmlFor="answer" className="sr-only">Resposta</Label>
-            
             {currentQuestion?.type === 'textarea' && (
-              <Textarea
-                id="answer"
-                placeholder={currentQuestion.placeholder}
-                value={currentAnswer}
-                onChange={(e) => handleAnswerChange(e.target.value)}
-                className="min-h-[120px] text-base"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="answer" className="sr-only">Resposta</Label>
+                <Textarea
+                  id="answer"
+                  placeholder={currentQuestion.placeholder}
+                  value={currentAnswer}
+                  onChange={(e) => handleAnswerChange(e.target.value)}
+                  className="min-h-[120px] text-base glass-card border-0 focus:ring-2 focus:ring-primary/30 resize-none"
+                />
+              </div>
             )}
 
             {currentQuestion?.type === 'select' && (
               <Select value={currentAnswer} onValueChange={handleAnswerChange}>
-                <SelectTrigger className="text-base">
+                <SelectTrigger className="text-base glass-card border-0 focus:ring-2 focus:ring-primary/30 h-14">
                   <SelectValue placeholder="Selecione uma opção" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="glass-card border-0">
                   {currentQuestion.options?.map((option) => (
-                    <SelectItem key={option} value={option}>
+                    <SelectItem 
+                      key={option} 
+                      value={option}
+                      className="hover:bg-white/10 cursor-pointer"
+                    >
                       {option}
                     </SelectItem>
                   ))}
@@ -265,37 +309,63 @@ const Quiz = () => {
             )}
 
             {currentQuestion?.type === 'input' && (
-              <Input
-                id="answer"
-                placeholder={currentQuestion.placeholder}
+              <FloatingInput
+                label={currentQuestion.placeholder || 'Digite sua resposta'}
                 value={currentAnswer}
-                onChange={(e) => handleAnswerChange(e.target.value)}
+                onChange={(value) => handleAnswerChange(value)}
+                variant="glass"
                 className="text-base"
               />
             )}
           </div>
 
           {/* Navigation */}
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
+          <div className="flex justify-between items-center">
+            <ModernButton
+              variant="ghost"
               onClick={handlePrevious}
               disabled={state.currentQuizStep === 0}
+              className="group"
             >
-              <ChevronLeft className="w-4 h-4 mr-2" />
+              <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
               Anterior
-            </Button>
+            </ModernButton>
 
-            <Button
+            <ModernButton
               onClick={handleNext}
               disabled={!currentAnswer.trim()}
-              className="min-w-[120px]"
+              variant="gradient"
+              className="min-w-[140px] group"
             >
-              {isLastQuestion ? 'Gerar Copy' : 'Próxima'}
-              {!isLastQuestion && <ChevronRight className="w-4 h-4 ml-2" />}
-            </Button>
+              {isLastQuestion ? (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
+                  Gerar Copy
+                </>
+              ) : (
+                <>
+                  Próxima
+                  <ChevronRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </ModernButton>
           </div>
-        </Card>
+        </ModernCard>
+
+        {/* Steps Indicator */}
+        <div className="flex justify-center gap-2 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+          {questions.map((_, index) => (
+            <div
+              key={index}
+              className={cn(
+                "w-2 h-2 rounded-full transition-all duration-300",
+                index <= state.currentQuizStep 
+                  ? "bg-primary scale-125" 
+                  : "bg-muted-foreground/30"
+              )}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
