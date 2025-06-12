@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Check, Sparkles, Target, Clock } from 'lucide-react';
@@ -12,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useApp } from '@/contexts/AppContext';
 import { generateCopy } from '@/utils/copyGenerator';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const Quiz = () => {
   const navigate = useNavigate();

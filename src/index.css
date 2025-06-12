@@ -356,7 +356,7 @@
 @layer components {
   /* Floating label input with modern styling */
   .floating-input {
-    @apply relative group;
+    position: relative;
   }
   
   .floating-input input {
