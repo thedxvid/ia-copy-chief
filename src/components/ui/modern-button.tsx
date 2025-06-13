@@ -5,18 +5,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from '@/lib/utils';
 
 const modernButtonVariants = cva(
-  "modern-button relative inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed transform-gpu",
+  "modern-button relative inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed transform-gpu rounded-xl",
   {
     variants: {
       variant: {
-        default: "gradient-primary text-white shadow-lg hover:shadow-xl",
-        secondary: "bg-secondary/80 backdrop-blur-sm text-secondary-foreground border border-border/50 hover:bg-secondary hover:shadow-lg",
-        outline: "border-2 border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground backdrop-blur-sm",
-        ghost: "text-foreground hover:bg-accent/50 hover:text-accent-foreground backdrop-blur-sm",
-        gradient: "gradient-accent text-white shadow-lg hover:shadow-xl",
-        warm: "gradient-warm text-white shadow-lg hover:shadow-xl",
-        glass: "glass text-foreground hover:bg-white/10",
-        neomorph: "neomorph text-foreground hover:shadow-lg"
+        default: "bg-[#3B82F6] text-white shadow-lg hover:bg-[#2563EB] hover:shadow-xl",
+        secondary: "bg-[#1E1E1E] text-white border border-[#4B5563] hover:bg-[#2A2A2A] hover:shadow-lg",
+        outline: "border-2 border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white backdrop-blur-sm",
+        ghost: "text-[#CCCCCC] hover:bg-[#1E1E1E] hover:text-white backdrop-blur-sm",
+        gradient: "bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white shadow-lg hover:shadow-xl",
+        glass: "glass text-white hover:bg-white/10",
       },
       size: {
         default: "h-12 px-6 py-3",
@@ -72,7 +70,7 @@ const ModernButton = React.forwardRef<HTMLButtonElement, ModernButtonProps>(
     if (asChild) {
       return (
         <Slot
-          className={cn(modernButtonVariants({ variant, size }), className)}
+          className={cn(modernButtonVariants({ variant, size }), "group", className)}
           ref={ref}
           {...props}
         >
@@ -85,7 +83,7 @@ const ModernButton = React.forwardRef<HTMLButtonElement, ModernButtonProps>(
     
     return (
       <button
-        className={cn(modernButtonVariants({ variant, size }), className)}
+        className={cn(modernButtonVariants({ variant, size }), "group", className)}
         ref={ref}
         disabled={disabled || loading}
         {...props}

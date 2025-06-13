@@ -43,12 +43,12 @@ export const Header = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#4B5563]/50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg"></div>
+            <div className="w-8 h-8 bg-[#3B82F6] rounded-xl"></div>
             <span className="text-xl font-bold text-white">CopyChief</span>
           </Link>
 
@@ -58,7 +58,7 @@ export const Header = () => {
               <Link
                 key={item.href}
                 to={item.href}
-                className="text-gray-300 hover:text-white transition-colors duration-200"
+                className="text-[#CCCCCC] hover:text-white transition-colors duration-200"
               >
                 {item.label}
               </Link>
@@ -70,13 +70,13 @@ export const Header = () => {
             <ThemeToggle />
             
             {loading ? (
-              <div className="w-8 h-8 animate-spin rounded-full border-b-2 border-primary"></div>
+              <div className="w-8 h-8 animate-spin rounded-full border-b-2 border-[#3B82F6]"></div>
             ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center space-x-2 hover:bg-gray-800 rounded-lg p-2 transition-colors">
+                  <button className="flex items-center space-x-2 hover:bg-[#1E1E1E] rounded-xl p-2 transition-colors">
                     <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-primary text-white text-sm">
+                      <AvatarFallback className="bg-[#3B82F6] text-white text-sm">
                         {getInitials(user.user_metadata?.full_name)}
                       </AvatarFallback>
                     </Avatar>
@@ -85,15 +85,15 @@ export const Header = () => {
                     </span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563]">
                   <DropdownMenuItem asChild>
-                    <Link to="/dashboard" className="flex items-center">
+                    <Link to="/dashboard" className="flex items-center text-white hover:bg-[#2A2A2A]">
                       <User className="mr-2 h-4 w-4" />
                       Dashboard
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuSeparator className="bg-[#4B5563]" />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-white hover:bg-[#2A2A2A]">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sair
                   </DropdownMenuItem>
@@ -113,7 +113,7 @@ export const Header = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden text-white p-2"
+              className="md:hidden text-white p-2 hover:bg-[#1E1E1E] rounded-xl transition-colors"
             >
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -122,13 +122,13 @@ export const Header = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-800">
+          <div className="md:hidden py-4 border-t border-[#4B5563]/50">
             <nav className="flex flex-col space-y-4">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}
-                  className="text-gray-300 hover:text-white transition-colors duration-200 px-2"
+                  className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
@@ -136,7 +136,7 @@ export const Header = () => {
               ))}
               
               {!user && (
-                <div className="flex flex-col space-y-2 pt-4 border-t border-gray-800">
+                <div className="flex flex-col space-y-2 pt-4 border-t border-[#4B5563]/50">
                   <ModernButton variant="ghost" asChild>
                     <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
                       Entrar
