@@ -1,18 +1,19 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles, Brain, Check } from 'lucide-react';
 import { ModernButton } from '@/components/ui/modern-button';
-
 export function HeroSection() {
-  const benefits = [
-    { icon: Check, text: 'Grátis para sempre' },
-    { icon: Check, text: 'Sem cadastro necessário' },
-    { icon: Check, text: 'Resultados instantâneos' }
-  ];
-
-  return (
-    <section className="relative min-h-screen flex items-center justify-center px-4 safe-top">
+  const benefits = [{
+    icon: Check,
+    text: 'Grátis para sempre'
+  }, {
+    icon: Check,
+    text: 'Sem cadastro necessário'
+  }, {
+    icon: Check,
+    text: 'Resultados instantâneos'
+  }];
+  return <section className="relative min-h-screen flex items-center justify-center px-4 safe-top">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black animate-fade-in" />
       
@@ -25,12 +26,7 @@ export function HeroSection() {
 
       <div className="relative z-10 max-w-6xl mx-auto text-center">
         <div className="animate-fade-in-up">
-          <div className="flex items-center justify-center mb-8 animate-fade-in-up">
-            <Brain className="w-20 h-20 text-blue-400 mr-4" />
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-tight">
-              CopyChief
-            </h1>
-          </div>
+          
           
           <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-8 leading-tight animate-fade-in-up animate-stagger-1">
             O Futuro da Criação de
@@ -64,18 +60,12 @@ export function HeroSection() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm animate-fade-in-up animate-stagger-5">
-            {benefits.map((item, index) => (
-              <div 
-                key={index} 
-                className={`flex items-center justify-center gap-3 p-6 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl modern-card animate-fade-in-up animate-stagger-${index + 1}`}
-              >
+            {benefits.map((item, index) => <div key={index} className={`flex items-center justify-center gap-3 p-6 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl modern-card animate-fade-in-up animate-stagger-${index + 1}`}>
                 <item.icon className="w-6 h-6 text-green-400" />
                 <span className="text-gray-300 font-medium text-base">{item.text}</span>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 }
