@@ -9,6 +9,294 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      product_analytics: {
+        Row: {
+          benchmark_data: Json | null
+          copy_efficiency_score: number | null
+          created_at: string
+          estimated_conversion_rate: number | null
+          id: string
+          performance_metrics: Json | null
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          benchmark_data?: Json | null
+          copy_efficiency_score?: number | null
+          created_at?: string
+          estimated_conversion_rate?: number | null
+          id?: string
+          performance_metrics?: Json | null
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          benchmark_data?: Json | null
+          copy_efficiency_score?: number | null
+          created_at?: string
+          estimated_conversion_rate?: number | null
+          id?: string
+          performance_metrics?: Json | null
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_analytics_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_copy: {
+        Row: {
+          created_at: string
+          email_campaign: Json | null
+          id: string
+          landing_page_copy: Json | null
+          product_id: string
+          social_media_content: Json | null
+          telegram_messages: string[] | null
+          updated_at: string
+          vsl_script: string | null
+          whatsapp_messages: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          email_campaign?: Json | null
+          id?: string
+          landing_page_copy?: Json | null
+          product_id: string
+          social_media_content?: Json | null
+          telegram_messages?: string[] | null
+          updated_at?: string
+          vsl_script?: string | null
+          whatsapp_messages?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          email_campaign?: Json | null
+          id?: string
+          landing_page_copy?: Json | null
+          product_id?: string
+          social_media_content?: Json | null
+          telegram_messages?: string[] | null
+          updated_at?: string
+          vsl_script?: string | null
+          whatsapp_messages?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_copy_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_history: {
+        Row: {
+          change_type: string
+          created_at: string
+          description: string | null
+          field_changed: string | null
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          description?: string | null
+          field_changed?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          description?: string | null
+          field_changed?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_meta: {
+        Row: {
+          ai_evaluation: Json | null
+          created_at: string
+          id: string
+          private_notes: string | null
+          product_id: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          ai_evaluation?: Json | null
+          created_at?: string
+          id?: string
+          private_notes?: string | null
+          product_id: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          ai_evaluation?: Json | null
+          created_at?: string
+          id?: string
+          private_notes?: string | null
+          product_id?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_meta_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_offer: {
+        Row: {
+          bonuses: Json[] | null
+          created_at: string
+          downsell: Json | null
+          id: string
+          main_offer: Json | null
+          order_bump: Json | null
+          pricing_strategy: Json | null
+          product_id: string
+          updated_at: string
+          upsell: Json | null
+        }
+        Insert: {
+          bonuses?: Json[] | null
+          created_at?: string
+          downsell?: Json | null
+          id?: string
+          main_offer?: Json | null
+          order_bump?: Json | null
+          pricing_strategy?: Json | null
+          product_id: string
+          updated_at?: string
+          upsell?: Json | null
+        }
+        Update: {
+          bonuses?: Json[] | null
+          created_at?: string
+          downsell?: Json | null
+          id?: string
+          main_offer?: Json | null
+          order_bump?: Json | null
+          pricing_strategy?: Json | null
+          product_id?: string
+          updated_at?: string
+          upsell?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_offer_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_strategy: {
+        Row: {
+          created_at: string
+          id: string
+          market_positioning: string | null
+          product_id: string
+          target_audience: Json | null
+          updated_at: string
+          value_proposition: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          market_positioning?: string | null
+          product_id: string
+          target_audience?: Json | null
+          updated_at?: string
+          value_proposition?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          market_positioning?: string | null
+          product_id?: string
+          target_audience?: Json | null
+          updated_at?: string
+          value_proposition?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_strategy_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          niche: string
+          status: string | null
+          sub_niche: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          niche: string
+          status?: string | null
+          sub_niche?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          niche?: string
+          status?: string | null
+          sub_niche?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
