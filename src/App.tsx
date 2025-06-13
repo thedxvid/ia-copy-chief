@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Header } from "@/components/layout/Header";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Quiz from "./pages/Quiz";
@@ -31,11 +32,26 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
-                  <Route path="/quiz" element={<Quiz />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/tools" element={<Tools />} />
-                  <Route path="/history" element={<History />} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="/quiz" element={
+                    <ProtectedRoute>
+                      <Quiz />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/tools" element={
+                    <ProtectedRoute>
+                      <Tools />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/history" element={
+                    <ProtectedRoute>
+                      <History />
+                    </ProtectedRoute>
+                  } />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

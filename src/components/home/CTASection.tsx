@@ -29,7 +29,7 @@ export function CTASection() {
         </h2>
         
         <p className="text-xl md:text-2xl text-[#FFFFFF]/90 mb-8 max-w-4xl mx-auto leading-relaxed animate-fade-in-up animate-stagger-1">
-          Junte-se a mais de <span className="font-bold text-yellow-300">10.000 empresas</span> que já transformaram 
+          Junte-se a mais de <span className="font-bold text-[#FFFFFF]">10.000 empresas</span> que já transformaram 
           seus resultados com nossa IA de copywriting.
         </p>
 
@@ -49,7 +49,7 @@ export function CTASection() {
             className="text-xl px-12 py-6 group bg-[#FFFFFF]/20 text-[#FFFFFF] border-[#FFFFFF]/30 hover:bg-[#FFFFFF]/30 rounded-2xl" 
             asChild
           >
-            <Link to="/quiz" className="flex items-center gap-3">
+            <Link to="/auth" className="flex items-center gap-3">
               <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
               Começar Meu Quiz Gratuito Agora
               <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />

@@ -43,7 +43,7 @@ export function HowItWorksSection() {
             <div key={index} className={`text-center group animate-fade-in-up animate-stagger-${index + 1}`}>
               <div className={`w-24 h-24 bg-gradient-to-r ${item.gradient} rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-all duration-300 shadow-lg relative`}>
                 <span className="text-[#FFFFFF] font-bold text-3xl">{item.step}</span>
-                <div className="absolute -top-2 -right-2 bg-green-500 text-[#FFFFFF] text-xs px-2 py-1 rounded-full font-semibold">
+                <div className="absolute -top-2 -right-2 bg-[#3B82F6] text-[#FFFFFF] text-xs px-2 py-1 rounded-full font-semibold">
                   {item.time}
                 </div>
               </div>
