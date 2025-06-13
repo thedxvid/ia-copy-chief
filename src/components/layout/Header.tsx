@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Home, Settings, History, Book } from 'lucide-react';
+import { Menu, X, Home, Settings, History, Book, Brain } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from './ThemeToggle';
@@ -27,10 +27,10 @@ export function Header() {
     <header 
       className={cn(
         "sticky top-0 z-50 transition-all duration-500 ease-out",
-        "backdrop-blur-xl border-b border-border/50",
+        "backdrop-blur-xl border-b border-white/10",
         isScrolled 
-          ? "bg-background/80 shadow-lg mx-4 mt-4 rounded-2xl border-border/30" 
-          : "bg-background/60 mx-0 mt-0 rounded-none border-border/20"
+          ? "bg-gray-900/90 shadow-lg mx-4 mt-4 rounded-2xl border-white/20" 
+          : "bg-gray-900/60 mx-0 mt-0 rounded-none border-white/10"
       )}
     >
       <div className={cn(
@@ -38,27 +38,25 @@ export function Header() {
         isScrolled ? "py-3" : "py-4"
       )}>
         <div className="flex justify-between items-center">
-          {/* Logo */}
+          {/* Logo with AI Icon */}
           <Link 
             to="/" 
             className="flex items-center space-x-3 group animate-fade-in-left"
           >
             <div className={cn(
-              "bg-gradient-to-r from-brand-600 to-purple-600 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110",
+              "bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110",
               isScrolled ? "w-10 h-10" : "w-12 h-12"
             )}>
-              <span className={cn(
-                "text-white font-bold transition-all duration-300",
-                isScrolled ? "text-sm" : "text-base"
-              )}>
-                CG
-              </span>
+              <Brain className={cn(
+                "text-white transition-all duration-300",
+                isScrolled ? "w-5 h-5" : "w-6 h-6"
+              )} />
             </div>
             <span className={cn(
-              "font-bold text-gradient transition-all duration-300",
+              "font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent transition-all duration-300",
               isScrolled ? "text-xl" : "text-2xl"
             )}>
-              CopyGenius
+              CopyChief
             </span>
           </Link>
 
@@ -71,8 +69,8 @@ export function Header() {
                 className={cn(
                   "flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 group modern-button",
                   isActive(item.href)
-                    ? 'bg-primary text-primary-foreground shadow-lg scale-105'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                    ? 'bg-blue-600 text-white shadow-lg scale-105'
+                    : 'text-gray-300 hover:text-white hover:bg-white/10',
                   `animate-stagger-${index + 1}`
                 )}
               >
@@ -89,7 +87,7 @@ export function Header() {
               variant="ghost"
               size="sm"
               className={cn(
-                "md:hidden rounded-xl transition-all duration-300 hover:scale-110",
+                "md:hidden rounded-xl transition-all duration-300 hover:scale-110 text-white hover:bg-white/10",
                 isScrolled ? "w-10 h-10" : "w-12 h-12"
               )}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -106,7 +104,7 @@ export function Header() {
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
           <div className="md:hidden mt-4 animate-fade-in-up">
-            <div className="glass rounded-2xl p-4 space-y-2">
+            <div className="glass rounded-2xl p-4 space-y-2 bg-gray-800/80 border-white/10">
               {navigation.map((item, index) => (
                 <Link
                   key={item.name}
@@ -114,8 +112,8 @@ export function Header() {
                   className={cn(
                     "flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 modern-button",
                     isActive(item.href)
-                      ? 'bg-primary text-primary-foreground shadow-lg'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'text-gray-300 hover:text-white hover:bg-white/10',
                     `animate-stagger-${index + 1}`
                   )}
                   onClick={() => setIsMobileMenuOpen(false)}

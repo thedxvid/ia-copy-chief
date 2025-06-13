@@ -41,7 +41,7 @@ const initialState: AppState = {
   currentProject: null,
   projects: [],
   quizAnswers: {},
-  isDarkMode: false,
+  isDarkMode: true, // Default to dark mode
   currentQuizStep: 0,
 };
 
@@ -98,7 +98,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('copygenius-state');
+    const saved = localStorage.getItem('copychief-state'); // Updated storage key
     if (saved) {
       try {
         const parsedState = JSON.parse(saved);
@@ -121,7 +121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Save state to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('copygenius-state', JSON.stringify(state));
+    localStorage.setItem('copychief-state', JSON.stringify(state)); // Updated storage key
   }, [state]);
 
   // Apply dark mode class
