@@ -1,240 +1,128 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Calendar, Eye, Trash2, Plus, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { useApp } from '@/contexts/AppContext';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { FileText, Download, Eye, Calendar } from 'lucide-react';
 
 const History = () => {
-  const { state, dispatch } = useApp();
-  const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = React.useState('');
+  const historyItems = [
+    {
+      id: 1,
+      title: "Copy para Landing Page - Produto X",
+      type: "Landing Page",
+      date: "2024-06-10",
+      status: "Concluído",
+      performance: "Alta conversão"
+    },
+    {
+      id: 2,
+      title: "Headlines para Campanha Facebook",
+      type: "Headlines",
+      date: "2024-06-09", 
+      status: "Em teste",
+      performance: "Em análise"
+    },
+    {
+      id: 3,
+      title: "Script de Vendas - Webinar",
+      type: "Script",
+      date: "2024-06-08",
+      status: "Concluído",
+      performance: "Média conversão"
+    },
+    {
+      id: 4,
+      title: "Email Marketing - Promoção",
+      type: "Email",
+      date: "2024-06-07",
+      status: "Concluído", 
+      performance: "Baixa conversão"
+    }
+  ];
 
-  const filteredProjects = state.projects.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.answers.product?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleViewProject = (project: any) => {
-    dispatch({ type: 'SET_CURRENT_PROJECT', project });
-    toast({
-      title: 'Projeto carregado',
-      description: `Agora você está visualizando: ${project.name}`,
-    });
-  };
-
-  const handleDeleteProject = (projectId: string) => {
-    if (confirm('Tem certeza que deseja excluir este projeto?')) {
-      // This would need to be implemented in the context
-      toast({
-        title: 'Projeto excluído',
-        description: 'O projeto foi removido com sucesso.',
-      });
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Concluído':
+        return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'Em teste':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      default:
+        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
 
-  if (state.projects.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-md mx-auto text-center">
-          <CardHeader>
-            <CardTitle>Nenhum projeto encontrado</CardTitle>
-            <CardDescription>
-              Você ainda não criou nenhum projeto. Comece agora!
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild>
-              <Link to="/quiz">
-                <Plus className="w-4 h-4 mr-2" />
-                Criar Primeiro Projeto
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const getPerformanceColor = (performance: string) => {
+    switch (performance) {
+      case 'Alta conversão':
+        return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'Média conversão':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'Baixa conversão':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
+      default:
+        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+  };
 
   return (
-    <div className="min-h-screen py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Histórico de Projetos</h1>
-            <p className="text-muted-foreground">
-              Gerencie todos os seus projetos de copywriting
-            </p>
-          </div>
-          <Button asChild>
-            <Link to="/quiz">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Projeto
-            </Link>
-          </Button>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-2">Histórico de Copies</h1>
+        <p className="text-[#CCCCCC]">
+          Acompanhe todas as suas copies criadas e seus resultados
+        </p>
+      </div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Buscar projetos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total de Projetos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{state.projects.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Copies criadas até agora
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Este Mês
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {state.projects.filter(p => {
-                  const projectMonth = p.createdAt.getMonth();
-                  const currentMonth = new Date().getMonth();
-                  return projectMonth === currentMonth;
-                }).length}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Projetos criados em {new Date().toLocaleDateString('pt-BR', { month: 'long' })}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Projeto Atual
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-bold truncate">
-                {state.currentProject?.name || 'Nenhum'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Projeto em visualização
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Projects Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-1">{project.name}</CardTitle>
-                    <CardDescription className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-1" />
-                      {project.createdAt.toLocaleDateString('pt-BR')}
-                    </CardDescription>
+      <div className="grid gap-4">
+        {historyItems.map((item) => (
+          <Card key={item.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-colors">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3">
+                  <div className="w-10 h-10 bg-[#3B82F6] rounded-xl flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
                   </div>
-                  {state.currentProject?.id === project.id && (
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Produto:</p>
-                    <p className="text-sm line-clamp-2">{project.answers.product}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Público:</p>
-                    <p className="text-sm line-clamp-2">{project.answers.target}</p>
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleViewProject(project)}
-                      asChild
-                    >
-                      <Link to="/dashboard">
-                        <Eye className="w-4 h-4 mr-1" />
-                        Ver
-                      </Link>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleDeleteProject(project.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <CardTitle className="text-white text-lg">{item.title}</CardTitle>
+                    <div className="flex items-center space-x-4 mt-2">
+                      <div className="flex items-center space-x-1 text-[#CCCCCC] text-sm">
+                        <Calendar className="w-4 h-4" />
+                        <span>{item.date}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[#CCCCCC] border-[#4B5563]">
+                        {item.type}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {filteredProjects.length === 0 && searchTerm && (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-semibold mb-2">Nenhum projeto encontrado</h3>
-            <p className="text-muted-foreground mb-4">
-              Tente buscar por outros termos ou crie um novo projeto.
-            </p>
-            <Button variant="outline" onClick={() => setSearchTerm('')}>
-              Limpar busca
-            </Button>
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <Card className="mt-12">
-          <CardHeader>
-            <CardTitle>Dicas Rápidas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-2">💡 Organize seus projetos</h4>
-                <p className="text-muted-foreground">
-                  Use nomes descritivos para encontrar facilmente seus projetos.
-                </p>
+                <div className="flex items-center space-x-2">
+                  <Button variant="ghost" size="icon" className="text-[#CCCCCC] hover:text-white">
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-[#CCCCCC] hover:text-white">
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-2">🚀 Teste variações</h4>
-                <p className="text-muted-foreground">
-                  Crie múltiplas versões do mesmo produto para testar A/B.
-                </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Badge className={getStatusColor(item.status)}>
+                    {item.status}
+                  </Badge>
+                  <Badge className={getPerformanceColor(item.performance)}>
+                    {item.performance}
+                  </Badge>
+                </div>
+                <Button size="sm" className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">
+                  Ver Detalhes
+                </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );

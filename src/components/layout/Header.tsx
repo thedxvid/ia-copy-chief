@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ModernButton } from '@/components/ui/modern-button';
 import { ThemeToggle } from './ThemeToggle';
-import { Menu, X, User, LogOut } from 'lucide-react';
+import { Menu, X, User, LogOut, Bot } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +48,9 @@ export const Header = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-[#3B82F6] rounded-xl"></div>
+            <div className="w-8 h-8 bg-[#3B82F6] rounded-xl flex items-center justify-center">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
             <span className="text-xl font-bold text-white">CopyChief</span>
           </Link>
 
