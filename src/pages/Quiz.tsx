@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Check, Sparkles, Target, Clock } from 'lucide-react';
@@ -201,16 +202,16 @@ const Quiz = () => {
   if (isGenerating) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 safe-top safe-bottom">
-        <ModernCard variant="glass" className="p-8 max-w-md mx-auto text-center animate-scale-in">
+        <ModernCard variant="glass" className="p-8 max-w-md mx-auto text-center animate-scale-in modern-card">
           <div className="w-20 h-20 gradient-primary rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse-glow">
             <Sparkles className="w-10 h-10 text-white animate-float" />
           </div>
           
-          <h2 className="text-2xl font-bold mb-4 text-gradient">
+          <h2 className="text-2xl font-bold mb-4 text-gradient animate-fade-in-up">
             Gerando suas copies...
           </h2>
           
-          <p className="text-muted-foreground mb-6 leading-relaxed">
+          <p className="text-muted-foreground mb-6 leading-relaxed animate-fade-in-up animate-stagger-1">
             Nossa IA está analisando suas respostas e criando copies personalizadas para seu negócio.
           </p>
           
@@ -219,10 +220,10 @@ const Quiz = () => {
             animated={true} 
             variant="gradient" 
             size="lg"
-            className="mb-4"
+            className="mb-4 animate-fade-in-up animate-stagger-2"
           />
           
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground animate-fade-in-up animate-stagger-3">
             <Clock className="w-4 h-4" />
             <span>Isso pode levar alguns segundos...</span>
           </div>
@@ -256,26 +257,25 @@ const Quiz = () => {
         {/* Question Card */}
         <ModernCard 
           variant="glass" 
-          className="p-8 animate-scale-in mb-6"
-          style={{ animationDelay: '200ms' }}
+          className="p-8 animate-scale-in mb-6 modern-card"
         >
           <div className="mb-8">
-            <div className="flex items-start gap-4 mb-6">
+            <div className="flex items-start gap-4 mb-6 animate-fade-in-left">
               <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center flex-shrink-0 animate-pulse-glow">
                 {currentQuestion?.icon}
               </div>
               <div className="flex-1">
-                <h1 className="text-2xl md:text-3xl font-bold mb-3 text-gradient">
+                <h1 className="text-2xl md:text-3xl font-bold mb-3 text-gradient animate-fade-in-up">
                   {currentQuestion?.title}
                 </h1>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed animate-fade-in-up animate-stagger-1">
                   {currentQuestion?.subtitle}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="mb-8">
+          <div className="mb-8 animate-fade-in-up animate-stagger-2">
             {currentQuestion?.type === 'textarea' && (
               <div className="space-y-2">
                 <Label htmlFor="answer" className="sr-only">Resposta</Label>
@@ -284,14 +284,14 @@ const Quiz = () => {
                   placeholder={currentQuestion.placeholder}
                   value={currentAnswer}
                   onChange={(e) => handleAnswerChange(e.target.value)}
-                  className="min-h-[120px] text-base glass-card border-0 focus:ring-2 focus:ring-primary/30 resize-none"
+                  className="min-h-[120px] text-base glass-card border-0 focus:ring-2 focus:ring-primary/30 resize-none modern-card"
                 />
               </div>
             )}
 
             {currentQuestion?.type === 'select' && (
               <Select value={currentAnswer} onValueChange={handleAnswerChange}>
-                <SelectTrigger className="text-base glass-card border-0 focus:ring-2 focus:ring-primary/30 h-14">
+                <SelectTrigger className="text-base glass-card border-0 focus:ring-2 focus:ring-primary/30 h-14 modern-card">
                   <SelectValue placeholder="Selecione uma opção" />
                 </SelectTrigger>
                 <SelectContent className="glass-card border-0">
@@ -320,12 +320,12 @@ const Quiz = () => {
           </div>
 
           {/* Navigation */}
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center animate-fade-in-up animate-stagger-3">
             <ModernButton
               variant="ghost"
               onClick={handlePrevious}
               disabled={state.currentQuizStep === 0}
-              className="group"
+              className="group modern-button"
             >
               <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
               Anterior
@@ -335,7 +335,7 @@ const Quiz = () => {
               onClick={handleNext}
               disabled={!currentAnswer.trim()}
               variant="gradient"
-              className="min-w-[140px] group"
+              className="min-w-[140px] group modern-button"
             >
               {isLastQuestion ? (
                 <>
@@ -353,7 +353,7 @@ const Quiz = () => {
         </ModernCard>
 
         {/* Steps Indicator */}
-        <div className="flex justify-center gap-2 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+        <div className="flex justify-center gap-2 animate-fade-in-up animate-stagger-4">
           {questions.map((_, index) => (
             <div
               key={index}

@@ -63,34 +63,63 @@ const Index = () => {
     }
   ];
 
+  const howItWorksSteps = [
+    {
+      step: 1,
+      title: 'Responda o Quiz',
+      description: '8 perguntas estratégicas sobre seu produto, público e objetivos',
+      gradient: 'from-blue-500 to-purple-600'
+    },
+    {
+      step: 2,
+      title: 'IA Gera sua Copy',
+      description: 'Nosso sistema cria anúncios e roteiros personalizados para você',
+      gradient: 'from-purple-500 to-pink-600'
+    },
+    {
+      step: 3,
+      title: 'Use e Venda Mais',
+      description: 'Copie, edite e use suas copies em qualquer plataforma',
+      gradient: 'from-pink-500 to-red-600'
+    }
+  ];
+
+  const benefits = [
+    { icon: Check, text: 'Grátis para sempre' },
+    { icon: Check, text: 'Sem cadastro necessário' },
+    { icon: Check, text: 'Resultados instantâneos' }
+  ];
+
   return (
     <div className="min-h-screen overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center px-4 safe-top">
         {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-background via-background/95 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background/95 to-background animate-fade-in" />
         
         {/* Floating elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-float" />
-          <div className="absolute top-40 right-20 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-          <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+          <div className="absolute top-40 right-20 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-float animate-stagger-2" />
+          <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl animate-float animate-stagger-4" />
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto text-center">
-          <div className="animate-slide-up">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
+          <div className="animate-fade-in-up">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight animate-fade-in-up">
               Gere Copies de Vendas
-              <span className="text-gradient-warm block mt-2">Profissionais em Minutos</span>
+              <span className="text-gradient-warm block mt-2 animate-fade-in-up animate-stagger-2">
+                Profissionais em Minutos
+              </span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in-up animate-stagger-3">
               Transforme suas ideias em copies persuasivas com nosso sistema inteligente 
               baseado em questionário estratégico. <span className="text-primary font-semibold">Sem complicação, só resultados.</span>
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
-              <ModernButton asChild size="lg" variant="gradient" className="group">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16 animate-fade-in-up animate-stagger-4">
+              <ModernButton asChild size="lg" variant="gradient" className="group modern-button">
                 <Link to="/quiz" className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                   Começar Agora
@@ -98,20 +127,19 @@ const Index = () => {
                 </Link>
               </ModernButton>
               
-              <ModernButton variant="glass" size="lg" asChild>
+              <ModernButton variant="glass" size="lg" asChild className="modern-button">
                 <Link to="/dashboard">
                   Ver Dashboard
                 </Link>
               </ModernButton>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-              {[
-                { icon: Check, text: 'Grátis para sempre' },
-                { icon: Check, text: 'Sem cadastro necessário' },
-                { icon: Check, text: 'Resultados instantâneos' }
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-center gap-3 p-4 glass rounded-xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm animate-fade-in-up animate-stagger-5">
+              {benefits.map((item, index) => (
+                <div 
+                  key={index} 
+                  className={`flex items-center justify-center gap-3 p-4 glass rounded-xl modern-card animate-fade-in-up animate-stagger-${index + 1}`}
+                >
                   <item.icon className="w-5 h-5 text-green-500" />
                   <span className="text-muted-foreground font-medium">{item.text}</span>
                 </div>
@@ -124,12 +152,12 @@ const Index = () => {
       {/* Features Section */}
       <section className="py-32 px-4 relative">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20 animate-slide-up">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+          <div className="text-center mb-20 animate-fade-in-up">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 animate-fade-in-up">
               Tudo que você precisa para
-              <span className="text-gradient"> vender mais</span>
+              <span className="text-gradient animate-fade-in-up animate-stagger-1"> vender mais</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto animate-fade-in-up animate-stagger-2">
               Ferramentas profissionais de copywriting ao alcance de todos
             </p>
           </div>
@@ -140,8 +168,7 @@ const Index = () => {
                 key={index} 
                 variant="glass" 
                 interactive 
-                className="group p-8 hover:shadow-2xl"
-                style={{ animationDelay: `${index * 100}ms` }}
+                className={`group p-8 hover:shadow-2xl modern-card animate-fade-in-up animate-stagger-${index + 1}`}
               >
                 <div className="flex items-start space-x-4">
                   <div className="w-12 h-12 bg-gradient-to-r from-primary to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
@@ -164,39 +191,20 @@ const Index = () => {
 
       {/* How it Works */}
       <section className="py-32 px-4 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-muted/20 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-br from-muted/20 to-background animate-fade-in" />
         <div className="relative max-w-5xl mx-auto">
-          <div className="text-center mb-20">
+          <div className="text-center mb-20 animate-fade-in-up">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Como Funciona
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-xl text-muted-foreground animate-fade-in-up animate-stagger-1">
               Três passos simples para copies que convertem
             </p>
           </div>
           
           <div className="grid md:grid-cols-3 gap-12">
-            {[
-              {
-                step: 1,
-                title: 'Responda o Quiz',
-                description: '8 perguntas estratégicas sobre seu produto, público e objetivos',
-                gradient: 'from-blue-500 to-purple-600'
-              },
-              {
-                step: 2,
-                title: 'IA Gera sua Copy',
-                description: 'Nosso sistema cria anúncios e roteiros personalizados para você',
-                gradient: 'from-purple-500 to-pink-600'
-              },
-              {
-                step: 3,
-                title: 'Use e Venda Mais',
-                description: 'Copie, edite e use suas copies em qualquer plataforma',
-                gradient: 'from-pink-500 to-red-600'
-              }
-            ].map((item, index) => (
-              <div key={index} className="text-center group">
+            {howItWorksSteps.map((item, index) => (
+              <div key={index} className={`text-center group animate-fade-in-up animate-stagger-${index + 1}`}>
                 <div className={`w-20 h-20 bg-gradient-to-r ${item.gradient} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-lg`}>
                   <span className="text-white font-bold text-2xl">{item.step}</span>
                 </div>
@@ -215,18 +223,23 @@ const Index = () => {
       {/* Testimonials */}
       <section className="py-32 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
+          <div className="text-center mb-20 animate-fade-in-up">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               O que nossos usuários dizem
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-xl text-muted-foreground animate-fade-in-up animate-stagger-1">
               Resultados reais de quem já transformou suas vendas
             </p>
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
-              <ModernCard key={index} variant="glass" interactive className="p-8 group">
+              <ModernCard 
+                key={index} 
+                variant="glass" 
+                interactive 
+                className={`p-8 group modern-card animate-fade-in-up animate-stagger-${index + 1}`}
+              >
                 <div className="flex items-center mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
                     <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
@@ -252,25 +265,30 @@ const Index = () => {
 
       {/* CTA Section */}
       <section className="py-32 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 gradient-primary" />
+        <div className="absolute inset-0 gradient-primary animate-fade-in" />
         <div className="absolute inset-0 bg-black/20" />
         
         {/* Floating shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-32 -left-32 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute -top-32 -left-32 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-float" />
+          <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-float animate-stagger-3" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-8 leading-tight">
+        <div className="relative max-w-5xl mx-auto text-center animate-fade-in-up">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-8 leading-tight animate-fade-in-up">
             Pronto para Transformar suas Vendas?
           </h2>
-          <p className="text-xl text-white/90 mb-12 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl text-white/90 mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in-up animate-stagger-1">
             Comece agora mesmo e veja como é fácil criar copies que convertem. 
             <span className="font-semibold"> Milhares de empresas já confiam em nós.</span>
           </p>
           
-          <ModernButton size="lg" variant="glass" className="text-lg px-10 py-4 group" asChild>
+          <ModernButton 
+            size="lg" 
+            variant="glass" 
+            className="text-lg px-10 py-4 group modern-button animate-fade-in-up animate-stagger-2" 
+            asChild
+          >
             <Link to="/quiz" className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
               Começar Meu Quiz Gratuito
