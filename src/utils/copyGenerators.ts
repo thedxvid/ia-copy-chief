@@ -352,10 +352,10 @@ ${answers.remarketing?.includes('Sim') ?
 "Ainda não aproveitou nossa oferta?"
 "Última chance de garantir..."
 "Especial para quem já nos conhece..."` :
-'❌ Configure o remarketing para:
+`❌ Configure o remarketing para:
 • Visitantes da landing page
 • Pessoas que assistiram vídeos
-• Clientes que não compraram'}
+• Clientes que não compraram`}
 
 ---
 
