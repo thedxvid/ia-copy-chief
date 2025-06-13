@@ -9,9 +9,11 @@ import {
   HelpCircle,
   Package,
   LogOut,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +24,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarHeader,
 } from '@/components/ui/sidebar';
 
 const menuItems = [
@@ -59,10 +62,22 @@ const menuItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   return (
     <Sidebar className="bg-[#1A1A1A] border-r border-[#2A2A2A]">
+      <SidebarHeader className="p-4 border-b border-[#2A2A2A]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center">
+            <Bot className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white">CopyChief</h1>
+            <p className="text-xs text-[#888888]">Marketing Digital</p>
+          </div>
+        </div>
+      </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-[#888888] text-xs uppercase tracking-wider">
@@ -90,7 +105,23 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 border-t border-[#2A2A2A]">
+        <div className="flex items-center gap-3 mb-3">
+          <Avatar className="w-8 h-8">
+            <AvatarImage src={user?.user_metadata?.avatar_url} />
+            <AvatarFallback className="bg-[#3B82F6] text-white text-sm">
+              {user?.email?.charAt(0).toUpperCase() || 'U'}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">
+              {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
+            </p>
+            <p className="text-xs text-[#888888] truncate">
+              {user?.email}
+            </p>
+          </div>
+        </div>
         <Button
           variant="ghost"
           onClick={signOut}
