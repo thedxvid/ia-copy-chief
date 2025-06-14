@@ -1,10 +1,13 @@
+
 import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, ChevronLeft, ChevronRight, SkipForward, EyeOff } from 'lucide-react';
 import { TutorialProgress } from './TutorialProgress';
-import { TutorialHighlight } from './TutorialHighlight';
+import { TutorialSpotlight } from './TutorialSpotlight';
+import { TutorialPointer } from './TutorialPointer';
 import { useTutorialContext } from '@/contexts/TutorialContext';
+import { useTutorialPositioning } from '@/hooks/useTutorialPositioning';
 import { tutorialSteps } from '@/data/tutorialSteps';
 
 export const TutorialOverlay: React.FC = () => {
@@ -19,19 +22,20 @@ export const TutorialOverlay: React.FC = () => {
   } = useTutorialContext();
 
   const currentStepData = tutorialSteps[currentStep];
+  const { modalPosition, recalculate } = useTutorialPositioning(
+    currentStepData?.highlightElement
+  );
 
-  // Bloquear scroll do body quando tutorial estiver ativo
+  // Recalcular posições quando step mudar
   useEffect(() => {
-    if (isActive) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+    if (isActive && currentStepData?.highlightElement) {
+      const timer = setTimeout(() => {
+        recalculate();
+      }, 100); // Pequeno delay para garantir que DOM foi atualizado
+      
+      return () => clearTimeout(timer);
     }
-
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isActive]);
+  }, [currentStep, isActive, currentStepData?.highlightElement, recalculate]);
 
   // Navegação por teclado
   useEffect(() => {
@@ -66,16 +70,36 @@ export const TutorialOverlay: React.FC = () => {
   const isLastStep = currentStep === totalSteps - 1;
   const isFirstStep = currentStep === 0;
 
+  const modalStyle = modalPosition.position === 'center'
+    ? {
+        position: 'fixed' as const,
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 10001
+      }
+    : {
+        position: 'fixed' as const,
+        top: modalPosition.top,
+        left: modalPosition.left,
+        zIndex: 10001
+      };
+
   return (
     <>
-      <TutorialHighlight
+      <TutorialSpotlight
         targetElement={currentStepData.highlightElement}
         isActive={isActive}
       />
       
-      {/* Overlay principal */}
-      <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+      {/* Modal dinâmico */}
+      <div style={modalStyle}>
         <Card className="w-full max-w-lg bg-[#1E1E1E] border-[#4B5563] text-white relative animate-fade-in">
+          <TutorialPointer 
+            modalPosition={modalPosition} 
+            targetElement={currentStepData.highlightElement} 
+          />
+          
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
