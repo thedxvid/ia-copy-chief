@@ -95,16 +95,16 @@ export const useAgentChat = (agentId: string) => {
       if (error) {
         console.error('Edge function error:', error);
         
-        // **NOVA FUNCIONALIDADE: TRATAMENTO ESPECÍFICO PARA TOKENS INSUFICIENTES**
+        // **Tratamento específico para tokens insuficientes**
         if (error.message?.includes('Tokens insuficientes') || error.details?.includes('tokens')) {
-          toast.error('❌ Tokens insuficientes! Você não tem tokens suficientes para esta operação.', {
-            description: 'Aguarde o reset mensal ou considere adquirir tokens extras.',
-            duration: 6000,
+          toast.error('❌ Tokens Insuficientes!', {
+            description: 'Você não tem tokens suficientes para esta conversa. Aguarde o reset mensal ou economize tokens.',
+            duration: 8000,
           });
           
           const errorMessage: Message = {
             id: (Date.now() + 1).toString(),
-            content: 'Desculpe, você não tem tokens suficientes para continuar o chat. Seus tokens serão renovados no início do próximo mês, ou você pode adquirir tokens extras.',
+            content: '❌ **Tokens Insuficientes**\n\nDesculpe, você não tem tokens suficientes para continuar esta conversa. Seus tokens serão renovados no início do próximo mês (dia 1º).\n\n💡 **Dicas para economizar:**\n- Seja mais direto nas perguntas\n- Evite conversas muito longas\n- Use comandos específicos',
             role: 'assistant',
             timestamp: new Date()
           };
@@ -123,11 +123,25 @@ export const useAgentChat = (agentId: string) => {
 
       console.log('Edge function response:', data);
       
-      // **NOVA FUNCIONALIDADE: MOSTRAR TOKENS USADOS**
+      // **Mostrar feedback sobre tokens usados**
       if (data.tokensUsed) {
-        toast.success(`💬 Resposta gerada! (${data.tokensUsed} tokens usados)`, {
-          duration: 3000,
-        });
+        const remainingTokens = data.tokensRemaining || 0;
+        
+        if (remainingTokens < 1000) {
+          toast.warning(`💬 Resposta gerada! (${data.tokensUsed} tokens usados)`, {
+            description: `⚠️ Atenção: Restam apenas ${remainingTokens} tokens. Considere economizar.`,
+            duration: 6000,
+          });
+        } else if (data.tokensUsed > 500) {
+          toast.info(`💬 Resposta gerada! (${data.tokensUsed} tokens usados)`, {
+            description: `Restam ${remainingTokens.toLocaleString()} tokens disponíveis.`,
+            duration: 4000,
+          });
+        } else {
+          toast.success(`💬 Resposta gerada! (${data.tokensUsed} tokens usados)`, {
+            duration: 3000,
+          });
+        }
       }
       
       const assistantMessage: Message = {
@@ -147,12 +161,12 @@ export const useAgentChat = (agentId: string) => {
       
       // Verificar se é erro de tokens
       if (error.message?.includes('tokens') || error.message?.includes('402')) {
-        toast.error('❌ Tokens insuficientes!', {
+        toast.error('❌ Tokens Insuficientes!', {
           description: 'Você não tem tokens suficientes para esta operação.',
-          duration: 5000,
+          duration: 6000,
         });
       } else {
-        toast.error('❌ Erro no chat', {
+        toast.error('❌ Erro no Chat', {
           description: 'Erro ao enviar mensagem. Tente novamente.',
           duration: 5000,
         });
@@ -161,8 +175,8 @@ export const useAgentChat = (agentId: string) => {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: error.message?.includes('tokens') 
-          ? 'Desculpe, você não tem tokens suficientes para continuar o chat. Seus tokens serão renovados no início do próximo mês.'
-          : 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns segundos.',
+          ? '❌ **Tokens Insuficientes**\n\nDesculpe, você não tem tokens suficientes para continuar o chat. Seus tokens serão renovados no início do próximo mês.'
+          : '❌ **Erro Temporário**\n\nDesculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns segundos.',
         role: 'assistant',
         timestamp: new Date()
       };

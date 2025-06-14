@@ -4,7 +4,7 @@ import { useTokens } from '@/hooks/useTokens';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Coins, Percent, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Coins, RefreshCw, AlertTriangle, TrendingDown, TrendingUp, DollarSign } from 'lucide-react';
 
 export const TokenWidget = () => {
   const { 
@@ -16,7 +16,8 @@ export const TokenWidget = () => {
     getStatusMessage,
     shouldShowLowTokenWarning,
     getRemainingDaysEstimate,
-    refreshTokens 
+    refreshTokens,
+    getMonthlyLimit
   } = useTokens();
 
   // Auto-refresh tokens a cada 30 segundos quando há atividade
@@ -66,6 +67,21 @@ export const TokenWidget = () => {
   const percentage = getUsagePercentage();
   const isLowTokens = shouldShowLowTokenWarning();
   const remainingDays = getRemainingDaysEstimate();
+  const monthlyLimit = getMonthlyLimit();
+  const usagePercentage = 100 - percentage;
+
+  // Determinar cor e ícone baseado no status
+  const getStatusIcon = () => {
+    if (usagePercentage >= 90) return <AlertTriangle className="h-3 w-3 text-red-500 animate-pulse" />;
+    if (usagePercentage >= 50) return <TrendingDown className="h-3 w-3 text-yellow-500" />;
+    return <TrendingUp className="h-3 w-3 text-green-500" />;
+  };
+
+  const getProgressBarColor = () => {
+    if (percentage > 50) return 'bg-green-500';
+    if (percentage > 20) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
 
   return (
     <TooltipProvider>
@@ -77,34 +93,48 @@ export const TokenWidget = () => {
                  onClick={refreshTokens}>
               <Coins className={`h-4 w-4 ${isLowTokens ? 'text-red-500' : 'text-[#3B82F6]'}`} />
               
-              {isLowTokens && <AlertTriangle className="h-3 w-3 text-red-500" />}
+              {getStatusIcon()}
               
               <span className={`text-xs font-medium ${isLowTokens ? 'text-red-400' : 'text-white'}`}>
-                {formatNumber(tokens.total_available)} / {formatNumber(tokens.monthly_tokens + tokens.extra_tokens)}
+                {formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)}
               </span>
               
-              <div className="w-8 h-2 rounded-full bg-[#2A2A2A] overflow-hidden">
+              {/* Barra de progresso com animação */}
+              <div className="w-12 h-2 rounded-full bg-[#2A2A2A] overflow-hidden">
                 <div 
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    percentage > 50 ? 'bg-green-500' : 
-                    percentage > 20 ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
+                  className={`h-full rounded-full transition-all duration-500 ${getProgressBarColor()}`}
                   style={{ width: `${percentage}%` }}
                 />
               </div>
               
-              <RefreshCw className="h-3 w-3 text-gray-400 hover:text-white" />
+              {/* Indicador de dias restantes */}
+              {remainingDays !== null && remainingDays < 7 && (
+                <span className="text-xs text-orange-400 font-medium">
+                  ~{remainingDays}d
+                </span>
+              )}
+              
+              <RefreshCw className="h-3 w-3 text-gray-400 hover:text-white transition-colors" />
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <div className="text-sm space-y-1">
-              <p><strong>Status:</strong> {getStatusMessage()}</p>
-              <p><strong>Disponível:</strong> {tokens.total_available.toLocaleString()} tokens</p>
-              <p><strong>Usados:</strong> {tokens.total_used.toLocaleString()} tokens</p>
-              {remainingDays !== null && (
-                <p><strong>Duração estimada:</strong> ~{remainingDays} dias</p>
-              )}
-              <p className="text-xs text-gray-400">Clique para atualizar</p>
+            <div className="text-sm space-y-2">
+              <div className="flex items-center gap-2">
+                <strong>Status:</strong> 
+                <span className={getStatusColor()}>{getStatusMessage()}</span>
+              </div>
+              <div className="space-y-1 text-xs">
+                <p><strong>Disponível:</strong> {tokens.total_available.toLocaleString()} tokens</p>
+                <p><strong>Usados:</strong> {(monthlyLimit - tokens.total_available).toLocaleString()} tokens ({usagePercentage.toFixed(1)}%)</p>
+                <p><strong>Limite mensal:</strong> {monthlyLimit.toLocaleString()} tokens</p>
+                {remainingDays !== null && (
+                  <p><strong>Duração estimada:</strong> ~{remainingDays} dias</p>
+                )}
+                {isLowTokens && (
+                  <p className="text-red-400 font-medium">⚠️ Tokens baixos! Considere economizar.</p>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">💡 Clique para atualizar</p>
             </div>
           </TooltipContent>
         </Tooltip>
@@ -116,34 +146,38 @@ export const TokenWidget = () => {
                  onClick={refreshTokens}>
               <Coins className={`h-3.5 w-3.5 ${isLowTokens ? 'text-red-500' : 'text-[#3B82F6]'}`} />
               
-              {isLowTokens && <AlertTriangle className="h-3 w-3 text-red-500" />}
+              {getStatusIcon()}
               
               <span className={`text-xs font-medium ${getStatusColor()}`}>
-                {percentage}%
+                {formatNumber(tokens.total_available)}
               </span>
             </div>
           </TooltipTrigger>
           <TooltipContent>
             <div className="text-sm space-y-1">
               <p><strong>{getStatusMessage()}</strong></p>
-              <p>{formatNumber(tokens.total_available)} / {formatNumber(tokens.monthly_tokens + tokens.extra_tokens)} tokens</p>
+              <p>{formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)} tokens</p>
+              <p>Usado: {usagePercentage.toFixed(1)}%</p>
               {isLowTokens && <p className="text-red-400">⚠️ Tokens baixos!</p>}
+              {remainingDays !== null && remainingDays < 7 && (
+                <p className="text-orange-400">~{remainingDays} dias restantes</p>
+              )}
             </div>
           </TooltipContent>
         </Tooltip>
 
-        {/* Buy Tokens Button (Desktop only, for future implementation) */}
+        {/* Botão de Compra - Preparado para futuro */}
         <Button 
           variant="outline" 
           size="sm" 
-          className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs border-[#2A2A2A] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+          className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs border-[#2A2A2A] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white transition-colors"
           disabled
         >
-          <Percent className="h-3 w-3" />
+          <DollarSign className="h-3 w-3" />
           Comprar
         </Button>
 
-        {/* Low Token Warning for Mobile */}
+        {/* Alerta móvel para tokens baixos */}
         {isLowTokens && (
           <div className="md:hidden">
             <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
