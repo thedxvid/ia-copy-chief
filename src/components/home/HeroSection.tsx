@@ -80,7 +80,12 @@ export function HeroSection() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16 animate-fade-in-up animate-stagger-4">
-            <ModernButton asChild size="lg" variant="gradient" className="group bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-[#FFFFFF] text-base px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#3B82F6]/25">
+            <ModernButton 
+              asChild 
+              size="lg" 
+              variant="gradient" 
+              className="group bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-[#FFFFFF] text-base px-8 py-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#3B82F6]/30"
+            >
               <Link to="/quiz" className="flex items-center gap-3">
                 <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                 Começar Agora
@@ -90,7 +95,7 @@ export function HeroSection() {
             
             <Link
               to="/dashboard"
-              className="text-[#CCCCCC] hover:text-[#3B82F6] text-base px-6 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+              className="text-[#CCCCCC] hover:text-[#3B82F6] text-base px-8 py-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:bg-white/5 backdrop-blur-sm border border-transparent hover:border-[#3B82F6]/30"
             >
               Ver Dashboard
             </Link>
@@ -98,7 +103,7 @@ export function HeroSection() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm animate-fade-in-up animate-stagger-5">
             {benefits.map((item, index) => (
-              <div key={index} className={`flex items-center justify-center gap-3 p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50`}>
+              <div key={index} className={`flex items-center justify-center gap-3 p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50 hover:shadow-lg hover:shadow-[#3B82F6]/10`}>
                 <item.icon className="w-6 h-6 text-green-400" />
                 <span className="text-[#CCCCCC] font-medium text-base">{item.text}</span>
               </div>
