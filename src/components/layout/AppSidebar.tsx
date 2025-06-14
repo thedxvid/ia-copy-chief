@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -9,10 +10,18 @@ import {
   Package,
   LogOut,
   Bot,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +34,7 @@ import {
   SidebarFooter,
   SidebarHeader,
 } from '@/components/ui/sidebar';
+import { ProfileSettings } from '@/components/profile/ProfileSettings';
 
 const menuItems = [
   {
@@ -62,6 +72,7 @@ const menuItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
     <Sidebar 
@@ -111,30 +122,61 @@ export function AppSidebar() {
       
       <SidebarFooter className="p-3 sm:p-4 border-t border-[#2A2A2A] !bg-zinc-950" style={{ backgroundColor: '#0a0a0a' }}>
         <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 group-data-[collapsible=icon]:justify-center">
-          <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
-            <AvatarImage src={user?.user_metadata?.avatar_url} />
-            <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
-              {user?.email?.charAt(0).toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-            <p className="text-xs sm:text-sm font-medium text-white truncate">
-              {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
-            </p>
-            <p className="text-xs text-[#CCCCCC] truncate">
-              {user?.email}
-            </p>
-          </div>
+          <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+            <SheetTrigger asChild>
+              <button className="flex items-center gap-2 sm:gap-3 hover:bg-[#2A2A2A] rounded-xl p-1 transition-colors group-data-[collapsible=icon]:justify-center">
+                <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} />
+                  <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
+                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+                  <p className="text-xs sm:text-sm font-medium text-white truncate">
+                    {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
+                  </p>
+                  <p className="text-xs text-[#CCCCCC] truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </button>
+            </SheetTrigger>
+            <SheetContent 
+              side="right" 
+              className="w-full sm:max-w-2xl overflow-y-auto"
+            >
+              <SheetHeader className="sr-only">
+                <SheetTitle>Configurações do Perfil</SheetTitle>
+              </SheetHeader>
+              <ProfileSettings onClose={() => setIsProfileOpen(false)} />
+            </SheetContent>
+          </Sheet>
         </div>
-        <Button
-          variant="ghost"
-          onClick={signOut}
-          size="sm"
-          className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
-        >
-          <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
-          <span className="group-data-[collapsible=icon]:hidden">Sair</span>
-        </Button>
+        
+        <div className="flex gap-2">
+          <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+              >
+                <Settings className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
+                <span className="group-data-[collapsible=icon]:hidden">Configurações</span>
+              </Button>
+            </SheetTrigger>
+          </Sheet>
+          
+          <Button
+            variant="ghost"
+            onClick={signOut}
+            size="sm"
+            className="flex-1 justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+          >
+            <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
+            <span className="group-data-[collapsible=icon]:hidden">Sair</span>
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

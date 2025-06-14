@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
 import { ModernButton } from '@/components/ui/modern-button';
-import { Menu, X, User, LogOut, Bot } from 'lucide-react';
+import { Menu, X, User, LogOut, Bot, Settings } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,11 +12,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ProfileSettings } from '@/components/profile/ProfileSettings';
 import { cn } from '@/lib/utils';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const { isScrolled } = useScrollPosition(10);
@@ -92,36 +101,59 @@ export const Header = () => {
               {loading ? (
                 <div className="w-6 sm:w-8 h-6 sm:h-8 animate-spin rounded-full border-b-2 border-[#3B82F6]"></div>
               ) : user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex items-center space-x-2 hover:bg-[#1E1E1E] rounded-xl p-1 sm:p-2 transition-colors">
-                      <Avatar className="w-7 sm:w-8 h-7 sm:h-8">
-                        <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
-                          {getInitials(user.user_metadata?.full_name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className={cn(
-                        "text-white text-sm transition-all duration-300 ease-in-out",
-                        isScrolled ? "hidden xl:block" : "hidden lg:block"
-                      )}>
-                        {user.user_metadata?.full_name || user.email}
-                      </span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563] z-50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/dashboard" className="flex items-center text-white hover:bg-[#2A2A2A]">
-                        <User className="mr-2 h-4 w-4" />
-                        Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-[#4B5563]" />
-                    <DropdownMenuItem onClick={handleSignOut} className="text-white hover:bg-[#2A2A2A]">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Sair
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center space-x-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center space-x-2 hover:bg-[#1E1E1E] rounded-xl p-1 sm:p-2 transition-colors">
+                        <Avatar className="w-7 sm:w-8 h-7 sm:h-8">
+                          <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
+                            {getInitials(user.user_metadata?.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className={cn(
+                          "text-white text-sm transition-all duration-300 ease-in-out",
+                          isScrolled ? "hidden xl:block" : "hidden lg:block"
+                        )}>
+                          {user.user_metadata?.full_name || user.email}
+                        </span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563] z-50">
+                      <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+                        <SheetTrigger asChild>
+                          <DropdownMenuItem 
+                            className="text-white hover:bg-[#2A2A2A] cursor-pointer"
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Settings className="mr-2 h-4 w-4" />
+                            Configurações
+                          </DropdownMenuItem>
+                        </SheetTrigger>
+                        <SheetContent 
+                          side="right" 
+                          className="w-full sm:max-w-2xl overflow-y-auto"
+                        >
+                          <SheetHeader className="sr-only">
+                            <SheetTitle>Configurações do Perfil</SheetTitle>
+                          </SheetHeader>
+                          <ProfileSettings onClose={() => setIsProfileOpen(false)} />
+                        </SheetContent>
+                      </Sheet>
+                      
+                      <DropdownMenuItem asChild>
+                        <Link to="/dashboard" className="flex items-center text-white hover:bg-[#2A2A2A]">
+                          <User className="mr-2 h-4 w-4" />
+                          Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-[#4B5563]" />
+                      <DropdownMenuItem onClick={handleSignOut} className="text-white hover:bg-[#2A2A2A]">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sair
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               ) : (
                 <div className={cn(
                   "hidden md:flex items-center transition-all duration-300 ease-in-out",
