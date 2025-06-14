@@ -1,6 +1,7 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,23 @@ interface N8nWebhookData {
   timestamp: string;
   source: string;
   sessionId?: string;
+}
+
+// Criar cliente Supabase para token management
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
+
+// Função para estimar tokens do prompt
+function estimateTokens(text: string): number {
+  // Estimativa baseada em ~4 caracteres por token (média)
+  return Math.ceil(text.length / 4);
+}
+
+// Função para contar tokens da resposta real
+function countResponseTokens(content: string): number {
+  return Math.ceil(content.length / 4);
 }
 
 // Prompts especializados para diferentes agentes
@@ -222,6 +240,48 @@ serve(async (req) => {
       userId 
     }: ChatRequest = await req.json();
 
+    // **NOVA FUNCIONALIDADE: VERIFICAR E CONSUMIR TOKENS**
+    if (userId) {
+      console.log('Verificando tokens para usuário:', userId);
+      
+      // Estimar tokens que serão usados (prompt + resposta estimada)
+      const promptTokens = estimateTokens(message + agentPrompt + JSON.stringify(chatHistory));
+      const estimatedTotalTokens = promptTokens + 500; // Estimativa de resposta média
+      
+      console.log(`Tokens estimados: ${estimatedTotalTokens} (prompt: ${promptTokens})`);
+      
+      // Verificar se usuário tem tokens suficientes
+      const { data: tokenData, error: tokenError } = await supabase
+        .rpc('get_available_tokens', { p_user_id: userId });
+      
+      if (tokenError) {
+        console.error('Erro ao verificar tokens:', tokenError);
+        throw new Error('Erro ao verificar tokens disponíveis');
+      }
+      
+      if (!tokenData || tokenData.length === 0) {
+        throw new Error('Dados de tokens não encontrados');
+      }
+      
+      const availableTokens = tokenData[0].total_available;
+      console.log(`Tokens disponíveis: ${availableTokens}`);
+      
+      if (availableTokens < estimatedTotalTokens) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Tokens insuficientes',
+            details: `Você precisa de ${estimatedTotalTokens} tokens, mas tem apenas ${availableTokens} disponíveis.`,
+            tokensNeeded: estimatedTotalTokens,
+            tokensAvailable: availableTokens
+          }), 
+          {
+            status: 402, // Payment Required
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    }
+
     // Disparar webhook para N8n (não bloqueante)
     if (userId) {
       sendToN8nWebhook({
@@ -314,12 +374,41 @@ Se precisar de mais informações, faça perguntas específicas.`;
           throw new Error('Resposta inválida da API do Claude');
         }
 
+        const responseText = data.content[0].text;
+        
+        // **NOVA FUNCIONALIDADE: CONSUMIR TOKENS APÓS RESPOSTA RECEBIDA**
+        if (userId) {
+          const promptTokens = data.usage?.input_tokens || estimateTokens(systemPrompt + JSON.stringify(messages));
+          const completionTokens = data.usage?.output_tokens || countResponseTokens(responseText);
+          const totalTokens = promptTokens + completionTokens;
+          
+          console.log(`Consumindo tokens: prompt=${promptTokens}, completion=${completionTokens}, total=${totalTokens}`);
+          
+          // Consumir tokens e registrar uso
+          const { data: consumeResult, error: consumeError } = await supabase
+            .rpc('consume_tokens', {
+              p_user_id: userId,
+              p_tokens_used: totalTokens,
+              p_feature_used: `chat_${agentName.toLowerCase().replace(/\s+/g, '_')}`,
+              p_prompt_tokens: promptTokens,
+              p_completion_tokens: completionTokens
+            });
+          
+          if (consumeError || !consumeResult) {
+            console.error('Erro ao consumir tokens:', consumeError);
+            // Não falhar a requisição, apenas logar erro
+          } else {
+            console.log('Tokens consumidos com sucesso');
+          }
+        }
+
         return new Response(
           JSON.stringify({ 
-            response: data.content[0].text,
+            response: responseText,
             usage: data.usage,
             agent: agentName,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            tokensUsed: data.usage ? data.usage.input_tokens + data.usage.output_tokens : null
           }), 
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

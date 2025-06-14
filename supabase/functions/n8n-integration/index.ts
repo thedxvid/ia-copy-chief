@@ -28,11 +28,56 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-async function generateCopyWithClaude(data: CopyGenerationData): Promise<string> {
+// Função para estimar tokens baseado no tipo de copy
+function estimateCopyTokens(copyType: string, quizAnswers: Record<string, any>): number {
+  const baseTokens = {
+    'vsl': 4000,
+    'landing_page': 3000,
+    'ads': 1500,
+    'email': 2500
+  };
+  
+  const complexity = Object.keys(quizAnswers).length;
+  const complexityMultiplier = Math.max(1, complexity / 10);
+  
+  return Math.ceil((baseTokens[copyType as keyof typeof baseTokens] || 3000) * complexityMultiplier);
+}
+
+// Função para contar tokens da resposta
+function countResponseTokens(content: string): number {
+  return Math.ceil(content.length / 4);
+}
+
+async function generateCopyWithClaude(data: CopyGenerationData, userId: string): Promise<string> {
   const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
   
   if (!anthropicApiKey) {
     throw new Error('ANTHROPIC_API_KEY não configurada');
+  }
+
+  // **NOVA FUNCIONALIDADE: VERIFICAR TOKENS ANTES DA GERAÇÃO**
+  const estimatedTokens = estimateCopyTokens(data.copy_type, data.quiz_answers);
+  
+  console.log(`Verificando tokens para copy generation. Estimativa: ${estimatedTokens} tokens`);
+  
+  // Verificar se usuário tem tokens suficientes
+  const { data: tokenData, error: tokenError } = await supabase
+    .rpc('get_available_tokens', { p_user_id: userId });
+  
+  if (tokenError) {
+    console.error('Erro ao verificar tokens:', tokenError);
+    throw new Error('Erro ao verificar tokens disponíveis');
+  }
+  
+  if (!tokenData || tokenData.length === 0) {
+    throw new Error('Dados de tokens não encontrados');
+  }
+  
+  const availableTokens = tokenData[0].total_available;
+  console.log(`Tokens disponíveis: ${availableTokens}`);
+  
+  if (availableTokens < estimatedTokens) {
+    throw new Error(`Tokens insuficientes: você precisa de ${estimatedTokens} tokens, mas tem apenas ${availableTokens} disponíveis.`);
   }
 
   const prompts = {
@@ -154,7 +199,33 @@ DIRETRIZES FINAIS:
   }
 
   const responseData = await response.json();
-  return responseData.content[0].text;
+  const generatedContent = responseData.content[0].text;
+  
+  // **NOVA FUNCIONALIDADE: CONSUMIR TOKENS APÓS COPY GERADA**
+  const promptTokens = responseData.usage?.input_tokens || estimatedTokens * 0.6;
+  const completionTokens = responseData.usage?.output_tokens || countResponseTokens(generatedContent);
+  const totalTokens = promptTokens + completionTokens;
+  
+  console.log(`Consumindo tokens para copy generation: prompt=${promptTokens}, completion=${completionTokens}, total=${totalTokens}`);
+  
+  // Consumir tokens e registrar uso
+  const { data: consumeResult, error: consumeError } = await supabase
+    .rpc('consume_tokens', {
+      p_user_id: userId,
+      p_tokens_used: totalTokens,
+      p_feature_used: `copy_generation_${data.copy_type}`,
+      p_prompt_tokens: promptTokens,
+      p_completion_tokens: completionTokens
+    });
+  
+  if (consumeError || !consumeResult) {
+    console.error('Erro ao consumir tokens:', consumeError);
+    throw new Error('Erro ao processar tokens após geração de copy');
+  } else {
+    console.log('Tokens consumidos com sucesso para copy generation');
+  }
+
+  return generatedContent;
 }
 
 async function triggerN8nWorkflow(workflowId: string, data: any) {
@@ -191,7 +262,7 @@ serve(async (req) => {
 
     switch (type) {
       case 'copy_generation':
-        const generatedCopy = await generateCopyWithClaude(data as CopyGenerationData);
+        const generatedCopy = await generateCopyWithClaude(data as CopyGenerationData, user_id);
         
         // Salvar copy gerada no Supabase
         const { error: insertError } = await supabase
