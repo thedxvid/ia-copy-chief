@@ -124,14 +124,14 @@ export function AppSidebar() {
         <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 group-data-[collapsible=icon]:justify-center">
           <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
             <SheetTrigger asChild>
-              <button className="flex items-center gap-2 sm:gap-3 hover:bg-[#2A2A2A] rounded-xl p-1 transition-colors group-data-[collapsible=icon]:justify-center">
+              <button className="flex items-center gap-2 sm:gap-3 hover:bg-[#2A2A2A] rounded-xl p-1 transition-colors group-data-[collapsible=icon]:justify-center w-full">
                 <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
                   <AvatarImage src={user?.user_metadata?.avatar_url} />
                   <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
                     {user?.email?.charAt(0).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+                <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden text-left">
                   <p className="text-xs sm:text-sm font-medium text-white truncate">
                     {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
                   </p>
@@ -153,13 +153,13 @@ export function AppSidebar() {
           </Sheet>
         </div>
         
-        <div className="flex gap-2">
+        <div className="space-y-1 group-data-[collapsible=icon]:space-y-2">
           <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+                className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0"
               >
                 <Settings className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
                 <span className="group-data-[collapsible=icon]:hidden">Configurações</span>
@@ -171,7 +171,7 @@ export function AppSidebar() {
             variant="ghost"
             onClick={signOut}
             size="sm"
-            className="flex-1 justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+            className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0"
           >
             <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
             <span className="group-data-[collapsible=icon]:hidden">Sair</span>

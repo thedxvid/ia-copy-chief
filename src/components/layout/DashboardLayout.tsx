@@ -10,7 +10,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-[#121212] overflow-x-hidden">
         <AppSidebar />
         <SidebarInset className="flex-1 bg-[#121212] min-w-0 overflow-x-hidden">
