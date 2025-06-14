@@ -29,7 +29,7 @@ export function HeroSection() {
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden pt-24 sm:pt-32 md:pt-20">
+    <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden pt-32 sm:pt-40 md:pt-32 lg:pt-24">
       {/* Enhanced animated background */}
       <div className="absolute inset-0 bg-[#121212]">
         {/* Gradient overlay */}
