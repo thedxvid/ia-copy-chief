@@ -12,8 +12,6 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { TokenWidget } from '@/components/tokens/TokenWidget';
-import { useTokenContext } from '@/contexts/TokenContext';
 import { Bot, Home, Package, History, Wrench, Users, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
@@ -28,7 +26,6 @@ const menuItems = [
 
 export const AppSidebar = () => {
   const { signOut, user } = useAuth();
-  const { openTokenStore } = useTokenContext();
   const location = useLocation();
 
   const handleSignOut = async () => {
@@ -71,15 +68,6 @@ export const AppSidebar = () => {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider mb-2">
-            Tokens
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <TokenWidget onOpenTokenStore={openTokenStore} />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

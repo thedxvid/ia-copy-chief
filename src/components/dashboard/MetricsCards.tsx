@@ -2,11 +2,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FolderOpen, TrendingUp, Coins, DollarSign } from 'lucide-react';
-import { useTokenContext } from '@/contexts/TokenContext';
 
 export const MetricsCards = () => {
-  const { tokenData } = useTokenContext();
-
   const metrics = [
     {
       title: 'Projetos Ativos',
@@ -18,8 +15,8 @@ export const MetricsCards = () => {
     },
     {
       title: 'Tokens Restantes',
-      value: tokenData ? `${(tokenData.monthly_tokens + tokenData.extra_tokens).toLocaleString('pt-BR')}` : '100.000',
-      change: tokenData ? `${Math.round((tokenData.monthly_tokens / 100000) * 100)}% do mensal` : '100%',
+      value: '98.500',
+      change: '98% do mensal',
       icon: Coins,
       color: 'text-[#10B981]',
       bgColor: 'bg-[#10B981]/10'

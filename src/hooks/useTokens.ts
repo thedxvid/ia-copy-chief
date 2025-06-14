@@ -10,16 +10,6 @@ export interface TokenData {
   total_used: number;
 }
 
-export interface TokenUsage {
-  id: string;
-  tokens_used: number;
-  feature_used: string;
-  created_at: string;
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens: number;
-}
-
 export const TOKEN_ESTIMATES = {
   'generate_copy_short': 2000,
   'generate_copy_long': 8000,
@@ -49,7 +39,11 @@ export const useTokens = () => {
         p_user_id: user.id
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar dados de tokens:', error);
+        setLoading(false);
+        return;
+      }
 
       if (data && data.length > 0) {
         setTokenData(data[0]);
@@ -68,56 +62,6 @@ export const useTokens = () => {
     return tokenData.total_available >= requiredTokens;
   };
 
-  const consumeTokens = async (
-    tokensUsed: number, 
-    feature: string, 
-    promptTokens?: number, 
-    completionTokens?: number
-  ): Promise<boolean> => {
-    if (!user) return false;
-
-    try {
-      const { data, error } = await supabase.rpc('consume_tokens', {
-        p_user_id: user.id,
-        p_tokens_used: tokensUsed,
-        p_feature_used: feature,
-        p_prompt_tokens: promptTokens || 0,
-        p_completion_tokens: completionTokens || 0
-      });
-
-      if (error) throw error;
-
-      if (data) {
-        await fetchTokenData();
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Erro ao consumir tokens:', error);
-      return false;
-    }
-  };
-
-  const getTokenUsageHistory = async (): Promise<TokenUsage[]> => {
-    if (!user) return [];
-
-    try {
-      const { data, error } = await supabase
-        .from('token_usage')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Erro ao buscar histórico de tokens:', error);
-      return [];
-    }
-  };
-
   useEffect(() => {
     fetchTokenData();
   }, [user]);
@@ -126,8 +70,6 @@ export const useTokens = () => {
     tokenData,
     loading,
     fetchTokenData,
-    checkTokenAvailability,
-    consumeTokens,
-    getTokenUsageHistory
+    checkTokenAvailability
   };
 };
