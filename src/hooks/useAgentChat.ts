@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 
 interface Message {
@@ -48,7 +49,7 @@ export const useAgentChat = (agentId: string) => {
     }
   }, [agentId]);
 
-  const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string) => {
+  const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string, isCustomAgent?: boolean) => {
     if (!content.trim()) return;
 
     const userMessage: Message = {
@@ -80,7 +81,8 @@ export const useAgentChat = (agentId: string) => {
         body: JSON.stringify({
           message: content,
           agentPrompt,
-          chatHistory: messages
+          chatHistory: messages,
+          isCustomAgent: isCustomAgent || false
         }),
       });
 

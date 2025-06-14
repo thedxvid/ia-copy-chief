@@ -9,6 +9,86 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      agent_files: {
+        Row: {
+          agent_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          processed_content: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          processed_content?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          processed_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_files_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "custom_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_agents: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon_name: string | null
+          id: string
+          knowledge_base: Json | null
+          name: string
+          prompt: string
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          knowledge_base?: Json | null
+          name: string
+          prompt: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          knowledge_base?: Json | null
+          name?: string
+          prompt?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       product_analytics: {
         Row: {
           benchmark_data: Json | null

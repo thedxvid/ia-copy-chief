@@ -47,7 +47,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const handleSend = async () => {
     if (!message.trim() || isLoading) return;
     
-    await sendMessage(message, agent?.prompt, agent?.name);
+    await sendMessage(message, agent?.prompt, agent?.name, agent?.isCustom);
     setMessage('');
   };
 
@@ -70,12 +70,22 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         <DialogHeader className="flex-shrink-0 pb-4 border-b border-[#4B5563]/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-[#3B82F6] rounded-xl flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
+              }`}>
                 <agent.icon className="w-5 h-5 text-white" />
               </div>
-              <DialogTitle className="text-xl text-white">
-                {agent.name}
-              </DialogTitle>
+              <div>
+                <DialogTitle className="text-xl text-white flex items-center gap-2">
+                  {agent.name}
+                  {agent.isCustom && (
+                    <span className="text-xs bg-[#10B981] text-white px-2 py-1 rounded">
+                      CUSTOM
+                    </span>
+                  )}
+                </DialogTitle>
+                <p className="text-sm text-[#CCCCCC]">{agent.description}</p>
+              </div>
             </div>
             <div className="flex space-x-2">
               <Button
