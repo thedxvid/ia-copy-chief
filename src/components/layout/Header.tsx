@@ -54,8 +54,8 @@ export const Header = () => {
           : "w-full rounded-none bg-[#121212]/90 backdrop-blur-md border-b border-[#4B5563]/50"
       )}>
         <div className={cn(
-          "mx-auto transition-all duration-300 ease-in-out",
-          isScrolled ? "px-6" : "container px-3 sm:px-4"
+          "transition-all duration-300 ease-in-out",
+          isScrolled ? "px-6" : "px-3 sm:px-4"
         )}>
           <div className={cn(
             "flex items-center justify-between h-14 sm:h-16 transition-all duration-300 ease-in-out",
@@ -154,36 +154,40 @@ export const Header = () => {
 
           {/* Mobile Menu */}
           {isMenuOpen && (
-            <div className="md:hidden py-3 sm:py-4 border-t border-[#4B5563]/50 max-w-full overflow-hidden">
-              <nav className="flex flex-col space-y-3 sm:space-y-4">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-2 py-1 text-sm"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                
-                {!user && (
-                  <div className="flex flex-col space-y-2 pt-3 sm:pt-4 border-t border-[#4B5563]/50">
+            <div className="md:hidden border-t border-[#4B5563]/50">
+              <div className="py-4 px-2">
+                <nav className="flex flex-col space-y-3">
+                  {navItems.map((item) => (
                     <Link
-                      to="/auth"
-                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-2 py-2 text-sm"
+                      key={item.href}
+                      to={item.href}
+                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#1E1E1E]"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      Entrar
+                      {item.label}
                     </Link>
-                    <ModernButton asChild size="sm" className="mx-2">
-                      <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
-                        Começar Agora
+                  ))}
+                  
+                  {!user && (
+                    <div className="flex flex-col space-y-3 pt-4 border-t border-[#4B5563]/50">
+                      <Link
+                        to="/auth"
+                        className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#1E1E1E]"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Entrar
                       </Link>
-                    </ModernButton>
-                  </div>
-                )}
-              </nav>
+                      <div className="px-3">
+                        <ModernButton asChild size="sm" className="w-full">
+                          <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                            Começar Agora
+                          </Link>
+                        </ModernButton>
+                      </div>
+                    </div>
+                  )}
+                </nav>
+              </div>
             </div>
           )}
         </div>
