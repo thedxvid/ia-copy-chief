@@ -29,7 +29,7 @@ export function HeroSection() {
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden pt-20 sm:pt-0">
       {/* Enhanced animated background */}
       <div className="absolute inset-0 bg-[#121212]">
         {/* Gradient overlay */}
@@ -70,7 +70,7 @@ export function HeroSection() {
 
       <div className="relative z-10 max-w-6xl mx-auto text-center px-2">
         <div className="animate-fade-in-up">
-          <h2 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold text-[#FFFFFF] mb-6 sm:mb-8 leading-tight animate-fade-in-up animate-stagger-1">
+          <h2 className="text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-bold text-[#FFFFFF] mb-6 sm:mb-8 leading-tight animate-fade-in-up animate-stagger-1">
             O Futuro da Criação de
             <span className="bg-gradient-to-r from-[#3B82F6] via-[#2563EB] to-[#1E40AF] bg-clip-text text-transparent block mt-2 animate-fade-in-up animate-stagger-2 min-h-[1.2em]">
               {typewriterText}
@@ -78,7 +78,7 @@ export function HeroSection() {
             </span>
           </h2>
           
-          <p className="text-lg sm:text-xl md:text-2xl text-[#CCCCCC] mb-8 sm:mb-12 max-w-4xl mx-auto leading-relaxed animate-fade-in-up animate-stagger-3 px-2 lg:text-xl">
+          <p className="text-base sm:text-xl md:text-2xl text-[#CCCCCC] mb-8 sm:mb-12 max-w-4xl mx-auto leading-relaxed animate-fade-in-up animate-stagger-3 px-2 lg:text-xl">
             Transforme suas vendas com IA avançada. Nossa plataforma gera copies de alta conversão 
             baseadas em estratégias comprovadas de grandes marcas. 
             <span className="text-[#3B82F6] font-semibold block mt-2">
@@ -100,11 +100,11 @@ export function HeroSection() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 text-sm animate-fade-in-up animate-stagger-5 px-2">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 text-sm animate-fade-in-up animate-stagger-5 px-2">
             {benefits.map((item, index) => (
-              <div key={index} className={`flex items-center justify-center gap-3 p-4 sm:p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50 hover:shadow-lg hover:shadow-[#3B82F6]/10`}>
+              <div key={index} className={`flex items-center justify-start gap-3 p-4 sm:p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50 hover:shadow-lg hover:shadow-[#3B82F6]/10`}>
                 <item.icon className="w-5 sm:w-6 h-5 sm:h-6 text-[#3B82F6] flex-shrink-0" />
-                <span className="text-[#CCCCCC] font-medium text-sm sm:text-base">{item.text}</span>
+                <span className="text-[#CCCCCC] font-medium text-sm sm:text-base text-left">{item.text}</span>
               </div>
             ))}
           </div>

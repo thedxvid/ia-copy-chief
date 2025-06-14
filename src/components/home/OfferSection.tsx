@@ -22,7 +22,7 @@ export function OfferSection() {
     {
       icon: TrendingUp,
       title: 'Biblioteca de Copys Vencedoras',
-      description: '+1.000 copys testadas e aprovadas',
+      description: '+1.000 copys testidas e aprovadas',
       value: 'R$ 147/mês'
     },
     {
@@ -84,8 +84,8 @@ export function OfferSection() {
 
         {/* Main Offer Container */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-start">
-          {/* Benefits Side */}
-          <div className="space-y-6 sm:space-y-8 animate-fade-in-up animate-stagger-2 order-2 lg:order-1">
+          {/* Benefits Side - agora será a primeira na ordem mobile */}
+          <div className="space-y-6 sm:space-y-8 animate-fade-in-up animate-stagger-2 order-1">
             <div className="mb-6 sm:mb-8">
               <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-4">
                 O que você recebe hoje:
@@ -128,8 +128,8 @@ export function OfferSection() {
             </div>
           </div>
 
-          {/* Pricing Side */}
-          <div className="animate-fade-in-up animate-stagger-3 order-1 lg:order-2">
+          {/* Pricing Side - agora será a segunda na ordem mobile */}
+          <div className="animate-fade-in-up animate-stagger-3 order-2">
             <ModernCard className="p-6 sm:p-8 bg-gradient-to-b from-[#1E1E1E] to-[#2A2A2A] border-2 border-[#3B82F6]/50 relative overflow-hidden">
               {/* Shine effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full animate-[shimmer_3s_infinite]" />
