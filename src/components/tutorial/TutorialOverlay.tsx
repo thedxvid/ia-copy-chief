@@ -1,8 +1,7 @@
-
 import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { X, ChevronLeft, ChevronRight, Skip, Eye } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, SkipForward, EyeOff } from 'lucide-react';
 import { TutorialProgress } from './TutorialProgress';
 import { TutorialHighlight } from './TutorialHighlight';
 import { useTutorialContext } from '@/contexts/TutorialContext';
@@ -147,7 +146,7 @@ export const TutorialOverlay: React.FC = () => {
                   onClick={skipTutorial}
                   className="text-[#888888] hover:text-white hover:bg-[#2A2A2A]"
                 >
-                  <Skip className="w-4 h-4 mr-1" />
+                  <SkipForward className="w-4 h-4 mr-1" />
                   Pular
                 </Button>
 
@@ -156,7 +155,7 @@ export const TutorialOverlay: React.FC = () => {
                   onClick={completeTutorial}
                   className="text-[#888888] hover:text-white hover:bg-[#2A2A2A]"
                 >
-                  <Eye className="w-4 h-4 mr-1" />
+                  <EyeOff className="w-4 h-4 mr-1" />
                   Não mostrar mais
                 </Button>
               </div>
