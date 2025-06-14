@@ -8,7 +8,7 @@ interface Message {
   id: string;
   content: string;
   role: 'user' | 'assistant';
-  timestamp: Date;
+  timestamp: Date | string;
 }
 
 interface ChatMessageProps {
@@ -25,7 +25,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const formatTime = (date: Date) => {
+  const formatTime = (timestamp: Date | string) => {
+    // Garantir que timestamp seja sempre um objeto Date
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    
+    // Verificar se a data é válida
+    if (isNaN(date.getTime())) {
+      return 'Agora';
+    }
+    
     return date.toLocaleTimeString('pt-BR', { 
       hour: '2-digit', 
       minute: '2-digit' 
