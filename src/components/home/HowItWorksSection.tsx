@@ -27,30 +27,30 @@ export function HowItWorksSection() {
   ];
 
   return (
-    <section className="py-32 px-4 relative bg-[#1E1E1E]">
+    <section className="py-20 sm:py-32 px-3 sm:px-4 relative bg-[#1E1E1E]">
       <div className="relative max-w-6xl mx-auto">
-        <div className="text-center mb-20 animate-fade-in-up">
-          <h2 className="text-5xl md:text-6xl font-bold mb-8 text-[#FFFFFF]">
+        <div className="text-center mb-16 sm:mb-20 animate-fade-in-up">
+          <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 sm:mb-8 text-[#FFFFFF] px-2">
             Como Funciona
           </h2>
-          <p className="text-xl md:text-2xl text-[#CCCCCC] animate-fade-in-up animate-stagger-1">
+          <p className="text-lg sm:text-xl md:text-2xl text-[#CCCCCC] animate-fade-in-up animate-stagger-1 px-2">
             Três passos simples para copies que convertem como nunca
           </p>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
           {steps.map((item, index) => (
             <div key={index} className={`text-center group animate-fade-in-up animate-stagger-${index + 1}`}>
-              <div className={`w-24 h-24 bg-gradient-to-r ${item.gradient} rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-all duration-300 shadow-lg relative`}>
-                <span className="text-[#FFFFFF] font-bold text-3xl">{item.step}</span>
-                <div className="absolute -top-2 -right-2 bg-[#3B82F6] text-[#FFFFFF] text-xs px-2 py-1 rounded-full font-semibold">
+              <div className={`w-20 sm:w-24 h-20 sm:h-24 bg-gradient-to-r ${item.gradient} rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-all duration-300 shadow-lg relative`}>
+                <span className="text-[#FFFFFF] font-bold text-2xl sm:text-3xl">{item.step}</span>
+                <div className="absolute -top-1 sm:-top-2 -right-1 sm:-right-2 bg-[#3B82F6] text-[#FFFFFF] text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-semibold">
                   {item.time}
                 </div>
               </div>
-              <h3 className="font-bold text-2xl mb-4 text-[#FFFFFF] group-hover:text-[#3B82F6] transition-colors">
+              <h3 className="font-bold text-xl sm:text-2xl mb-3 sm:mb-4 text-[#FFFFFF] group-hover:text-[#3B82F6] transition-colors px-2">
                 {item.title}
               </h3>
-              <p className="text-[#CCCCCC] leading-relaxed text-lg max-w-sm mx-auto">
+              <p className="text-[#CCCCCC] leading-relaxed text-base sm:text-lg max-w-sm mx-auto px-2">
                 {item.description}
               </p>
             </div>

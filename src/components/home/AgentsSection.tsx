@@ -110,21 +110,21 @@ export function AgentsSection() {
   };
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
+    <section className="py-16 sm:py-20 px-3 sm:px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16 animate-fade-in-up">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+        <div className="text-center mb-12 sm:mb-16 animate-fade-in-up">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6 px-2">
             Converse com Nossos
             <span className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] bg-clip-text text-transparent block mt-2">
               Agentes Especialistas
             </span>
           </h2>
-          <p className="text-xl text-[#CCCCCC] max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-[#CCCCCC] max-w-3xl mx-auto px-2">
             Cada agente é especialista em uma área específica. Clique em um card e veja como eles podem te ajudar!
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12">
           {agents.map((agent, index) => (
             <Card
               key={agent.id}
@@ -133,15 +133,15 @@ export function AgentsSection() {
               }`}
               onClick={() => handleAgentSelect(agent)}
             >
-              <CardHeader className="text-center pb-4">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <agent.icon className="w-8 h-8 text-white" />
+              <CardHeader className="text-center pb-3 sm:pb-4">
+                <div className="w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <agent.icon className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
                 </div>
-                <CardTitle className="text-white text-xl font-bold">{agent.name}</CardTitle>
-                <CardDescription className="text-[#3B82F6] font-semibold">{agent.specialty}</CardDescription>
+                <CardTitle className="text-white text-lg sm:text-xl font-bold">{agent.name}</CardTitle>
+                <CardDescription className="text-[#3B82F6] font-semibold text-sm sm:text-base">{agent.specialty}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-[#CCCCCC] text-center text-sm">{agent.description}</p>
+              <CardContent className="px-4 sm:px-6">
+                <p className="text-[#CCCCCC] text-center text-xs sm:text-sm">{agent.description}</p>
               </CardContent>
             </Card>
           ))}
@@ -149,50 +149,50 @@ export function AgentsSection() {
 
         {selectedAgent && (
           <Card className="max-w-4xl mx-auto bg-[#1E1E1E]/90 backdrop-blur-sm border-[#4B5563]/50 rounded-2xl overflow-hidden animate-fade-in">
-            <CardHeader className="bg-gradient-to-r from-[#3B82F6]/20 to-[#2563EB]/20 border-b border-[#4B5563]/50">
-              <div className="flex items-center gap-4">
-                <Avatar className="w-12 h-12">
+            <CardHeader className="bg-gradient-to-r from-[#3B82F6]/20 to-[#2563EB]/20 border-b border-[#4B5563]/50 p-4 sm:p-6">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <Avatar className="w-10 sm:w-12 h-10 sm:h-12">
                   <AvatarFallback className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white">
-                    <selectedAgent.icon className="w-6 h-6" />
+                    <selectedAgent.icon className="w-5 sm:w-6 h-5 sm:h-6" />
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <CardTitle className="text-white text-xl">{selectedAgent.name}</CardTitle>
-                  <CardDescription className="text-[#3B82F6]">{selectedAgent.specialty}</CardDescription>
+                  <CardTitle className="text-white text-lg sm:text-xl">{selectedAgent.name}</CardTitle>
+                  <CardDescription className="text-[#3B82F6] text-sm sm:text-base">{selectedAgent.specialty}</CardDescription>
                 </div>
               </div>
             </CardHeader>
             
             <CardContent className="p-0">
-              <ScrollArea className="h-96 p-6">
-                <div className="space-y-4">
+              <ScrollArea className="h-80 sm:h-96 p-4 sm:p-6">
+                <div className="space-y-3 sm:space-y-4">
                   {messages.map((message, index) => (
                     <div
                       key={index}
-                      className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex gap-2 sm:gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       {message.type === 'agent' && (
-                        <Avatar className="w-8 h-8 mt-1">
+                        <Avatar className="w-7 sm:w-8 h-7 sm:h-8 mt-1">
                           <AvatarFallback className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-xs">
-                            <selectedAgent.icon className="w-4 h-4" />
+                            <selectedAgent.icon className="w-3 sm:w-4 h-3 sm:h-4" />
                           </AvatarFallback>
                         </Avatar>
                       )}
                       
                       <div
-                        className={`max-w-[80%] p-3 rounded-2xl ${
+                        className={`max-w-[85%] sm:max-w-[80%] p-2 sm:p-3 rounded-2xl ${
                           message.type === 'user'
                             ? 'bg-[#3B82F6] text-white ml-auto'
                             : 'bg-[#2A2A2A] text-[#CCCCCC] border border-[#4B5563]/50'
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-line">{message.content}</p>
+                        <p className="text-xs sm:text-sm whitespace-pre-line break-words">{message.content}</p>
                       </div>
 
                       {message.type === 'user' && (
-                        <Avatar className="w-8 h-8 mt-1">
+                        <Avatar className="w-7 sm:w-8 h-7 sm:h-8 mt-1">
                           <AvatarFallback className="bg-[#4B5563] text-white text-xs">
-                            <User className="w-4 h-4" />
+                            <User className="w-3 sm:w-4 h-3 sm:h-4" />
                           </AvatarFallback>
                         </Avatar>
                       )}
@@ -200,17 +200,17 @@ export function AgentsSection() {
                   ))}
                   
                   {isTyping && (
-                    <div className="flex gap-3 justify-start">
-                      <Avatar className="w-8 h-8 mt-1">
+                    <div className="flex gap-2 sm:gap-3 justify-start">
+                      <Avatar className="w-7 sm:w-8 h-7 sm:h-8 mt-1">
                         <AvatarFallback className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-xs">
-                          <selectedAgent.icon className="w-4 h-4" />
+                          <selectedAgent.icon className="w-3 sm:w-4 h-3 sm:h-4" />
                         </AvatarFallback>
                       </Avatar>
-                      <div className="bg-[#2A2A2A] border border-[#4B5563]/50 p-3 rounded-2xl">
+                      <div className="bg-[#2A2A2A] border border-[#4B5563]/50 p-2 sm:p-3 rounded-2xl">
                         <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
+                          <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                       </div>
                     </div>
@@ -218,21 +218,22 @@ export function AgentsSection() {
                 </div>
               </ScrollArea>
               
-              <div className="border-t border-[#4B5563]/50 p-4">
-                <div className="flex gap-3">
+              <div className="border-t border-[#4B5563]/50 p-3 sm:p-4">
+                <div className="flex gap-2 sm:gap-3">
                   <Input
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder={`Digite sua pergunta para ${selectedAgent.name}...`}
-                    className="flex-1 bg-[#2A2A2A] border-[#4B5563] text-white rounded-full"
+                    className="flex-1 bg-[#2A2A2A] border-[#4B5563] text-white rounded-full text-sm"
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   />
                   <Button
                     onClick={handleSendMessage}
                     disabled={!chatInput.trim() || isTyping}
-                    className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white rounded-full px-6 hover:scale-105 transition-all duration-300"
+                    className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white rounded-full px-4 sm:px-6 hover:scale-105 transition-all duration-300"
+                    size="sm"
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3 sm:w-4 h-3 sm:h-4" />
                   </Button>
                 </div>
               </div>
