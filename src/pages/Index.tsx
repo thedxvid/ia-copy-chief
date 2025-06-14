@@ -10,7 +10,7 @@ import { FadeInSection } from '@/components/ui/fade-in-section';
 
 const Index = () => {
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#121212]">
+    <div className="min-h-screen bg-[#121212] overflow-x-hidden">
       <HeroSection />
       
       <FadeInSection delay={100}>

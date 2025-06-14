@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface ScrollPosition {
   scrollY: number;
@@ -16,41 +16,56 @@ export const useScrollPosition = (threshold: number = 10): ScrollPosition => {
     isScrollingDown: false,
   });
 
-  useEffect(() => {
-    let lastScrollY = window.scrollY;
-    let ticking = false;
+  const updateScrollPosition = useCallback(() => {
+    const scrollY = window.scrollY;
+    const isScrolled = scrollY > threshold;
+    
+    setScrollPosition(prev => {
+      const isScrollingUp = scrollY < prev.scrollY && scrollY > threshold;
+      const isScrollingDown = scrollY > prev.scrollY;
 
-    const updateScrollPosition = () => {
-      const scrollY = window.scrollY;
-      const isScrolled = scrollY > threshold;
-      const isScrollingUp = scrollY < lastScrollY && scrollY > threshold;
-      const isScrollingDown = scrollY > lastScrollY;
+      // Only update if there's actually a change to prevent unnecessary re-renders
+      if (
+        prev.scrollY === scrollY &&
+        prev.isScrolled === isScrolled &&
+        prev.isScrollingUp === isScrollingUp &&
+        prev.isScrollingDown === isScrollingDown
+      ) {
+        return prev;
+      }
 
-      setScrollPosition({
+      return {
         scrollY,
         isScrolled,
         isScrollingUp,
         isScrollingDown,
-      });
+      };
+    });
+  }, [threshold]);
 
-      lastScrollY = scrollY;
-      ticking = false;
-    };
+  useEffect(() => {
+    let ticking = false;
 
     const onScroll = () => {
       if (!ticking) {
-        requestAnimationFrame(updateScrollPosition);
+        requestAnimationFrame(() => {
+          updateScrollPosition();
+          ticking = false;
+        });
         ticking = true;
       }
     };
 
+    // Set initial position
+    updateScrollPosition();
+    
+    // Add passive scroll listener for better performance
     window.addEventListener('scroll', onScroll, { passive: true });
-    updateScrollPosition(); // Set initial position
 
     return () => {
       window.removeEventListener('scroll', onScroll);
     };
-  }, [threshold]);
+  }, [updateScrollPosition]);
 
   return scrollPosition;
 };

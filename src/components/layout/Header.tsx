@@ -46,9 +46,9 @@ export const Header = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out">
+    <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
       <div className={cn(
-        "mx-auto transition-all duration-300 ease-in-out",
+        "mx-auto transition-all duration-300 ease-in-out pointer-events-auto",
         isScrolled
           ? "mt-4 max-w-6xl w-[90%] rounded-full bg-neutral-900/80 backdrop-blur-md shadow-lg border border-white/10"
           : "w-full rounded-none bg-[#121212]/90 backdrop-blur-md border-b border-[#4B5563]/50"
