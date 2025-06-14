@@ -27,8 +27,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2.5}
-                    d="M4 6h16M4 12h16M4 18h16"
+                    strokeWidth={2}
+                    d="M3 7h18M3 12h14M3 17h10"
                   />
                 </svg>
                 <span className="sr-only">Toggle Sidebar</span>
