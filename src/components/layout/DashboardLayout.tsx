@@ -9,14 +9,14 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full bg-[#121212]">
         <AppSidebar />
         <SidebarInset className="flex-1 bg-[#121212]">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b border-[#4B5563]/20 px-4">
+          <header className="flex h-12 sm:h-16 shrink-0 items-center gap-2 border-b border-[#4B5563]/20 px-3 sm:px-4">
             <SidebarTrigger className="text-white hover:bg-[#2A2A2A]" />
           </header>
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-3 sm:p-4 lg:p-6">
             {children}
           </main>
         </SidebarInset>

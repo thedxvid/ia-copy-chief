@@ -65,14 +65,14 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
 
   return (
-    <Sidebar className="bg-[#1A1A1A] border-r border-[#2A2A2A]">
-      <SidebarHeader className="p-4 border-b border-[#2A2A2A]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center">
-            <Bot className="w-5 h-5 text-white" />
+    <Sidebar className="bg-[#1A1A1A] border-r border-[#2A2A2A]" collapsible="icon">
+      <SidebarHeader className="p-3 sm:p-4 border-b border-[#2A2A2A]">
+        <div className="flex items-center gap-2 sm:gap-3 group-data-[collapsible=icon]:justify-center">
+          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center flex-shrink-0">
+            <Bot className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white">CopyChief</h1>
+          <div className="group-data-[collapsible=icon]:hidden">
+            <h1 className="text-base sm:text-lg font-bold text-white">CopyChief</h1>
             <p className="text-xs text-[#888888]">Marketing Digital</p>
           </div>
         </div>
@@ -80,8 +80,8 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[#888888] text-xs uppercase tracking-wider">
-            Menu Principal
+          <SidebarGroupLabel className="text-[#888888] text-xs uppercase tracking-wider px-2">
+            <span className="group-data-[collapsible=icon]:hidden">Menu Principal</span>
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -89,13 +89,14 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
+                    size="sm"
                     className={`text-white hover:bg-[#2A2A2A] hover:text-[#3B82F6] transition-colors ${
                       location.pathname === item.url ? 'bg-[#3B82F6]/20 text-[#3B82F6] border-r-2 border-[#3B82F6]' : ''
                     }`}
                   >
                     <Link to={item.url}>
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.title}</span>
+                      <item.icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -105,16 +106,16 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       
-      <SidebarFooter className="p-4 border-t border-[#2A2A2A]">
-        <div className="flex items-center gap-3 mb-3">
-          <Avatar className="w-8 h-8">
+      <SidebarFooter className="p-3 sm:p-4 border-t border-[#2A2A2A]">
+        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 group-data-[collapsible=icon]:justify-center">
+          <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
             <AvatarImage src={user?.user_metadata?.avatar_url} />
-            <AvatarFallback className="bg-[#3B82F6] text-white text-sm">
+            <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
               {user?.email?.charAt(0).toUpperCase() || 'U'}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">
+          <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+            <p className="text-xs sm:text-sm font-medium text-white truncate">
               {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
             </p>
             <p className="text-xs text-[#888888] truncate">
@@ -125,10 +126,11 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           onClick={signOut}
-          className="w-full justify-start text-[#888888] hover:text-white hover:bg-[#2A2A2A]"
+          size="sm"
+          className="w-full justify-start text-[#888888] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
         >
-          <LogOut className="w-4 h-4 mr-2" />
-          Sair
+          <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
+          <span className="group-data-[collapsible=icon]:hidden">Sair</span>
         </Button>
       </SidebarFooter>
     </Sidebar>

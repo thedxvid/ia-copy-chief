@@ -11,17 +11,17 @@ import { GoalsProgress } from '@/components/dashboard/GoalsProgress';
 
 const Dashboard = () => {
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in">
       <DashboardHeader />
       <MetricsCards />
       <AnalyticsCharts />
       
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           <RecentProjects />
           <RecentActivity />
         </div>
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <AIInsights />
           <QuickActions />
           <GoalsProgress />

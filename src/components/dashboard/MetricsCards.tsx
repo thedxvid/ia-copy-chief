@@ -40,19 +40,19 @@ const metrics = [
 
 export const MetricsCards = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
       {metrics.map((metric, index) => (
         <Card key={index} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all duration-300 hover:scale-105">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium text-white leading-tight">
               {metric.title}
             </CardTitle>
-            <div className={`p-2 rounded-lg ${metric.bgColor}`}>
-              <metric.icon className={`h-4 w-4 ${metric.color}`} />
+            <div className={`p-1.5 sm:p-2 rounded-lg ${metric.bgColor} flex-shrink-0`}>
+              <metric.icon className={`h-3 w-3 sm:h-4 sm:w-4 ${metric.color}`} />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white mb-1">
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-1">
               {metric.value}
             </div>
             <p className="text-xs text-green-500 flex items-center">
