@@ -2,6 +2,7 @@
 import React from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
+import { Bot } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -10,14 +11,28 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="min-h-screen flex w-full bg-[#121212]">
+      <div className="min-h-screen flex w-full bg-[#121212] overflow-x-hidden">
         <AppSidebar />
-        <SidebarInset className="flex-1 bg-[#121212]">
-          <header className="flex h-12 sm:h-16 shrink-0 items-center gap-2 border-b border-[#4B5563]/20 px-3 sm:px-4">
-            <SidebarTrigger className="text-white hover:bg-[#2A2A2A]" />
+        <SidebarInset className="flex-1 bg-[#121212] min-w-0 overflow-x-hidden">
+          <header className="flex h-14 sm:h-16 shrink-0 items-center justify-between gap-2 border-b border-[#4B5563]/20 px-3 sm:px-4">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="text-white hover:bg-[#2A2A2A] flex-shrink-0" />
+              
+              {/* Logo centralizada no mobile */}
+              <div className="flex items-center gap-2 md:hidden">
+                <div className="w-7 h-7 bg-[#3B82F6] rounded-lg flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-base font-bold text-white">CopyChief</h1>
+                </div>
+              </div>
+            </div>
           </header>
-          <main className="flex-1 p-3 sm:p-4 lg:p-6">
-            {children}
+          <main className="flex-1 p-3 sm:p-4 lg:p-6 max-w-full overflow-x-hidden">
+            <div className="max-w-full">
+              {children}
+            </div>
           </main>
         </SidebarInset>
       </div>

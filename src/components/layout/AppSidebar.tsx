@@ -65,7 +65,7 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
 
   return (
-    <Sidebar className="bg-[#1A1A1A] border-r border-[#2A2A2A]" collapsible="icon">
+    <Sidebar className="bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl" collapsible="icon">
       <SidebarHeader className="p-3 sm:p-4 border-b border-[#2A2A2A]">
         <div className="flex items-center gap-2 sm:gap-3 group-data-[collapsible=icon]:justify-center">
           <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center flex-shrink-0">
@@ -73,14 +73,14 @@ export function AppSidebar() {
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <h1 className="text-base sm:text-lg font-bold text-white">CopyChief</h1>
-            <p className="text-xs text-[#888888]">Marketing Digital</p>
+            <p className="text-xs text-[#CCCCCC]">Marketing Digital</p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[#888888] text-xs uppercase tracking-wider px-2">
+          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider px-2">
             <span className="group-data-[collapsible=icon]:hidden">Menu Principal</span>
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -118,7 +118,7 @@ export function AppSidebar() {
             <p className="text-xs sm:text-sm font-medium text-white truncate">
               {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
             </p>
-            <p className="text-xs text-[#888888] truncate">
+            <p className="text-xs text-[#CCCCCC] truncate">
               {user?.email}
             </p>
           </div>
@@ -127,7 +127,7 @@ export function AppSidebar() {
           variant="ghost"
           onClick={signOut}
           size="sm"
-          className="w-full justify-start text-[#888888] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+          className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
         >
           <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
           <span className="group-data-[collapsible=icon]:hidden">Sair</span>
