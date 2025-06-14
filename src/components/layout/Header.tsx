@@ -107,7 +107,7 @@ export const Header = () => {
                   <Link to="/auth">Entrar</Link>
                 </ModernButton>
                 <ModernButton asChild>
-                  <Link to="/auth">Começar Grátis</Link>
+                  <Link to="/auth">Começar Agora</Link>
                 </ModernButton>
               </div>
             )}
@@ -146,7 +146,7 @@ export const Header = () => {
                   </ModernButton>
                   <ModernButton asChild>
                     <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
-                      Começar Grátis
+                      Começar Agora
                     </Link>
                   </ModernButton>
                 </div>
