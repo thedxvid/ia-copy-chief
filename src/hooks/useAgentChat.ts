@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 
 interface Message {
@@ -23,7 +22,33 @@ export const useAgentChat = (agentId: string) => {
     localStorage.setItem(`chat-${agentId}`, JSON.stringify(msgs));
   }, [agentId]);
 
-  const sendMessage = useCallback(async (content: string, agentPrompt: string) => {
+  const triggerWebhook = useCallback(async (userMessage: string, agentName: string) => {
+    try {
+      const webhookUrl = 'https://n8n.srv830837.hstgr.cloud/webhook-test/chat-user-message';
+      
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'no-cors',
+        body: JSON.stringify({
+          message: userMessage,
+          agentId: agentId,
+          agentName: agentName,
+          timestamp: new Date().toISOString(),
+          source: 'agent-chat'
+        }),
+      });
+
+      console.log('Webhook triggered successfully for agent:', agentName);
+    } catch (error) {
+      console.error('Error triggering webhook:', error);
+      // Não vamos mostrar erro para o usuário, apenas logar
+    }
+  }, [agentId]);
+
+  const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string) => {
     if (!content.trim()) return;
 
     const userMessage: Message = {
@@ -38,6 +63,11 @@ export const useAgentChat = (agentId: string) => {
       saveToStorage(updated);
       return updated;
     });
+
+    // Disparar webhook quando usuário envia mensagem
+    if (agentName) {
+      triggerWebhook(content, agentName);
+    }
 
     setIsLoading(true);
 
@@ -90,7 +120,7 @@ export const useAgentChat = (agentId: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, saveToStorage]);
+  }, [messages, saveToStorage, triggerWebhook]);
 
   const clearChat = useCallback(() => {
     setMessages([]);

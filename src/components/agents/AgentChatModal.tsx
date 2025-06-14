@@ -47,7 +47,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const handleSend = async () => {
     if (!message.trim() || isLoading) return;
     
-    await sendMessage(message, agent?.prompt);
+    await sendMessage(message, agent?.prompt, agent?.name);
     setMessage('');
   };
 

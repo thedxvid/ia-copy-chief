@@ -80,6 +80,31 @@ export function AgentsSection() {
   const [messages, setMessages] = useState<Array<{ type: 'user' | 'agent'; content: string }>>([]);
   const [isTyping, setIsTyping] = useState(false);
 
+  const triggerWebhook = async (userMessage: string, agentName: string, agentId: string) => {
+    try {
+      const webhookUrl = 'https://n8n.srv830837.hstgr.cloud/webhook-test/chat-user-message';
+      
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'no-cors',
+        body: JSON.stringify({
+          message: userMessage,
+          agentId: agentId,
+          agentName: agentName,
+          timestamp: new Date().toISOString(),
+          source: 'home-demo'
+        }),
+      });
+
+      console.log('Demo webhook triggered for agent:', agentName);
+    } catch (error) {
+      console.error('Error triggering demo webhook:', error);
+    }
+  };
+
   const handleAgentSelect = (agent: Agent) => {
     setSelectedAgent(agent);
     setMessages(agent.sampleMessages);
@@ -91,6 +116,10 @@ export function AgentsSection() {
 
     const newUserMessage = { type: 'user' as const, content: chatInput };
     setMessages(prev => [...prev, newUserMessage]);
+    
+    // Disparar webhook para mensagem demo
+    triggerWebhook(chatInput, selectedAgent.name, selectedAgent.id);
+    
     setChatInput('');
     setIsTyping(true);
 
