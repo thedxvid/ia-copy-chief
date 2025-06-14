@@ -23,75 +23,111 @@ interface CopyData {
   };
 }
 
+const generateFileName = (copyData: CopyData, extension: string): string => {
+  const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const title = copyData.title
+    .replace(/[^a-z0-9\s]/gi, '') // Remove caracteres especiais
+    .replace(/\s+/g, '_') // Substitui espaços por underscores
+    .toLowerCase()
+    .substring(0, 50); // Limita o tamanho
+  
+  return `${title}_${date}.${extension}`;
+};
+
 export const downloadCopyAsText = (copyData: CopyData) => {
   let content = `${copyData.title}\n`;
   content += `${'='.repeat(copyData.title.length)}\n\n`;
   
+  content += `📊 INFORMAÇÕES GERAIS\n`;
+  content += `${'-'.repeat(25)}\n`;
   content += `Tipo: ${copyData.type}\n`;
-  content += `Data: ${copyData.date}\n`;
+  content += `Data de Criação: ${copyData.date}\n`;
   content += `Status: ${copyData.status}\n`;
   content += `Performance: ${copyData.performance}\n\n`;
 
   if (copyData.product) {
-    content += `PRODUTO:\n`;
-    content += `- Nome: ${copyData.product.name}\n`;
-    content += `- Nicho: ${copyData.product.niche}\n`;
+    content += `🎯 PRODUTO\n`;
+    content += `${'-'.repeat(25)}\n`;
+    content += `Nome: ${copyData.product.name}\n`;
+    content += `Nicho: ${copyData.product.niche}\n`;
     if (copyData.product.sub_niche) {
-      content += `- Sub-nicho: ${copyData.product.sub_niche}\n`;
+      content += `Sub-nicho: ${copyData.product.sub_niche}\n`;
     }
     content += `\n`;
   }
 
   if (copyData.content) {
-    content += `CONTEÚDO:\n`;
-    content += `---------\n\n`;
+    content += `📝 CONTEÚDO DA COPY\n`;
+    content += `${'-'.repeat(25)}\n\n`;
 
     if (copyData.content.landing_page_copy) {
-      content += `Landing Page Copy:\n`;
-      content += JSON.stringify(copyData.content.landing_page_copy, null, 2);
-      content += `\n\n`;
+      content += `🎯 LANDING PAGE:\n`;
+      const lp = copyData.content.landing_page_copy;
+      if (lp.headline) content += `\n📢 Headline:\n${lp.headline}\n`;
+      if (lp.subheadline) content += `\n📝 Subheadline:\n${lp.subheadline}\n`;
+      if (lp.body) content += `\n📄 Corpo:\n${lp.body}\n`;
+      if (lp.cta) content += `\n🔥 Call to Action:\n${lp.cta}\n`;
+      content += `\n${'-'.repeat(50)}\n\n`;
     }
 
     if (copyData.content.email_campaign) {
-      content += `Email Campaign:\n`;
-      content += JSON.stringify(copyData.content.email_campaign, null, 2);
-      content += `\n\n`;
+      content += `📧 EMAIL MARKETING:\n`;
+      const email = copyData.content.email_campaign;
+      if (email.subject) content += `\n📌 Assunto:\n${email.subject}\n`;
+      if (email.body) content += `\n📄 Corpo:\n${email.body}\n`;
+      if (email.cta) content += `\n🔥 Call to Action:\n${email.cta}\n`;
+      content += `\n${'-'.repeat(50)}\n\n`;
     }
 
     if (copyData.content.vsl_script) {
-      content += `VSL Script:\n`;
-      content += copyData.content.vsl_script;
-      content += `\n\n`;
+      content += `🎬 SCRIPT DE VENDAS:\n`;
+      content += `\n${copyData.content.vsl_script}\n`;
+      content += `\n${'-'.repeat(50)}\n\n`;
     }
 
     if (copyData.content.whatsapp_messages && copyData.content.whatsapp_messages.length > 0) {
-      content += `WhatsApp Messages:\n`;
+      content += `💬 MENSAGENS WHATSAPP:\n`;
       copyData.content.whatsapp_messages.forEach((message, index) => {
-        content += `${index + 1}. ${message}\n`;
+        content += `\n📱 Mensagem ${index + 1}:\n${message}\n`;
       });
-      content += `\n`;
+      content += `\n${'-'.repeat(50)}\n\n`;
     }
 
     if (copyData.content.telegram_messages && copyData.content.telegram_messages.length > 0) {
-      content += `Telegram Messages:\n`;
+      content += `✈️ MENSAGENS TELEGRAM:\n`;
       copyData.content.telegram_messages.forEach((message, index) => {
-        content += `${index + 1}. ${message}\n`;
+        content += `\n📱 Mensagem ${index + 1}:\n${message}\n`;
       });
-      content += `\n`;
+      content += `\n${'-'.repeat(50)}\n\n`;
     }
 
     if (copyData.content.social_media_content) {
-      content += `Social Media Content:\n`;
-      content += JSON.stringify(copyData.content.social_media_content, null, 2);
-      content += `\n\n`;
+      content += `📱 CONTEÚDO REDES SOCIAIS:\n`;
+      const social = copyData.content.social_media_content;
+      if (social.headlines) {
+        content += `\n🏷️ Headlines:\n`;
+        social.headlines.forEach((headline: string, index: number) => {
+          content += `${index + 1}. ${headline}\n`;
+        });
+      }
+      if (social.posts) {
+        content += `\n📝 Posts:\n`;
+        social.posts.forEach((post: string, index: number) => {
+          content += `\nPost ${index + 1}:\n${post}\n`;
+        });
+      }
+      content += `\n${'-'.repeat(50)}\n\n`;
     }
   }
 
-  const blob = new Blob([content], { type: 'text/plain' });
+  content += `\n📋 GERADO EM: ${new Date().toLocaleString('pt-BR')}\n`;
+  content += `🚀 Criado com CopyWriter AI\n`;
+
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${copyData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${copyData.date}.txt`;
+  a.download = generateFileName(copyData, 'txt');
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -99,11 +135,20 @@ export const downloadCopyAsText = (copyData: CopyData) => {
 };
 
 export const downloadCopyAsJSON = (copyData: CopyData) => {
-  const blob = new Blob([JSON.stringify(copyData, null, 2)], { type: 'application/json' });
+  const exportData = {
+    ...copyData,
+    exported_at: new Date().toISOString(),
+    exported_by: 'CopyWriter AI',
+    version: '1.0'
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+    type: 'application/json;charset=utf-8' 
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${copyData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${copyData.date}.json`;
+  a.download = generateFileName(copyData, 'json');
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -116,6 +161,22 @@ export const copyToClipboard = async (text: string) => {
     return true;
   } catch (err) {
     console.error('Failed to copy text: ', err);
-    return false;
+    // Fallback para navegadores mais antigos
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const result = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return result;
+    } catch (fallbackErr) {
+      console.error('Fallback copy failed: ', fallbackErr);
+      return false;
+    }
   }
 };

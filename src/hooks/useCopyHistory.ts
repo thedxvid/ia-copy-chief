@@ -25,10 +25,118 @@ interface CopyHistoryItem {
   };
 }
 
+const getExampleData = (): CopyHistoryItem[] => [
+  {
+    id: 'example-1',
+    title: "Landing Page de Alta Conversão - Curso de Marketing Digital",
+    type: "Landing Page",
+    date: new Date().toLocaleDateString('pt-BR'),
+    status: "Concluído",
+    performance: "Alta conversão",
+    content: {
+      landing_page_copy: {
+        headline: "Transforme Sua Vida Financeira com Marketing Digital",
+        subheadline: "Aprenda as estratégias exatas que me levaram de zero aos 6 dígitos em 12 meses",
+        cta: "Quero Começar Agora!",
+        body: "Descubra como pessoas comuns estão construindo negócios de 6 dígitos usando apenas o celular e algumas estratégias simples de marketing digital..."
+      }
+    },
+    product: {
+      name: "Curso de Marketing Digital",
+      niche: "Marketing Digital",
+      sub_niche: "Infoprodutos"
+    }
+  },
+  {
+    id: 'example-2',
+    title: "Sequência de Email Marketing - Nutrição e Emagrecimento",
+    type: "Email",
+    date: new Date(Date.now() - 86400000).toLocaleDateString('pt-BR'),
+    status: "Em teste",
+    performance: "Média conversão",
+    content: {
+      email_campaign: {
+        subject: "🔥 O Método que Eliminou 15kg em 90 Dias (Sem Dieta Maluca)",
+        body: "Olá! Você já tentou de tudo para emagrecer e nada funcionou? Eu sei exatamente como você se sente...",
+        cta: "Quero Conhecer o Método"
+      }
+    },
+    product: {
+      name: "Método de Emagrecimento Natural",
+      niche: "Saúde e Bem-estar",
+      sub_niche: "Emagrecimento"
+    }
+  },
+  {
+    id: 'example-3',
+    title: "Script de Vendas - Webinar de Investimentos",
+    type: "Script",
+    date: new Date(Date.now() - 172800000).toLocaleDateString('pt-BR'),
+    status: "Concluído",
+    performance: "Alta conversão",
+    content: {
+      vsl_script: "Olá, meu nome é João Silva e nos próximos 45 minutos vou revelar como construí um patrimônio de R$ 1 milhão investindo apenas R$ 100 por mês..."
+    },
+    product: {
+      name: "Webinar Investimentos Inteligentes",
+      niche: "Finanças",
+      sub_niche: "Investimentos"
+    }
+  },
+  {
+    id: 'example-4',
+    title: "Posts para Instagram - Desenvolvimento Pessoal",
+    type: "Social Media",
+    date: new Date(Date.now() - 259200000).toLocaleDateString('pt-BR'),
+    status: "Concluído",
+    performance: "Baixa conversão",
+    content: {
+      social_media_content: {
+        headlines: [
+          "✨ 3 Hábitos que Mudaram Minha Vida Completamente",
+          "🚀 Por que 90% das Pessoas Falham nos Objetivos (e Como Não Ser Uma Delas)",
+          "💡 A Única Coisa que Separa Você do Sucesso"
+        ],
+        posts: [
+          "Você sabia que apenas 8% das pessoas conseguem cumprir suas metas? Descubra o que os 8% fazem diferente...",
+          "Sua mente é como um jardim: se você não plantar flores, as ervas daninhas crescerão sozinhas...",
+          "O sucesso não é sobre fazer coisas extraordinárias. É sobre fazer coisas ordinárias extraordinariamente bem."
+        ]
+      }
+    },
+    product: {
+      name: "Curso de Desenvolvimento Pessoal",
+      niche: "Desenvolvimento Pessoal",
+      sub_niche: "Produtividade"
+    }
+  },
+  {
+    id: 'example-5',
+    title: "Mensagens WhatsApp - Coaching de Relacionamentos",
+    type: "WhatsApp",
+    date: new Date(Date.now() - 345600000).toLocaleDateString('pt-BR'),
+    status: "Em teste",
+    performance: "Em análise",
+    content: {
+      whatsapp_messages: [
+        "Oi! Você já se perguntou por que alguns relacionamentos duram décadas enquanto outros não passam de alguns meses? 🤔",
+        "A verdade é que existe uma 'fórmula' para relacionamentos duradouros, e hoje vou compartilhar com você! ❤️",
+        "Quer descobrir os 3 pilares de um relacionamento sólido? Responda SIM que eu te conto tudo! 👇"
+      ]
+    },
+    product: {
+      name: "Coaching de Relacionamentos",
+      niche: "Relacionamentos",
+      sub_niche: "Coaching"
+    }
+  }
+];
+
 export const useCopyHistory = () => {
   const [historyItems, setHistoryItems] = useState<CopyHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isUsingExampleData, setIsUsingExampleData] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -38,6 +146,8 @@ export const useCopyHistory = () => {
   const fetchCopyHistory = async () => {
     if (!user) {
       setLoading(false);
+      setIsUsingExampleData(true);
+      setHistoryItems(getExampleData());
       return;
     }
 
@@ -115,115 +225,18 @@ export const useCopyHistory = () => {
 
       // Se não houver dados reais, usar dados de exemplo
       if (transformedData.length === 0) {
-        setHistoryItems([
-          {
-            id: '1',
-            title: "Copy para Landing Page - Produto X",
-            type: "Landing Page",
-            date: "10/06/2024",
-            status: "Concluído",
-            performance: "Alta conversão",
-            content: {
-              landing_page_copy: {
-                headline: "Transforme sua vida em 30 dias",
-                subheadline: "Descubra o método que já mudou a vida de mais de 10.000 pessoas",
-                cta: "Quero começar agora!"
-              }
-            },
-            product: {
-              name: "Produto X",
-              niche: "Desenvolvimento Pessoal",
-              sub_niche: "Produtividade"
-            }
-          },
-          {
-            id: '2',
-            title: "Headlines para Campanha Facebook",
-            type: "Headlines",
-            date: "09/06/2024",
-            status: "Em teste",
-            performance: "Em análise",
-            content: {
-              social_media_content: {
-                headlines: [
-                  "🚀 Você está pronto para mudar sua vida?",
-                  "💡 O segredo que 97% das pessoas não conhece",
-                  "⚡ Resultados em apenas 7 dias - Garantido!"
-                ]
-              }
-            },
-            product: {
-              name: "Curso Online",
-              niche: "Marketing Digital",
-              sub_niche: "Facebook Ads"
-            }
-          },
-          {
-            id: '3',
-            title: "Script de Vendas - Webinar",
-            type: "Script",
-            date: "08/06/2024",
-            status: "Concluído",
-            performance: "Média conversão",
-            content: {
-              vsl_script: "Olá, meu nome é João e hoje vou revelar para você o sistema exato que me permitiu sair do zero e chegar aos 6 dígitos em apenas 12 meses..."
-            },
-            product: {
-              name: "Webinar de Vendas",
-              niche: "Negócios Online",
-              sub_niche: "Vendas"
-            }
-          },
-          {
-            id: '4',
-            title: "Email Marketing - Promoção",
-            type: "Email",
-            date: "07/06/2024",
-            status: "Concluído",
-            performance: "Baixa conversão",
-            content: {
-              email_campaign: {
-                subject: "🔥 Últimas vagas - 50% OFF",
-                body: "Olá! Esta é sua última chance de garantir acesso ao nosso curso com 50% de desconto...",
-                cta: "Quero minha vaga!"
-              }
-            },
-            product: {
-              name: "Curso de Email Marketing",
-              niche: "Marketing Digital",
-              sub_niche: "Email Marketing"
-            }
-          }
-        ]);
+        setHistoryItems(getExampleData());
+        setIsUsingExampleData(true);
       } else {
         setHistoryItems(transformedData);
+        setIsUsingExampleData(false);
       }
     } catch (err) {
       console.error('Erro ao buscar histórico:', err);
       setError('Erro ao carregar histórico de copies');
       // Em caso de erro, usar dados de exemplo
-      setHistoryItems([
-        {
-          id: '1',
-          title: "Copy para Landing Page - Produto X",
-          type: "Landing Page",
-          date: "10/06/2024",
-          status: "Concluído",
-          performance: "Alta conversão",
-          content: {
-            landing_page_copy: {
-              headline: "Transforme sua vida em 30 dias",
-              subheadline: "Descubra o método que já mudou a vida de mais de 10.000 pessoas",
-              cta: "Quero começar agora!"
-            }
-          },
-          product: {
-            name: "Produto X",
-            niche: "Desenvolvimento Pessoal",
-            sub_niche: "Produtividade"
-          }
-        }
-      ]);
+      setHistoryItems(getExampleData());
+      setIsUsingExampleData(true);
     } finally {
       setLoading(false);
     }
@@ -233,6 +246,7 @@ export const useCopyHistory = () => {
     historyItems,
     loading,
     error,
+    isUsingExampleData,
     refetch: fetchCopyHistory,
   };
 };

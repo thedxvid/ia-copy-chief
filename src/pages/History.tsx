@@ -5,21 +5,25 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Download, Eye, Calendar, Search, Filter } from 'lucide-react';
+import { FileText, Download, Eye, Calendar, Search, Filter, Plus, Info } from 'lucide-react';
 import { CopyDetailsModal } from '@/components/history/CopyDetailsModal';
 import { CopyPreviewModal } from '@/components/history/CopyPreviewModal';
 import { downloadCopyAsText, downloadCopyAsJSON } from '@/utils/copyExport';
 import { useCopyHistory } from '@/hooks/useCopyHistory';
 import { CardSkeleton } from '@/components/ui/loading-skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const History = () => {
-  const { historyItems, loading, error } = useCopyHistory();
+  const { historyItems, loading, error, isUsingExampleData } = useCopyHistory();
   const [selectedCopy, setSelectedCopy] = useState<any>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -48,19 +52,43 @@ const History = () => {
   const handleViewDetails = (item: any) => {
     setSelectedCopy(item);
     setIsDetailsModalOpen(true);
+    toast({
+      title: "Visualizando detalhes",
+      description: `Abrindo detalhes da copy "${item.title}"`
+    });
   };
 
   const handlePreview = (item: any) => {
     setSelectedCopy(item);
     setIsPreviewModalOpen(true);
+    toast({
+      title: "Prévia carregada",
+      description: `Exibindo prévia do conteúdo da copy "${item.title}"`
+    });
   };
 
   const handleDownload = (item: any, format: 'text' | 'json' = 'text') => {
     if (format === 'text') {
       downloadCopyAsText(item);
+      toast({
+        title: "Download iniciado",
+        description: `Baixando "${item.title}" como arquivo TXT`
+      });
     } else {
       downloadCopyAsJSON(item);
+      toast({
+        title: "Download iniciado",
+        description: `Baixando "${item.title}" como arquivo JSON`
+      });
     }
+  };
+
+  const handleCreateFirstCopy = () => {
+    navigate('/products');
+    toast({
+      title: "Redirecionando",
+      description: "Vá para a página de produtos para criar sua primeira copy"
+    });
   };
 
   // Filtrar itens baseado na busca e filtros
@@ -78,7 +106,7 @@ const History = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Histórico de Copies</h1>
           <p className="text-[#CCCCCC]">
@@ -96,7 +124,7 @@ const History = () => {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Histórico de Copies</h1>
           <p className="text-[#CCCCCC]">
@@ -116,13 +144,49 @@ const History = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Histórico de Copies</h1>
-        <p className="text-[#CCCCCC]">
-          Acompanhe todas as suas copies criadas e seus resultados
-        </p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Histórico de Copies</h1>
+          <p className="text-[#CCCCCC]">
+            Acompanhe todas as suas copies criadas e seus resultados
+          </p>
+        </div>
+        {historyItems.length === 0 && (
+          <Button 
+            onClick={handleCreateFirstCopy}
+            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Criar Primeira Copy
+          </Button>
+        )}
       </div>
+
+      {/* Indicador de dados de exemplo */}
+      {isUsingExampleData && historyItems.length > 0 && (
+        <Card className="bg-[#1E1E1E] border-[#4B5563]/20 border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Info className="w-5 h-5 text-blue-400" />
+              <div>
+                <p className="text-blue-400 font-medium">Visualizando dados de exemplo</p>
+                <p className="text-[#CCCCCC] text-sm">
+                  Estas são copies de demonstração. Crie produtos e copies reais para ver seu histórico personalizado.
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleCreateFirstCopy}
+                className="ml-auto"
+              >
+                Criar Copy Real
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filtros e Busca */}
       <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
@@ -173,18 +237,34 @@ const History = () => {
       <div className="grid gap-4">
         {filteredItems.length === 0 ? (
           <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
-            <CardContent className="p-6 text-center">
-              <p className="text-[#CCCCCC]">
+            <CardContent className="p-8 text-center">
+              <FileText className="w-16 h-16 text-[#4B5563] mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">
                 {searchTerm || filterType !== 'all' || filterStatus !== 'all' 
-                  ? 'Nenhuma copy encontrada com os filtros selecionados'
-                  : 'Nenhuma copy encontrada. Crie sua primeira copy!'
+                  ? 'Nenhuma copy encontrada'
+                  : 'Nenhuma copy ainda'
+                }
+              </h3>
+              <p className="text-[#CCCCCC] mb-6">
+                {searchTerm || filterType !== 'all' || filterStatus !== 'all' 
+                  ? 'Tente ajustar os filtros de busca para encontrar o que procura.'
+                  : 'Você ainda não criou nenhuma copy. Comece criando seu primeiro produto!'
                 }
               </p>
+              {!searchTerm && filterType === 'all' && filterStatus === 'all' && (
+                <Button 
+                  onClick={handleCreateFirstCopy}
+                  className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar Primeira Copy
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
           filteredItems.map((item) => (
-            <Card key={item.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-colors">
+            <Card key={item.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all duration-200 hover:shadow-lg">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
@@ -208,16 +288,16 @@ const History = () => {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-[#CCCCCC] hover:text-white"
+                      className="text-[#CCCCCC] hover:text-white hover:bg-[#4B5563]/20"
                       onClick={() => handlePreview(item)}
-                      title="Visualizar"
+                      title="Visualizar conteúdo"
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-[#CCCCCC] hover:text-white"
+                      className="text-[#CCCCCC] hover:text-white hover:bg-[#4B5563]/20"
                       onClick={() => handleDownload(item)}
                       title="Baixar como TXT"
                     >
@@ -238,7 +318,7 @@ const History = () => {
                   </div>
                   <Button 
                     size="sm" 
-                    className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                    className="bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors"
                     onClick={() => handleViewDetails(item)}
                   >
                     Ver Detalhes
