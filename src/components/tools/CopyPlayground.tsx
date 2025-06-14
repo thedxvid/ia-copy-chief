@@ -1,15 +1,15 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, Target, TrendingUp, AlertCircle, Copy, RefreshCw } from 'lucide-react';
+import { Brain, Target, TrendingUp, AlertCircle, Copy, RefreshCw, Heart } from 'lucide-react';
 import { useN8nIntegration } from '@/hooks/useN8nIntegration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTokens } from '@/hooks/useTokens';
 import { toast } from 'sonner';
+import { SentimentAnalyzer } from './SentimentAnalyzer';
 
 interface AnalysisResult {
   score: number;
@@ -185,19 +185,19 @@ export const CopyPlayground = () => {
       <CardHeader>
         <CardTitle className="text-white flex items-center gap-2">
           <Brain className="w-5 h-5" />
-          Playground de Copy
+          Playground de Copy Avançado
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <Textarea 
-            placeholder="Cole sua copy aqui para análise e melhorias..."
+            placeholder="Cole sua copy aqui para análise completa, melhorias e análise de sentimento..."
             value={copyText}
             onChange={(e) => setCopyText(e.target.value)}
             className="min-h-32 bg-[#2A2A2A] border-[#4B5563]/40 text-white placeholder:text-[#CCCCCC]"
           />
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button 
               onClick={analyzeCopy}
               disabled={isAnalyzing || !canAffordFeature('chat')}
@@ -211,14 +211,14 @@ export const CopyPlayground = () => {
               ) : (
                 <>
                   <Target className="w-4 h-4 mr-2" />
-                  Analisar Copy (~300 tokens)
+                  Análise Básica (~300 tokens)
                 </>
               )}
             </Button>
             
             <Button 
               onClick={improveCopy}
-              disabled={isImproving || !canAffordFeature('copy')}
+              disabled={isImproving || !canAffortFeature('copy')}
               variant="outline" 
               className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
             >
@@ -230,21 +230,25 @@ export const CopyPlayground = () => {
               ) : (
                 <>
                   <TrendingUp className="w-4 h-4 mr-2" />
-                  Sugerir Melhorias (~600 tokens)
+                  Melhorar Copy (~600 tokens)
                 </>
               )}
             </Button>
           </div>
         </div>
 
-        {(analysis || improvedCopy) && (
+        {(analysis || improvedCopy || copyText.trim()) && (
           <Tabs defaultValue="analysis" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-[#2A2A2A]">
+            <TabsList className="grid w-full grid-cols-3 bg-[#2A2A2A]">
               <TabsTrigger value="analysis" className="data-[state=active]:bg-[#3B82F6]">
-                Análise
+                Análise Básica
               </TabsTrigger>
               <TabsTrigger value="improvement" className="data-[state=active]:bg-[#3B82F6]">
                 Copy Melhorada
+              </TabsTrigger>
+              <TabsTrigger value="sentiment" className="data-[state=active]:bg-[#8B5CF6]">
+                <Heart className="w-4 h-4 mr-2" />
+                Sentimento
               </TabsTrigger>
             </TabsList>
             
@@ -354,6 +358,10 @@ export const CopyPlayground = () => {
                   </p>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="sentiment" className="space-y-4 mt-4">
+              <SentimentAnalyzer copyText={copyText} />
             </TabsContent>
           </Tabs>
         )}
