@@ -2,6 +2,7 @@
 import React from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
+import { TokenWidget } from '@/components/tokens/TokenWidget';
 import { Bot } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -43,6 +44,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <h1 className="text-base font-bold text-white">CopyChief</h1>
                 </div>
               </div>
+            </div>
+
+            {/* Token Widget no lado direito */}
+            <div className="flex items-center gap-2">
+              <TokenWidget />
             </div>
           </header>
           <main className="flex-1 p-3 sm:p-4 lg:p-6 max-w-full overflow-x-hidden">

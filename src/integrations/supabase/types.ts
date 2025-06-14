@@ -381,23 +381,107 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          extra_tokens: number | null
           full_name: string | null
           id: string
+          monthly_tokens: number | null
+          notified_10: boolean | null
+          notified_50: boolean | null
+          notified_90: boolean | null
+          tokens_reset_date: string | null
+          total_tokens_used: number | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          extra_tokens?: number | null
           full_name?: string | null
           id: string
+          monthly_tokens?: number | null
+          notified_10?: boolean | null
+          notified_50?: boolean | null
+          notified_90?: boolean | null
+          tokens_reset_date?: string | null
+          total_tokens_used?: number | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          extra_tokens?: number | null
           full_name?: string | null
           id?: string
+          monthly_tokens?: number | null
+          notified_10?: boolean | null
+          notified_50?: boolean | null
+          notified_90?: boolean | null
+          tokens_reset_date?: string | null
+          total_tokens_used?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      token_purchases: {
+        Row: {
+          amount_paid: number | null
+          created_at: string | null
+          id: string
+          payment_id: string | null
+          status: string | null
+          tokens_purchased: number
+          user_id: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          created_at?: string | null
+          id?: string
+          payment_id?: string | null
+          status?: string | null
+          tokens_purchased: number
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number | null
+          created_at?: string | null
+          id?: string
+          payment_id?: string | null
+          status?: string | null
+          tokens_purchased?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      token_usage: {
+        Row: {
+          completion_tokens: number | null
+          created_at: string | null
+          feature_used: string
+          id: string
+          prompt_tokens: number | null
+          tokens_used: number
+          total_tokens: number
+          user_id: string
+        }
+        Insert: {
+          completion_tokens?: number | null
+          created_at?: string | null
+          feature_used: string
+          id?: string
+          prompt_tokens?: number | null
+          tokens_used: number
+          total_tokens: number
+          user_id: string
+        }
+        Update: {
+          completion_tokens?: number | null
+          created_at?: string | null
+          feature_used?: string
+          id?: string
+          prompt_tokens?: number | null
+          tokens_used?: number
+          total_tokens?: number
+          user_id?: string
         }
         Relationships: []
       }
@@ -406,7 +490,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      consume_tokens: {
+        Args: {
+          p_user_id: string
+          p_tokens_used: number
+          p_feature_used: string
+          p_prompt_tokens?: number
+          p_completion_tokens?: number
+        }
+        Returns: boolean
+      }
+      get_available_tokens: {
+        Args: { p_user_id: string }
+        Returns: {
+          monthly_tokens: number
+          extra_tokens: number
+          total_available: number
+          total_used: number
+        }[]
+      }
+      reset_monthly_tokens: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
