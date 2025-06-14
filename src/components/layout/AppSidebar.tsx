@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -65,8 +64,12 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
 
   return (
-    <Sidebar className="!bg-zinc-950 md:!bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl z-50 transition-colors duration-300" collapsible="icon">
-      <SidebarHeader className="p-3 sm:p-4 border-b border-[#2A2A2A]">
+    <Sidebar 
+      className="!bg-zinc-950 md:!bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl z-50 transition-colors duration-300" 
+      collapsible="icon"
+      style={{ backgroundColor: '#0a0a0a' }}
+    >
+      <SidebarHeader className="p-3 sm:p-4 border-b border-[#2A2A2A] !bg-zinc-950" style={{ backgroundColor: '#0a0a0a' }}>
         <div className="flex items-center gap-2 sm:gap-3 group-data-[collapsible=icon]:justify-center">
           <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center flex-shrink-0">
             <Bot className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
@@ -78,7 +81,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="!bg-zinc-950" style={{ backgroundColor: '#0a0a0a' }}>
         <SidebarGroup>
           <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider px-2">
             <span className="group-data-[collapsible=icon]:hidden">Menu Principal</span>
@@ -106,7 +109,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       
-      <SidebarFooter className="p-3 sm:p-4 border-t border-[#2A2A2A]">
+      <SidebarFooter className="p-3 sm:p-4 border-t border-[#2A2A2A] !bg-zinc-950" style={{ backgroundColor: '#0a0a0a' }}>
         <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 group-data-[collapsible=icon]:justify-center">
           <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
             <AvatarImage src={user?.user_metadata?.avatar_url} />
