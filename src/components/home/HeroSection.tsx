@@ -1,25 +1,15 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles, Check } from 'lucide-react';
 import { ModernButton } from '@/components/ui/modern-button';
 import { useTypewriter } from '@/hooks/useTypewriter';
-
 export function HeroSection() {
   const typewriterText = useTypewriter({
-    words: [
-      'Copy Persuasiva',
-      'Vendas Online',
-      'Marketing Digital',
-      'Conversões',
-      'Anúncios Pagos',
-      'Landing Pages'
-    ],
+    words: ['Copy Persuasiva', 'Vendas Online', 'Marketing Digital', 'Conversões', 'Anúncios Pagos', 'Landing Pages'],
     typeSpeed: 120,
     deleteSpeed: 80,
     delayBetweenWords: 2500
   });
-
   const benefits = [{
     icon: Check,
     text: 'Grátis para sempre'
@@ -30,9 +20,7 @@ export function HeroSection() {
     icon: Check,
     text: 'Resultados instantâneos'
   }];
-
-  return (
-    <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden">
+  return <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden">
       {/* Enhanced animated background */}
       <div className="absolute inset-0 bg-[#121212]">
         {/* Gradient overlay */}
@@ -45,11 +33,21 @@ export function HeroSection() {
         
         {/* Moving particles */}
         <div className="absolute inset-0">
-          <div className="absolute top-[10%] left-[10%] w-2 h-2 bg-[#3B82F6] rounded-full animate-ping" style={{ animationDelay: '0s' }} />
-          <div className="absolute top-[20%] right-[15%] w-1 h-1 bg-[#2563EB] rounded-full animate-ping" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-[60%] left-[5%] w-1.5 h-1.5 bg-[#3B82F6] rounded-full animate-ping" style={{ animationDelay: '2s' }} />
-          <div className="absolute bottom-[30%] right-[10%] w-2 h-2 bg-[#2563EB] rounded-full animate-ping" style={{ animationDelay: '3s' }} />
-          <div className="absolute top-[80%] left-[80%] w-1 h-1 bg-[#3B82F6] rounded-full animate-ping" style={{ animationDelay: '4s' }} />
+          <div className="absolute top-[10%] left-[10%] w-2 h-2 bg-[#3B82F6] rounded-full animate-ping" style={{
+          animationDelay: '0s'
+        }} />
+          <div className="absolute top-[20%] right-[15%] w-1 h-1 bg-[#2563EB] rounded-full animate-ping" style={{
+          animationDelay: '1s'
+        }} />
+          <div className="absolute top-[60%] left-[5%] w-1.5 h-1.5 bg-[#3B82F6] rounded-full animate-ping" style={{
+          animationDelay: '2s'
+        }} />
+          <div className="absolute bottom-[30%] right-[10%] w-2 h-2 bg-[#2563EB] rounded-full animate-ping" style={{
+          animationDelay: '3s'
+        }} />
+          <div className="absolute top-[80%] left-[80%] w-1 h-1 bg-[#3B82F6] rounded-full animate-ping" style={{
+          animationDelay: '4s'
+        }} />
         </div>
       </div>
       
@@ -71,7 +69,7 @@ export function HeroSection() {
             </span>
           </h2>
           
-          <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-[#CCCCCC] mb-8 sm:mb-12 max-w-4xl mx-auto leading-relaxed animate-fade-in-up animate-stagger-3 px-2">
+          <p className="text-lg sm:text-xl md:text-2xl text-[#CCCCCC] mb-8 sm:mb-12 max-w-4xl mx-auto leading-relaxed animate-fade-in-up animate-stagger-3 px-2 lg:text-xl">
             Transforme suas vendas com IA avançada. Nossa plataforma gera copies de alta conversão 
             baseadas em estratégias comprovadas de grandes marcas. 
             <span className="text-[#3B82F6] font-semibold block mt-2">
@@ -80,12 +78,7 @@ export function HeroSection() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-12 sm:mb-16 animate-fade-in-up animate-stagger-4 px-2">
-            <ModernButton 
-              asChild 
-              size="lg" 
-              variant="gradient" 
-              className="group bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-[#FFFFFF] text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#3B82F6]/30 w-full sm:w-auto"
-            >
+            <ModernButton asChild size="lg" variant="gradient" className="group bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-[#FFFFFF] text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#3B82F6]/30 w-full sm:w-auto">
               <Link to="/quiz" className="flex items-center justify-center gap-3">
                 <Sparkles className="w-4 sm:w-5 h-4 sm:h-5 group-hover:rotate-12 transition-transform" />
                 Começar Agora
@@ -93,24 +86,18 @@ export function HeroSection() {
               </Link>
             </ModernButton>
             
-            <Link
-              to="/dashboard"
-              className="text-[#CCCCCC] hover:text-[#3B82F6] text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:bg-white/5 backdrop-blur-sm border border-transparent hover:border-[#3B82F6]/30 w-full sm:w-auto text-center"
-            >
+            <Link to="/dashboard" className="text-[#CCCCCC] hover:text-[#3B82F6] text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:bg-white/5 backdrop-blur-sm border border-transparent hover:border-[#3B82F6]/30 w-full sm:w-auto text-center">
               Ver Dashboard
             </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 text-sm animate-fade-in-up animate-stagger-5 px-2">
-            {benefits.map((item, index) => (
-              <div key={index} className={`flex items-center justify-center gap-3 p-4 sm:p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50 hover:shadow-lg hover:shadow-[#3B82F6]/10`}>
+            {benefits.map((item, index) => <div key={index} className={`flex items-center justify-center gap-3 p-4 sm:p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50 hover:shadow-lg hover:shadow-[#3B82F6]/10`}>
                 <item.icon className="w-5 sm:w-6 h-5 sm:h-6 text-green-400 flex-shrink-0" />
                 <span className="text-[#CCCCCC] font-medium text-sm sm:text-base">{item.text}</span>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 }
