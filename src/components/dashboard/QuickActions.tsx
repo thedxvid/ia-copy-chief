@@ -46,24 +46,24 @@ export const QuickActions = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {quickActions.map((action, index) => (
             <Button
               key={index}
               variant="outline"
               asChild
-              className="h-auto p-4 text-left border-[#4B5563] hover:bg-[#2A2A2A] hover:border-[#3B82F6]/50 transition-all duration-200"
+              className="h-auto p-2 sm:p-4 text-left border-[#4B5563] hover:bg-[#2A2A2A] hover:border-[#3B82F6]/50 transition-all duration-200 min-w-0"
             >
               <Link to={action.link}>
-                <div className="flex flex-col items-center space-y-3">
-                  <div className={`p-2 ${action.color} rounded-lg`}>
-                    <action.icon className="w-5 h-5 text-white" />
+                <div className="flex flex-col items-center space-y-2 sm:space-y-3 w-full min-w-0">
+                  <div className={`p-1.5 sm:p-2 ${action.color} rounded-lg flex-shrink-0`}>
+                    <action.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
-                  <div className="text-center space-y-1">
-                    <h4 className="font-medium text-white text-sm leading-relaxed tracking-wide">
+                  <div className="text-center space-y-0.5 sm:space-y-1 w-full min-w-0">
+                    <h4 className="font-medium text-white text-xs sm:text-sm leading-tight tracking-normal truncate w-full px-1">
                       {action.title}
                     </h4>
-                    <p className="text-xs text-[#CCCCCC] leading-relaxed tracking-wide">
+                    <p className="text-xs text-[#CCCCCC] leading-tight tracking-normal truncate w-full px-1">
                       {action.description}
                     </p>
                   </div>

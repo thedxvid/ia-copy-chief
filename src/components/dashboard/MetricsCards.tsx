@@ -47,8 +47,8 @@ export const MetricsCards = () => {
             <CardTitle className="text-xs sm:text-sm font-medium text-white leading-tight truncate pr-2">
               {metric.title}
             </CardTitle>
-            <div className={`p-1 sm:p-1.5 lg:p-2 rounded-lg ${metric.bgColor} flex-shrink-0`}>
-              <metric.icon className={`h-3 w-3 sm:h-4 sm:w-4 ${metric.color}`} />
+            <div className={`p-2 sm:p-2.5 lg:p-2 rounded-lg ${metric.bgColor} flex-shrink-0`}>
+              <metric.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-4 lg:w-4 ${metric.color}`} />
             </div>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 lg:p-4 pt-0">
