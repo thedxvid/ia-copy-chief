@@ -390,6 +390,9 @@ export type Database = {
           notified_90: boolean | null
           tokens_reset_date: string | null
           total_tokens_used: number | null
+          tutorial_completed: boolean
+          tutorial_skipped: boolean
+          tutorial_step: number | null
           updated_at: string
         }
         Insert: {
@@ -404,6 +407,9 @@ export type Database = {
           notified_90?: boolean | null
           tokens_reset_date?: string | null
           total_tokens_used?: number | null
+          tutorial_completed?: boolean
+          tutorial_skipped?: boolean
+          tutorial_step?: number | null
           updated_at?: string
         }
         Update: {
@@ -418,6 +424,9 @@ export type Database = {
           notified_90?: boolean | null
           tokens_reset_date?: string | null
           total_tokens_used?: number | null
+          tutorial_completed?: boolean
+          tutorial_skipped?: boolean
+          tutorial_step?: number | null
           updated_at?: string
         }
         Relationships: []
