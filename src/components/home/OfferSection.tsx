@@ -141,19 +141,16 @@ export function OfferSection() {
                   <div className="text-3xl font-bold text-[#CCCCCC] line-through opacity-60 mb-2">
                     R$ {totalValue.toLocaleString('pt-BR')}/mês
                   </div>
-                  <p className="text-sm text-red-400 font-medium">Economia de {Math.round(((totalValue - 47) / totalValue) * 100)}%</p>
+                  <p className="text-sm text-red-400 font-medium">Economia de {Math.round(((totalValue - 97) / totalValue) * 100)}%</p>
                 </div>
 
                 {/* Main Price */}
                 <div className="text-center mb-8">
                   <p className="text-lg text-[#CCCCCC] mb-2">Seu investimento hoje:</p>
                   <div className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-[#3B82F6] to-[#2563EB] bg-clip-text text-transparent mb-2">
-                    R$ 47
+                    R$ 97
                   </div>
                   <p className="text-xl text-[#CCCCCC]">/mês</p>
-                  <p className="text-sm text-green-400 font-medium mt-2">
-                    Primeiro mês por apenas R$ 1
-                  </p>
                 </div>
 
                 {/* CTA Button */}
@@ -204,13 +201,6 @@ export function OfferSection() {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes shimmer {
-          0% { transform: translateX(-100%) skewX(-12deg); }
-          100% { transform: translateX(200%) skewX(-12deg); }
-        }
-      `}</style>
     </section>
   );
 }
