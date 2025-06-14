@@ -92,32 +92,62 @@ export type Database = {
       product_analytics: {
         Row: {
           benchmark_data: Json | null
+          campaign_end: string | null
+          campaign_start: string | null
+          conversion_rate: number | null
           copy_efficiency_score: number | null
           created_at: string
+          ctr: number | null
+          engagement_rate: number | null
           estimated_conversion_rate: number | null
           id: string
+          impressions: number | null
+          notes: string | null
           performance_metrics: Json | null
           product_id: string
+          roi_real: number | null
+          sales_generated: number | null
+          status: string | null
           updated_at: string
         }
         Insert: {
           benchmark_data?: Json | null
+          campaign_end?: string | null
+          campaign_start?: string | null
+          conversion_rate?: number | null
           copy_efficiency_score?: number | null
           created_at?: string
+          ctr?: number | null
+          engagement_rate?: number | null
           estimated_conversion_rate?: number | null
           id?: string
+          impressions?: number | null
+          notes?: string | null
           performance_metrics?: Json | null
           product_id: string
+          roi_real?: number | null
+          sales_generated?: number | null
+          status?: string | null
           updated_at?: string
         }
         Update: {
           benchmark_data?: Json | null
+          campaign_end?: string | null
+          campaign_start?: string | null
+          conversion_rate?: number | null
           copy_efficiency_score?: number | null
           created_at?: string
+          ctr?: number | null
+          engagement_rate?: number | null
           estimated_conversion_rate?: number | null
           id?: string
+          impressions?: number | null
+          notes?: string | null
           performance_metrics?: Json | null
           product_id?: string
+          roi_real?: number | null
+          sales_generated?: number | null
+          status?: string | null
           updated_at?: string
         }
         Relationships: [

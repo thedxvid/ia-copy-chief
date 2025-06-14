@@ -1,77 +1,66 @@
-
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { FileText, Bot, BookOpen, Search } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Package, LayoutDashboard, Zap, Clock, Bot, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const quickActions = [
-  {
-    title: 'Templates Mais Usados',
-    description: 'Acesso rápido aos seus favoritos',
-    icon: FileText,
-    color: 'bg-[#3B82F6]',
-    link: '/tools'
-  },
-  {
-    title: 'Agentes IA Ativos',
-    description: 'Copy, Headlines, Scripts',
-    icon: Bot,
-    color: 'bg-[#10B981]',
-    link: '/agents'
-  },
-  {
-    title: 'Biblioteca de Headlines',
-    description: 'Headlines que converteram',
-    icon: BookOpen,
-    color: 'bg-[#F59E0B]',
-    link: '/tools'
-  },
-  {
-    title: 'Análise Concorrência',
-    description: 'Analise copies dos concorrentes',
-    icon: Search,
-    color: 'bg-[#8B5CF6]',
-    link: '/tools'
-  }
-];
-
 export const QuickActions = () => {
+  const actions = [
+    {
+      title: 'Novo Produto',
+      description: 'Adicione um novo produto para gerar copies',
+      icon: Package,
+      href: '/products',
+      color: 'from-blue-500 to-cyan-500'
+    },
+    {
+      title: 'Dashboard',
+      description: 'Visão geral dos seus produtos e copies',
+      icon: LayoutDashboard,
+      href: '/dashboard',
+      color: 'from-green-500 to-teal-500'
+    },
+    {
+      title: 'Gerar Copy',
+      description: 'Crie copies incríveis com a IA',
+      icon: Zap,
+      href: '/tools',
+      color: 'from-orange-500 to-yellow-500'
+    },
+    {
+      title: 'Ver Analytics',
+      description: 'Análise de performance das copies',
+      icon: BarChart3,
+      href: '/analytics',
+      color: 'from-purple-500 to-pink-500'
+    }
+  ];
+
   return (
     <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
       <CardHeader>
-        <CardTitle className="text-white">Atalhos Rápidos</CardTitle>
+        <CardTitle className="text-white">Ações Rápidas</CardTitle>
         <CardDescription className="text-[#CCCCCC]">
-          Ferramentas mais utilizadas
+          Acesse rapidamente as principais funcionalidades
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-          {quickActions.map((action, index) => (
-            <Button
-              key={index}
-              variant="outline"
-              asChild
-              className="h-auto p-2 sm:p-4 text-left border-[#4B5563] hover:bg-[#2A2A2A] hover:border-[#3B82F6]/50 transition-all duration-200 min-w-0"
-            >
-              <Link to={action.link}>
-                <div className="flex flex-col items-center space-y-2 sm:space-y-3 w-full min-w-0">
-                  <div className={`p-1.5 sm:p-2 ${action.color} rounded-lg flex-shrink-0`}>
-                    <action.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                  </div>
-                  <div className="text-center space-y-0.5 sm:space-y-1 w-full min-w-0">
-                    <h4 className="font-medium text-white text-xs sm:text-sm leading-tight tracking-normal truncate w-full px-1">
-                      {action.title}
-                    </h4>
-                    <p className="text-xs text-[#CCCCCC] leading-tight tracking-normal truncate w-full px-1">
-                      {action.description}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            </Button>
-          ))}
-        </div>
+      <CardContent className="space-y-3">
+        {actions.map((action, index) => (
+          <Link
+            key={index}
+            to={action.href}
+            className="flex items-center space-x-3 p-3 rounded-lg bg-[#2A2A2A]/50 hover:bg-[#2A2A2A] transition-colors group"
+          >
+            <div className={`p-2 rounded-lg bg-gradient-to-r ${action.color} group-hover:scale-110 transition-transform`}>
+              <action.icon className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-white group-hover:text-[#3B82F6] transition-colors">
+                {action.title}
+              </h4>
+              <p className="text-xs text-[#888888]">{action.description}</p>
+            </div>
+          </Link>
+        ))}
       </CardContent>
     </Card>
   );
