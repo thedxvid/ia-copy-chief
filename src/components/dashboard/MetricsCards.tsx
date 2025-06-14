@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FolderOpen, TrendingUp, FileText, DollarSign } from 'lucide-react';
+import { FolderOpen, Clock, FileText, CheckCircle } from 'lucide-react';
 
 const metrics = [
   {
@@ -13,10 +12,10 @@ const metrics = [
     bgColor: 'bg-[#3B82F6]/10'
   },
   {
-    title: 'Taxa de Conversão',
-    value: '3.4%',
-    change: '+8%',
-    icon: TrendingUp,
+    title: 'Tempo Economizado',
+    value: '47h',
+    change: '+12h',
+    icon: Clock,
     color: 'text-[#10B981]',
     bgColor: 'bg-[#10B981]/10'
   },
@@ -29,10 +28,10 @@ const metrics = [
     bgColor: 'bg-[#F59E0B]/10'
   },
   {
-    title: 'ROI Médio',
-    value: '287%',
-    change: '+15%',
-    icon: DollarSign,
+    title: 'Copies Aprovadas',
+    value: '24',
+    change: '+6',
+    icon: CheckCircle,
     color: 'text-[#8B5CF6]',
     bgColor: 'bg-[#8B5CF6]/10'
   }
