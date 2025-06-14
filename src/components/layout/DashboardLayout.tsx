@@ -2,7 +2,7 @@
 import React from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
-import { Bot, Menu } from 'lucide-react';
+import { Bot } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -17,7 +17,20 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           <header className="flex h-14 sm:h-16 shrink-0 items-center justify-between gap-2 border-b border-[#4B5563]/20 px-3 sm:px-4">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-white hover:bg-[#2A2A2A] flex-shrink-0">
-                <Menu className="h-4 w-4" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                </svg>
                 <span className="sr-only">Toggle Sidebar</span>
               </SidebarTrigger>
               
