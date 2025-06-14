@@ -10,7 +10,7 @@ import { CopyDetailsModal } from '@/components/history/CopyDetailsModal';
 import { CopyPreviewModal } from '@/components/history/CopyPreviewModal';
 import { downloadCopyAsText, downloadCopyAsJSON } from '@/utils/copyExport';
 import { useCopyHistory } from '@/hooks/useCopyHistory';
-import { LoadingSkeleton } from '@/components/ui/loading-skeleton';
+import { CardSkeleton } from '@/components/ui/loading-skeleton';
 
 const History = () => {
   const { historyItems, loading, error } = useCopyHistory();
@@ -87,7 +87,7 @@ const History = () => {
         </div>
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
-            <LoadingSkeleton key={i} className="h-32 w-full" />
+            <CardSkeleton key={i} />
           ))}
         </div>
       </div>
