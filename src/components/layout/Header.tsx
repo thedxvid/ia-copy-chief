@@ -103,9 +103,12 @@ export const Header = () => {
               </DropdownMenu>
             ) : (
               <div className="hidden md:flex items-center space-x-3">
-                <ModernButton variant="ghost" asChild>
-                  <Link to="/auth">Entrar</Link>
-                </ModernButton>
+                <Link
+                  to="/auth"
+                  className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-4 py-2"
+                >
+                  Entrar
+                </Link>
                 <ModernButton asChild>
                   <Link to="/auth">Começar Agora</Link>
                 </ModernButton>
@@ -139,11 +142,13 @@ export const Header = () => {
               
               {!user && (
                 <div className="flex flex-col space-y-2 pt-4 border-t border-[#4B5563]/50">
-                  <ModernButton variant="ghost" asChild>
-                    <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
-                      Entrar
-                    </Link>
-                  </ModernButton>
+                  <Link
+                    to="/auth"
+                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-2 py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Entrar
+                  </Link>
                   <ModernButton asChild>
                     <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
                       Começar Agora
