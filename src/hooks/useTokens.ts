@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,13 +16,14 @@ interface NotificationFlags {
   notified_10: boolean;
 }
 
-const MONTHLY_TOKENS_LIMIT = 25000; // Novo limite para plano R$ 97
+const MONTHLY_TOKENS_LIMIT = 25000; // Plano R$ 97
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notificationFlags, setNotificationFlags] = useState<NotificationFlags | null>(null);
+  const [lastResetDate, setLastResetDate] = useState<string | null>(null);
   const { user } = useAuth();
 
   const fetchTokens = useCallback(async () => {
@@ -42,10 +42,10 @@ export const useTokens = () => {
 
       if (tokensError) throw tokensError;
 
-      // Buscar flags de notificação
+      // Buscar flags de notificação e data de reset
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('notified_90, notified_50, notified_10')
+        .select('notified_90, notified_50, notified_10, tokens_reset_date')
         .eq('id', user.id)
         .single();
 
@@ -57,6 +57,7 @@ export const useTokens = () => {
         const tokenInfo = tokensData[0];
         setTokens(tokenInfo);
         setNotificationFlags(profileData || { notified_90: false, notified_50: false, notified_10: false });
+        setLastResetDate(profileData?.tokens_reset_date || null);
         
         // Verificar se precisa mostrar notificações
         checkAndShowNotifications(tokenInfo, profileData);
@@ -102,9 +103,64 @@ export const useTokens = () => {
     }
   }, []);
 
+  const checkResetNeeded = useCallback(async () => {
+    if (!user?.id || !lastResetDate) return;
+
+    const today = new Date();
+    const resetDate = new Date(lastResetDate);
+    const daysDiff = Math.floor((today.getTime() - resetDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Se passou mais de 30 dias, sugerir reset
+    if (daysDiff >= 30) {
+      console.log('Reset automático detectado como necessário');
+      
+      // Verificar se há uma função de reset disponível
+      try {
+        const { data, error } = await supabase.functions.invoke('monthly-token-reset');
+        if (!error && data?.success) {
+          toast.success('🔄 Tokens Renovados!', {
+            description: 'Seus tokens mensais foram renovados automaticamente.',
+            duration: 5000,
+          });
+          
+          // Atualizar dados após reset
+          fetchTokens();
+        }
+      } catch (err) {
+        console.warn('Reset automático não disponível:', err);
+      }
+    }
+  }, [user?.id, lastResetDate, fetchTokens]);
+
+  const getDaysUntilReset = useCallback(() => {
+    if (!lastResetDate) return null;
+    
+    const resetDate = new Date(lastResetDate);
+    const nextReset = new Date(resetDate);
+    nextReset.setMonth(nextReset.getMonth() + 1);
+    
+    const today = new Date();
+    const daysUntilReset = Math.ceil((nextReset.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    return Math.max(0, daysUntilReset);
+  }, [lastResetDate]);
+
+  const getMonthlyUsageProgress = useCallback(() => {
+    if (!tokens) return 0;
+    
+    const usedTokens = MONTHLY_TOKENS_LIMIT - tokens.total_available;
+    return Math.min(100, Math.max(0, (usedTokens / MONTHLY_TOKENS_LIMIT) * 100));
+  }, [tokens]);
+
   useEffect(() => {
     fetchTokens();
   }, [fetchTokens]);
+
+  useEffect(() => {
+    if (tokens && lastResetDate) {
+      checkResetNeeded();
+    }
+  }, [tokens, lastResetDate, checkResetNeeded]);
 
   const refreshTokens = useCallback(() => {
     console.log('Refreshing tokens...');
@@ -147,12 +203,11 @@ export const useTokens = () => {
   const getRemainingDaysEstimate = useCallback(() => {
     if (!tokens) return null;
     
-    // Calcular uso médio diário baseado no histórico
     const totalUsed = MONTHLY_TOKENS_LIMIT - tokens.total_available;
-    const daysInMonth = new Date().getDate(); // Dias transcorridos no mês
-    const avgDailyUsage = daysInMonth > 0 ? totalUsed / daysInMonth : 1000; // Fallback conservador
+    const daysInMonth = new Date().getDate();
+    const avgDailyUsage = daysInMonth > 0 ? totalUsed / daysInMonth : 1000;
     
-    if (avgDailyUsage <= 0) return 30; // Se ainda não usou nada
+    if (avgDailyUsage <= 0) return 30;
     
     const remainingDays = Math.floor(tokens.total_available / avgDailyUsage);
     return Math.max(0, remainingDays);
@@ -160,9 +215,9 @@ export const useTokens = () => {
 
   const getTokensForFeature = useCallback((feature: 'chat' | 'copy' | 'complex_copy') => {
     const estimates = {
-      chat: 300, // Conversa média
-      copy: 1500, // Copy simples
-      complex_copy: 3000 // Copy complexa (VSL, landing page)
+      chat: 300,
+      copy: 1500,
+      complex_copy: 3000
     };
     return estimates[feature];
   }, []);
@@ -179,6 +234,7 @@ export const useTokens = () => {
     loading,
     error,
     notificationFlags,
+    lastResetDate,
     refreshTokens,
     getUsagePercentage,
     getStatusColor,
@@ -188,5 +244,7 @@ export const useTokens = () => {
     getTokensForFeature,
     canAffordFeature,
     getMonthlyLimit,
+    getDaysUntilReset,
+    getMonthlyUsageProgress,
   };
 };

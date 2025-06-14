@@ -8,11 +8,28 @@ import { AIInsights } from '@/components/dashboard/AIInsights';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { GoalsProgress } from '@/components/dashboard/GoalsProgress';
+import { TokenMonitoringDashboard } from '@/components/tokens/TokenMonitoringDashboard';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  
+  // Verificar se é admin (para mostrar o painel de monitoramento)
+  // Por enquanto, vamos mostrar para todos os usuários autenticados
+  // Depois pode ser implementado um sistema de roles
+  const isAdmin = user?.email?.includes('admin') || false;
+
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in w-full max-w-full overflow-x-hidden">
       <DashboardHeader />
+      
+      {/* Painel administrativo de tokens (apenas para admins) */}
+      {isAdmin && (
+        <div className="w-full max-w-full">
+          <TokenMonitoringDashboard />
+        </div>
+      )}
+      
       <MetricsCards />
       <div className="w-full max-w-full overflow-x-hidden">
         <AnalyticsCharts />
