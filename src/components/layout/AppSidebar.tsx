@@ -1,27 +1,5 @@
 
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users,
-  Wrench,
-  History,
-  HelpCircle,
-  Package,
-  LogOut,
-  Bot,
-  Settings,
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+import React from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -31,86 +9,63 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarFooter,
   SidebarHeader,
+  SidebarFooter,
 } from '@/components/ui/sidebar';
-import { ProfileSettings } from '@/components/profile/ProfileSettings';
+import { TokenWidget } from '@/components/tokens/TokenWidget';
+import { useTokenContext } from '@/contexts/TokenContext';
+import { Bot, Home, Package, History, Wrench, Users, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Link, useLocation } from 'react-router-dom';
 
 const menuItems = [
-  {
-    title: 'Dashboard',
-    url: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    title: 'Agentes IA',
-    url: '/agents',
-    icon: Users,
-  },
-  {
-    title: 'Produtos',
-    url: '/products',
-    icon: Package,
-  },
-  {
-    title: 'Ferramentas',
-    url: '/tools',
-    icon: Wrench,
-  },
-  {
-    title: 'Histórico',
-    url: '/history',
-    icon: History,
-  },
-  {
-    title: 'Quiz',
-    url: '/quiz',
-    icon: HelpCircle,
-  },
+  { title: 'Dashboard', url: '/dashboard', icon: Home },
+  { title: 'Produtos', url: '/products', icon: Package },
+  { title: 'Agentes IA', url: '/agents', icon: Bot },
+  { title: 'Ferramentas', url: '/tools', icon: Wrench },
+  { title: 'Histórico', url: '/history', icon: History },
 ];
 
-export function AppSidebar() {
-  const location = useLocation();
+export const AppSidebar = () => {
   const { signOut, user } = useAuth();
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { openTokenStore } = useTokenContext();
+  const location = useLocation();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
-    <Sidebar 
-      className="!bg-zinc-950 md:!bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl z-50 transition-colors duration-300" 
-      collapsible="icon"
-      style={{ backgroundColor: '#0a0a0a' }}
-    >
-      <SidebarHeader className="p-3 sm:p-4 border-b border-[#2A2A2A] !bg-zinc-950" style={{ backgroundColor: '#0a0a0a' }}>
-        <div className="flex items-center gap-2 sm:gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center flex-shrink-0">
-            <Bot className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
+    <Sidebar className="border-r border-[#4B5563]/20 bg-[#1E1E1E]">
+      <SidebarHeader className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center">
+            <Bot className="w-5 h-5 text-white" />
           </div>
-          <div className="group-data-[collapsible=icon]:hidden">
-            <h1 className="text-base sm:text-lg font-bold text-white">CopyChief</h1>
-            <p className="text-xs text-[#CCCCCC]">Marketing Digital</p>
+          <div>
+            <h1 className="text-lg font-bold text-white">CopyChief</h1>
+            <p className="text-xs text-[#CCCCCC]">AI Copy Generator</p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="!bg-zinc-950" style={{ backgroundColor: '#0a0a0a' }}>
+      <SidebarContent className="px-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider px-2">
-            <span className="group-data-[collapsible=icon]:hidden">Menu Principal</span>
+          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider mb-2">
+            Menu Principal
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    size="sm"
-                    className={`text-white hover:bg-[#2A2A2A] hover:text-[#3B82F6] transition-colors ${
-                      location.pathname === item.url ? 'bg-[#3B82F6]/20 text-[#3B82F6] border-r-2 border-[#3B82F6]' : ''
-                    }`}
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === item.url}
+                    className="text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] data-[active=true]:bg-[#3B82F6] data-[active=true]:text-white"
                   >
-                    <Link to={item.url}>
-                      <item.icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
+                    <Link to={item.url} className="flex items-center gap-3">
+                      <item.icon className="w-4 h-4" />
+                      <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -118,66 +73,46 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <SidebarGroup className="mt-6">
+          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider mb-2">
+            Tokens
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <TokenWidget onOpenTokenStore={openTokenStore} />
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
-      
-      <SidebarFooter className="p-3 sm:p-4 border-t border-[#2A2A2A] !bg-zinc-950" style={{ backgroundColor: '#0a0a0a' }}>
-        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 group-data-[collapsible=icon]:justify-center">
-          <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-            <SheetTrigger asChild>
-              <button className="flex items-center gap-2 sm:gap-3 hover:bg-[#2A2A2A] rounded-xl p-1 transition-colors group-data-[collapsible=icon]:justify-center w-full">
-                <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden text-left">
-                  <p className="text-xs sm:text-sm font-medium text-white truncate">
-                    {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
-                  </p>
-                  <p className="text-xs text-[#CCCCCC] truncate">
-                    {user?.email}
-                  </p>
-                </div>
-              </button>
-            </SheetTrigger>
-            <SheetContent 
-              side="right" 
-              className="w-full sm:max-w-2xl overflow-y-auto"
-            >
-              <SheetHeader className="sr-only">
-                <SheetTitle>Configurações do Perfil</SheetTitle>
-              </SheetHeader>
-              <ProfileSettings onClose={() => setIsProfileOpen(false)} />
-            </SheetContent>
-          </Sheet>
-        </div>
-        
-        <div className="space-y-1 group-data-[collapsible=icon]:space-y-2">
-          <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0"
-              >
-                <Settings className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
-                <span className="group-data-[collapsible=icon]:hidden">Configurações</span>
-              </Button>
-            </SheetTrigger>
-          </Sheet>
+
+      <SidebarFooter className="p-4 border-t border-[#4B5563]/20">
+        <div className="space-y-3">
+          {user && (
+            <div className="flex items-center gap-3 p-2 rounded-lg bg-[#2A2A2A]">
+              <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
+                <span className="text-xs font-semibold text-white">
+                  {user.email?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {user.user_metadata?.full_name || 'Usuário'}
+                </p>
+                <p className="text-xs text-[#CCCCCC] truncate">
+                  {user.email}
+                </p>
+              </div>
+            </div>
+          )}
           
-          <Button
-            variant="ghost"
-            onClick={signOut}
-            size="sm"
-            className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0"
+          <SidebarMenuButton
+            onClick={handleSignOut}
+            className="w-full text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] justify-start"
           >
-            <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
-            <span className="group-data-[collapsible=icon]:hidden">Sair</span>
-          </Button>
+            <LogOut className="w-4 h-4 mr-3" />
+            Sair
+          </SidebarMenuButton>
         </div>
       </SidebarFooter>
     </Sidebar>
   );
-}
+};

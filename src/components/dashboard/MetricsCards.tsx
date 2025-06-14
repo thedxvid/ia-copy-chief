@@ -1,44 +1,47 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FolderOpen, TrendingUp, FileText, DollarSign } from 'lucide-react';
-
-const metrics = [
-  {
-    title: 'Projetos Ativos',
-    value: '12',
-    change: '+12%',
-    icon: FolderOpen,
-    color: 'text-[#3B82F6]',
-    bgColor: 'bg-[#3B82F6]/10'
-  },
-  {
-    title: 'Taxa de Conversão',
-    value: '3.4%',
-    change: '+8%',
-    icon: TrendingUp,
-    color: 'text-[#10B981]',
-    bgColor: 'bg-[#10B981]/10'
-  },
-  {
-    title: 'Palavras Escritas',
-    value: '18.4K',
-    change: '+24%',
-    icon: FileText,
-    color: 'text-[#F59E0B]',
-    bgColor: 'bg-[#F59E0B]/10'
-  },
-  {
-    title: 'ROI Médio',
-    value: '287%',
-    change: '+15%',
-    icon: DollarSign,
-    color: 'text-[#8B5CF6]',
-    bgColor: 'bg-[#8B5CF6]/10'
-  }
-];
+import { FolderOpen, TrendingUp, Coins, DollarSign } from 'lucide-react';
+import { useTokenContext } from '@/contexts/TokenContext';
 
 export const MetricsCards = () => {
+  const { tokenData } = useTokenContext();
+
+  const metrics = [
+    {
+      title: 'Projetos Ativos',
+      value: '12',
+      change: '+12%',
+      icon: FolderOpen,
+      color: 'text-[#3B82F6]',
+      bgColor: 'bg-[#3B82F6]/10'
+    },
+    {
+      title: 'Tokens Restantes',
+      value: tokenData ? `${(tokenData.monthly_tokens + tokenData.extra_tokens).toLocaleString('pt-BR')}` : '100.000',
+      change: tokenData ? `${Math.round((tokenData.monthly_tokens / 100000) * 100)}% do mensal` : '100%',
+      icon: Coins,
+      color: 'text-[#10B981]',
+      bgColor: 'bg-[#10B981]/10'
+    },
+    {
+      title: 'Taxa de Conversão',
+      value: '3.4%',
+      change: '+8%',
+      icon: TrendingUp,
+      color: 'text-[#F59E0B]',
+      bgColor: 'bg-[#F59E0B]/10'
+    },
+    {
+      title: 'ROI Médio',
+      value: '287%',
+      change: '+15%',
+      icon: DollarSign,
+      color: 'text-[#8B5CF6]',
+      bgColor: 'bg-[#8B5CF6]/10'
+    }
+  ];
+
   return (
     <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 w-full max-w-full">
       {metrics.map((metric, index) => (
@@ -56,7 +59,7 @@ export const MetricsCards = () => {
               {metric.value}
             </div>
             <p className="text-sm text-green-500 flex items-center truncate text-muted-foreground">
-              {metric.change} vs. mês anterior
+              {metric.change}
             </p>
           </CardContent>
         </Card>

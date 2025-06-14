@@ -4,102 +4,86 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { Header } from "@/components/layout/Header";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { TokenProvider } from "@/contexts/TokenContext";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Quiz from "./pages/Quiz";
 import Dashboard from "./pages/Dashboard";
-import Tools from "./pages/Tools";
-import History from "./pages/History";
-import Agents from "./pages/Agents";
 import Products from "./pages/Products";
+import Quiz from "./pages/Quiz";
+import History from "./pages/History";
+import Tools from "./pages/Tools";
+import Agents from "./pages/Agents";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <AppProvider>
+    <AuthProvider>
+      <TokenProvider>
+        <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <div className="min-h-screen flex flex-col">
-              <Routes>
-                {/* Public routes with Header */}
-                <Route path="/" element={
-                  <>
-                    <Header />
-                    <main className="flex-1">
-                      <Index />
-                    </main>
-                  </>
-                } />
-                <Route path="/auth" element={
-                  <>
-                    <Header />
-                    <main className="flex-1">
-                      <Auth />
-                    </main>
-                  </>
-                } />
-                
-                {/* Protected routes with Dashboard Layout */}
-                <Route path="/dashboard" element={
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth/*" element={<Auth />} />
+              <Route
+                path="/dashboard"
+                element={
                   <ProtectedRoute>
-                    <DashboardLayout>
-                      <Dashboard />
-                    </DashboardLayout>
+                    <Dashboard />
                   </ProtectedRoute>
-                } />
-                <Route path="/quiz" element={
+                }
+              />
+              <Route
+                path="/products"
+                element={
                   <ProtectedRoute>
-                    <DashboardLayout>
-                      <Quiz />
-                    </DashboardLayout>
+                    <Products />
                   </ProtectedRoute>
-                } />
-                <Route path="/agents" element={
+                }
+              />
+              <Route
+                path="/quiz"
+                element={
                   <ProtectedRoute>
-                    <DashboardLayout>
-                      <Agents />
-                    </DashboardLayout>
+                    <Quiz />
                   </ProtectedRoute>
-                } />
-                <Route path="/products" element={
+                }
+              />
+              <Route
+                path="/history"
+                element={
                   <ProtectedRoute>
-                    <DashboardLayout>
-                      <Products />
-                    </DashboardLayout>
+                    <History />
                   </ProtectedRoute>
-                } />
-                <Route path="/tools" element={
+                }
+              />
+              <Route
+                path="/tools"
+                element={
                   <ProtectedRoute>
-                    <DashboardLayout>
-                      <Tools />
-                    </DashboardLayout>
+                    <Tools />
                   </ProtectedRoute>
-                } />
-                <Route path="/history" element={
+                }
+              />
+              <Route
+                path="/agents"
+                element={
                   <ProtectedRoute>
-                    <DashboardLayout>
-                      <History />
-                    </DashboardLayout>
+                    <Agents />
                   </ProtectedRoute>
-                } />
-                
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </BrowserRouter>
-        </AppProvider>
-      </AuthProvider>
-    </TooltipProvider>
+        </TooltipProvider>
+      </TokenProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
