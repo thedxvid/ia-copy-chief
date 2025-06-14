@@ -2,6 +2,7 @@
 import React from 'react';
 import { Target, Sparkles, Zap, Brain, Users, Trophy } from 'lucide-react';
 import { ModernCard } from '@/components/ui/modern-card';
+import { FadeInSection } from '@/components/ui/fade-in-section';
 
 export function FeaturesSection() {
   const features = [
@@ -46,38 +47,41 @@ export function FeaturesSection() {
   return (
     <section className="py-20 sm:py-32 px-3 sm:px-4 relative bg-[#121212]">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16 sm:mb-24 animate-fade-in-up">
-          <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 sm:mb-8 text-[#FFFFFF] animate-fade-in-up px-2">
-            Tecnologia que
-            <span className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] bg-clip-text text-transparent animate-fade-in-up animate-stagger-1 block sm:inline"> Revoluciona Vendas</span>
-          </h2>
-          <p className="text-lg sm:text-xl md:text-2xl text-[#CCCCCC] max-w-3xl mx-auto animate-fade-in-up animate-stagger-2 px-2">
-            Ferramentas profissionais de copywriting com inteligência artificial avançada
-          </p>
-        </div>
+        <FadeInSection>
+          <div className="text-center mb-16 sm:mb-24">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 sm:mb-8 text-[#FFFFFF] px-2">
+              Tecnologia que
+              <span className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] bg-clip-text text-transparent block sm:inline"> Revoluciona Vendas</span>
+            </h2>
+            <p className="text-lg sm:text-xl md:text-2xl text-[#CCCCCC] max-w-3xl mx-auto px-2">
+              Ferramentas profissionais de copywriting com inteligência artificial avançada
+            </p>
+          </div>
+        </FadeInSection>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {features.map((feature, index) => (
-            <ModernCard 
-              key={index} 
-              variant="glass" 
-              interactive 
-              className={`group p-6 sm:p-8 hover:shadow-2xl bg-[#1E1E1E]/60 border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1}`}
-            >
-              <div className="flex flex-col items-start space-y-3 sm:space-y-4">
-                <div className={`w-12 sm:w-16 h-12 sm:h-16 bg-gradient-to-r ${feature.gradient} rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                  <feature.icon className="w-6 sm:w-8 h-6 sm:h-8 text-[#FFFFFF]" />
+            <FadeInSection key={index} delay={index * 100}>
+              <ModernCard 
+                variant="glass" 
+                interactive 
+                className="group p-6 sm:p-8 hover:shadow-2xl bg-[#1E1E1E]/60 border-[#4B5563]/30 rounded-2xl"
+              >
+                <div className="flex flex-col items-start space-y-3 sm:space-y-4">
+                  <div className={`w-12 sm:w-16 h-12 sm:h-16 bg-gradient-to-r ${feature.gradient} rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                    <feature.icon className="w-6 sm:w-8 h-6 sm:h-8 text-[#FFFFFF]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg sm:text-xl mb-2 sm:mb-3 text-[#FFFFFF] group-hover:text-[#3B82F6] transition-colors">
+                      {feature.title}
+                    </h3>
+                    <p className="text-[#CCCCCC] leading-relaxed text-sm sm:text-base">
+                      {feature.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg sm:text-xl mb-2 sm:mb-3 text-[#FFFFFF] group-hover:text-[#3B82F6] transition-colors">
-                    {feature.title}
-                  </h3>
-                  <p className="text-[#CCCCCC] leading-relaxed text-sm sm:text-base">
-                    {feature.description}
-                  </p>
-                </div>
-              </div>
-            </ModernCard>
+              </ModernCard>
+            </FadeInSection>
           ))}
         </div>
       </div>
