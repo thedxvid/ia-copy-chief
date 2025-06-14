@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -169,7 +168,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
               value={formData.prompt}
               onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
               placeholder="Descreva detalhadamente como o agente deve se comportar, seu conhecimento e estilo de resposta..."
-              className="min-h-32 bg-[#2A2A2A] border-[#4B5563] text-white"
+              className="min-h-32 bg-[#2A2A2A] border-[#4B5563] text-[#CCCCCC] placeholder:text-[#888888]"
               required
             />
           </div>
