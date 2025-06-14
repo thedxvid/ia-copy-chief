@@ -167,6 +167,10 @@
     animation: fade-in-up var(--duration-slow) var(--ease-smooth);
   }
   
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
   .animate-stagger-1 {
     animation-delay: 100ms;
   }
@@ -335,6 +339,18 @@
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-10px) rotate(1deg);
+  }
+  66% {
+    transform: translateY(5px) rotate(-1deg);
   }
 }
 
