@@ -23,10 +23,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, CalendarIcon } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { usePerformanceAnalytics } from '@/hooks/usePerformanceAnalytics';
 
 const metricsSchema = z.object({
@@ -76,9 +72,19 @@ export const AddMetricsModal: React.FC<AddMetricsModalProps> = ({
   const onSubmit = async (data: MetricsFormData) => {
     setLoading(true);
     
-    const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== undefined && value !== '')
-    );
+    // Garantir que product_id sempre esteja presente e filtrar valores vazios dos outros campos
+    const cleanData = {
+      product_id: data.product_id, // Sempre incluir product_id
+      ...Object.fromEntries(
+        Object.entries(data)
+          .filter(([key, value]) => 
+            key !== 'product_id' && // Não filtrar product_id pois já foi incluído
+            value !== undefined && 
+            value !== '' && 
+            value !== null
+          )
+      )
+    };
 
     const success = await addMetrics(cleanData);
     
