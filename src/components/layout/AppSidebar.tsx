@@ -65,7 +65,7 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
 
   return (
-    <Sidebar className="bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl" collapsible="icon">
+    <Sidebar className="bg-[#0A0A0A]/95 md:bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl z-50 transition-colors duration-300" collapsible="icon">
       <SidebarHeader className="p-3 sm:p-4 border-b border-[#2A2A2A]">
         <div className="flex items-center gap-2 sm:gap-3 group-data-[collapsible=icon]:justify-center">
           <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center flex-shrink-0">
