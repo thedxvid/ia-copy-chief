@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Template, BookOpen, Zap } from 'lucide-react';
+import { FileText, BookOpen, Zap } from 'lucide-react';
 import { copyTemplates, niches, getTemplatesByNiche, CopyTemplate } from '@/data/copyTemplates';
 
 interface TemplateSelectorProps {
@@ -38,7 +38,7 @@ export const TemplateSelector = ({
     <Card className="bg-[#2A2A2A] border-[#4B5563]/20">
       <CardHeader>
         <CardTitle className="text-white flex items-center gap-2">
-          <Template className="w-5 h-5" />
+          <FileText className="w-5 h-5" />
           Templates por Nicho
         </CardTitle>
       </CardHeader>

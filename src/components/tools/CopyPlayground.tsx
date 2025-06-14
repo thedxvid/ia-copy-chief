@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -218,7 +219,7 @@ export const CopyPlayground = () => {
             
             <Button 
               onClick={improveCopy}
-              disabled={isImproving || !canAffortFeature('copy')}
+              disabled={isImproving || !canAffordFeature('copy')}
               variant="outline" 
               className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
             >
