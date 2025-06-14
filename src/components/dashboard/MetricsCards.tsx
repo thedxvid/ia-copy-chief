@@ -40,22 +40,22 @@ const metrics = [
 
 export const MetricsCards = () => {
   return (
-    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 w-full max-w-full">
+    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 w-full max-w-full">
       {metrics.map((metric, index) => (
-        <Card key={index} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all duration-300 hover:scale-105 min-w-0 w-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2 sm:p-3 lg:p-4">
-            <CardTitle className="text-xs sm:text-sm font-medium text-white leading-tight truncate pr-2">
+        <Card key={index} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all duration-300 hover:scale-105 min-w-0 w-full rounded-xl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 p-4 sm:p-4 lg:p-4">
+            <CardTitle className="text-base sm:text-base lg:text-sm font-semibold text-white leading-tight truncate pr-3">
               {metric.title}
             </CardTitle>
-            <div className={`p-2 sm:p-2.5 lg:p-2 rounded-lg ${metric.bgColor} flex-shrink-0`}>
-              <metric.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-4 lg:w-4 ${metric.color}`} />
+            <div className={`p-2.5 sm:p-3 lg:p-2 rounded-lg ${metric.bgColor} flex-shrink-0 ml-2`}>
+              <metric.icon className={`h-6 w-6 sm:h-7 sm:w-7 lg:h-4 lg:w-4 ${metric.color}`} />
             </div>
           </CardHeader>
-          <CardContent className="p-2 sm:p-3 lg:p-4 pt-0">
-            <div className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-white mb-1">
+          <CardContent className="p-4 sm:p-4 lg:p-4 pt-0 space-y-2">
+            <div className="text-2xl sm:text-2xl lg:text-xl xl:text-2xl font-bold text-white">
               {metric.value}
             </div>
-            <p className="text-xs text-green-500 flex items-center truncate">
+            <p className="text-sm text-green-500 flex items-center truncate text-muted-foreground">
               {metric.change} vs. mês anterior
             </p>
           </CardContent>
