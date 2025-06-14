@@ -1,8 +1,10 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, Check } from 'lucide-react';
+import { ArrowRight, Sparkles, TrendingUp, Target, Zap } from 'lucide-react';
 import { ModernButton } from '@/components/ui/modern-button';
 import { useTypewriter } from '@/hooks/useTypewriter';
+
 export function HeroSection() {
   const typewriterText = useTypewriter({
     words: ['Copy Persuasiva', 'Vendas Online', 'Marketing Digital', 'Conversões', 'Anúncios Pagos', 'Landing Pages'],
@@ -10,17 +12,24 @@ export function HeroSection() {
     deleteSpeed: 80,
     delayBetweenWords: 2500
   });
-  const benefits = [{
-    icon: Check,
-    text: 'Grátis para sempre'
-  }, {
-    icon: Check,
-    text: 'Sem cadastro necessário'
-  }, {
-    icon: Check,
-    text: 'Resultados instantâneos'
-  }];
-  return <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden">
+
+  const benefits = [
+    {
+      icon: TrendingUp,
+      text: 'Aumente suas vendas em até 300%'
+    },
+    {
+      icon: Target,
+      text: 'Converta 5x mais visitantes em clientes'
+    },
+    {
+      icon: Zap,
+      text: 'Reduza 90% do tempo criando copies'
+    }
+  ];
+
+  return (
+    <section className="relative min-h-screen flex items-center justify-center px-3 sm:px-4 bg-[#121212] overflow-hidden">
       {/* Enhanced animated background */}
       <div className="absolute inset-0 bg-[#121212]">
         {/* Gradient overlay */}
@@ -92,12 +101,15 @@ export function HeroSection() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 text-sm animate-fade-in-up animate-stagger-5 px-2">
-            {benefits.map((item, index) => <div key={index} className={`flex items-center justify-center gap-3 p-4 sm:p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50 hover:shadow-lg hover:shadow-[#3B82F6]/10`}>
-                <item.icon className="w-5 sm:w-6 h-5 sm:h-6 text-green-400 flex-shrink-0" />
+            {benefits.map((item, index) => (
+              <div key={index} className={`flex items-center justify-center gap-3 p-4 sm:p-6 bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} hover:scale-105 transition-all duration-300 hover:border-[#3B82F6]/50 hover:shadow-lg hover:shadow-[#3B82F6]/10`}>
+                <item.icon className="w-5 sm:w-6 h-5 sm:h-6 text-[#3B82F6] flex-shrink-0" />
                 <span className="text-[#CCCCCC] font-medium text-sm sm:text-base">{item.text}</span>
-              </div>)}
+              </div>
+            ))}
           </div>
         </div>
       </div>
-    </section>;
+    </section>
+  );
 }
