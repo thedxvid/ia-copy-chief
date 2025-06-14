@@ -156,15 +156,15 @@ export const Header = () => {
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-[#121212]/95 backdrop-blur-md mt-14 sm:mt-16">
-          <div className="bg-[#1E1E1E]/90 backdrop-blur-sm border-b border-[#4B5563]/50 rounded-lg mx-3 mt-4 shadow-2xl">
-            <div className="py-6 px-4">
-              <nav className="flex flex-col space-y-4">
+        <div className="md:hidden fixed inset-0 z-40 bg-black/20 backdrop-blur-sm mt-14 sm:mt-16">
+          <div className="bg-[#121212]/90 backdrop-blur-md border border-[#4B5563]/30 rounded-2xl mx-4 mt-2 shadow-xl">
+            <div className="py-4 px-3">
+              <nav className="flex flex-col space-y-2">
                 {navItems.map((item) => (
                   <Link
                     key={item.href}
                     to={item.href}
-                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-4 py-3 text-base rounded-lg hover:bg-[#2A2A2A] border border-transparent hover:border-[#3B82F6]/30"
+                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {item.label}
@@ -172,16 +172,16 @@ export const Header = () => {
                 ))}
                 
                 {!user && (
-                  <div className="flex flex-col space-y-4 pt-6 border-t border-[#4B5563]/50">
+                  <div className="flex flex-col space-y-2 pt-3 border-t border-[#4B5563]/30">
                     <Link
                       to="/auth"
-                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-4 py-3 text-base rounded-lg hover:bg-[#2A2A2A] border border-transparent hover:border-[#3B82F6]/30"
+                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Entrar
                     </Link>
-                    <div className="px-4">
-                      <ModernButton asChild size="lg" className="w-full">
+                    <div className="px-3">
+                      <ModernButton asChild size="sm" className="w-full text-sm">
                         <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
                           Começar Agora
                         </Link>
