@@ -88,11 +88,12 @@ export function HeroSection() {
               </Link>
             </ModernButton>
             
-            <ModernButton variant="outline" size="lg" asChild className="text-[#CCCCCC] border-[#4B5563] hover:border-[#3B82F6] hover:text-[#3B82F6] text-base px-6 py-3 rounded-xl font-medium transition-all duration-300">
-              <Link to="/dashboard">
-                Ver Dashboard
-              </Link>
-            </ModernButton>
+            <Link
+              to="/dashboard"
+              className="text-[#CCCCCC] hover:text-[#3B82F6] text-base px-6 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+            >
+              Ver Dashboard
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm animate-fade-in-up animate-stagger-5">
