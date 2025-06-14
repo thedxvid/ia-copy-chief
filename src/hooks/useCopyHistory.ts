@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,12 +16,16 @@ interface CopyHistoryItem {
     vsl_script?: string;
     whatsapp_messages?: string[];
     telegram_messages?: string[];
+    quiz_content?: string;
   };
   product?: {
     name: string;
     niche: string;
     sub_niche?: string;
   };
+  source: 'product' | 'quiz';
+  quiz_type?: string;
+  quiz_answers?: Record<string, string>;
 }
 
 const getExampleData = (): CopyHistoryItem[] => [
@@ -33,6 +36,7 @@ const getExampleData = (): CopyHistoryItem[] => [
     date: new Date().toLocaleDateString('pt-BR'),
     status: "Concluído",
     performance: "Alta conversão",
+    source: 'product',
     content: {
       landing_page_copy: {
         headline: "Transforme Sua Vida Financeira com Marketing Digital",
@@ -54,6 +58,7 @@ const getExampleData = (): CopyHistoryItem[] => [
     date: new Date(Date.now() - 86400000).toLocaleDateString('pt-BR'),
     status: "Em teste",
     performance: "Média conversão",
+    source: 'product',
     content: {
       email_campaign: {
         subject: "🔥 O Método que Eliminou 15kg em 90 Dias (Sem Dieta Maluca)",
@@ -74,6 +79,7 @@ const getExampleData = (): CopyHistoryItem[] => [
     date: new Date(Date.now() - 172800000).toLocaleDateString('pt-BR'),
     status: "Concluído",
     performance: "Alta conversão",
+    source: 'product',
     content: {
       vsl_script: "Olá, meu nome é João Silva e nos próximos 45 minutos vou revelar como construí um patrimônio de R$ 1 milhão investindo apenas R$ 100 por mês..."
     },
@@ -90,6 +96,7 @@ const getExampleData = (): CopyHistoryItem[] => [
     date: new Date(Date.now() - 259200000).toLocaleDateString('pt-BR'),
     status: "Concluído",
     performance: "Baixa conversão",
+    source: 'product',
     content: {
       social_media_content: {
         headlines: [
@@ -117,6 +124,7 @@ const getExampleData = (): CopyHistoryItem[] => [
     date: new Date(Date.now() - 345600000).toLocaleDateString('pt-BR'),
     status: "Em teste",
     performance: "Em análise",
+    source: 'product',
     content: {
       whatsapp_messages: [
         "Oi! Você já se perguntou por que alguns relacionamentos duram décadas enquanto outros não passam de alguns meses? 🤔",
@@ -128,6 +136,19 @@ const getExampleData = (): CopyHistoryItem[] => [
       name: "Coaching de Relacionamentos",
       niche: "Relacionamentos",
       sub_niche: "Coaching"
+    }
+  },
+  {
+    id: 'example-quiz-1',
+    title: "Copy para Email Marketing - Quiz Personalizado",
+    type: "Quiz Email",
+    date: new Date(Date.now() - 432000000).toLocaleDateString('pt-BR'),
+    status: "Concluído",
+    performance: "Em análise",
+    source: 'quiz',
+    quiz_type: "email_marketing",
+    content: {
+      quiz_content: "Assunto: 🚀 Descubra o Segredo dos 6 Dígitos em 30 Dias\n\nOlá [Nome],\n\nVocê já imaginou como seria ganhar mais em um mês do que muitos ganham em um ano inteiro?\n\nEu sei que pode parecer impossível, mas deixe-me contar uma história...\n\n[Resto do email personalizado baseado nas respostas do quiz]"
     }
   }
 ];
@@ -155,7 +176,7 @@ export const useCopyHistory = () => {
       setLoading(true);
       setError(null);
 
-      // Buscar produtos do usuário junto com suas copies
+      // Buscar copies de produtos
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
@@ -178,16 +199,26 @@ export const useCopyHistory = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      // Buscar copies do quiz
+      const { data: quizData, error: quizError } = await supabase
+        .from('quiz_copies')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
       if (productsError) {
         throw productsError;
       }
 
-      // Transformar os dados em formato do histórico
+      if (quizError) {
+        throw quizError;
+      }
+
       const transformedData: CopyHistoryItem[] = [];
 
+      // Transformar dados dos produtos
       productsData?.forEach(product => {
         product.product_copy?.forEach(copy => {
-          // Determinar o tipo de copy baseado no conteúdo disponível
           let type = 'Copy Geral';
           if (copy.landing_page_copy) type = 'Landing Page';
           else if (copy.email_campaign) type = 'Email';
@@ -195,7 +226,6 @@ export const useCopyHistory = () => {
           else if (copy.whatsapp_messages?.length) type = 'WhatsApp';
           else if (copy.social_media_content) type = 'Social Media';
 
-          // Simular performance e status (já que não temos esses dados ainda)
           const performances = ['Alta conversão', 'Média conversão', 'Baixa conversão', 'Em análise'];
           const statuses = ['Concluído', 'Em teste', 'Rascunho'];
           
@@ -206,6 +236,7 @@ export const useCopyHistory = () => {
             date: new Date(copy.created_at).toLocaleDateString('pt-BR'),
             status: statuses[Math.floor(Math.random() * statuses.length)],
             performance: performances[Math.floor(Math.random() * performances.length)],
+            source: 'product',
             content: {
               landing_page_copy: copy.landing_page_copy,
               email_campaign: copy.email_campaign,
@@ -223,7 +254,37 @@ export const useCopyHistory = () => {
         });
       });
 
-      // Se não houver dados reais, usar dados de exemplo
+      // Transformar dados do quiz
+      quizData?.forEach(quizCopy => {
+        const quizTypeMap: Record<string, string> = {
+          email_marketing: 'Quiz Email',
+          landing_page: 'Quiz Landing Page',
+          sales_letter: 'Quiz Carta de Vendas',
+          social_media: 'Quiz Social Media',
+          vsl: 'Quiz VSL'
+        };
+
+        transformedData.push({
+          id: quizCopy.id,
+          title: quizCopy.title,
+          type: quizTypeMap[quizCopy.quiz_type] || 'Quiz',
+          date: new Date(quizCopy.created_at).toLocaleDateString('pt-BR'),
+          status: 'Concluído',
+          performance: 'Em análise',
+          source: 'quiz',
+          quiz_type: quizCopy.quiz_type,
+          quiz_answers: quizCopy.quiz_answers,
+          content: {
+            quiz_content: typeof quizCopy.generated_copy === 'object' 
+              ? quizCopy.generated_copy.content || JSON.stringify(quizCopy.generated_copy)
+              : quizCopy.generated_copy
+          }
+        });
+      });
+
+      // Ordenar por data (mais recente primeiro)
+      transformedData.sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime());
+
       if (transformedData.length === 0) {
         setHistoryItems(getExampleData());
         setIsUsingExampleData(true);
@@ -234,7 +295,6 @@ export const useCopyHistory = () => {
     } catch (err) {
       console.error('Erro ao buscar histórico:', err);
       setError('Erro ao carregar histórico de copies');
-      // Em caso de erro, usar dados de exemplo
       setHistoryItems(getExampleData());
       setIsUsingExampleData(true);
     } finally {

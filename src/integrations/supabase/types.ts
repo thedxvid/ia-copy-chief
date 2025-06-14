@@ -461,6 +461,39 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_copies: {
+        Row: {
+          created_at: string
+          generated_copy: Json
+          id: string
+          quiz_answers: Json
+          quiz_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_copy: Json
+          id?: string
+          quiz_answers: Json
+          quiz_type: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_copy?: Json
+          id?: string
+          quiz_answers?: Json
+          quiz_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       token_purchases: {
         Row: {
           amount_paid: number | null
