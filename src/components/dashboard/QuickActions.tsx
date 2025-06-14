@@ -55,15 +55,15 @@ export const QuickActions = () => {
               className="h-auto p-4 text-left border-[#4B5563] hover:bg-[#2A2A2A] hover:border-[#3B82F6]/50 transition-all duration-200"
             >
               <Link to={action.link}>
-                <div className="flex flex-col items-center space-y-2">
+                <div className="flex flex-col items-center space-y-3">
                   <div className={`p-2 ${action.color} rounded-lg`}>
                     <action.icon className="w-5 h-5 text-white" />
                   </div>
-                  <div className="text-center">
-                    <h4 className="font-medium text-white text-sm">
+                  <div className="text-center space-y-1">
+                    <h4 className="font-medium text-white text-sm leading-relaxed tracking-wide">
                       {action.title}
                     </h4>
-                    <p className="text-xs text-[#CCCCCC] mt-1">
+                    <p className="text-xs text-[#CCCCCC] leading-relaxed tracking-wide">
                       {action.description}
                     </p>
                   </div>
