@@ -151,47 +151,49 @@ export const Header = () => {
               </button>
             </div>
           </div>
-
-          {/* Mobile Menu */}
-          {isMenuOpen && (
-            <div className="md:hidden border-t border-[#4B5563]/50">
-              <div className="py-4 px-2">
-                <nav className="flex flex-col space-y-3">
-                  {navItems.map((item) => (
-                    <Link
-                      key={item.href}
-                      to={item.href}
-                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#1E1E1E]"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                  
-                  {!user && (
-                    <div className="flex flex-col space-y-3 pt-4 border-t border-[#4B5563]/50">
-                      <Link
-                        to="/auth"
-                        className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#1E1E1E]"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Entrar
-                      </Link>
-                      <div className="px-3">
-                        <ModernButton asChild size="sm" className="w-full">
-                          <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
-                            Começar Agora
-                          </Link>
-                        </ModernButton>
-                      </div>
-                    </div>
-                  )}
-                </nav>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-[#121212]/95 backdrop-blur-md mt-14 sm:mt-16">
+          <div className="bg-[#1E1E1E]/90 backdrop-blur-sm border-b border-[#4B5563]/50 rounded-lg mx-3 mt-4 shadow-2xl">
+            <div className="py-6 px-4">
+              <nav className="flex flex-col space-y-4">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-4 py-3 text-base rounded-lg hover:bg-[#2A2A2A] border border-transparent hover:border-[#3B82F6]/30"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+                
+                {!user && (
+                  <div className="flex flex-col space-y-4 pt-6 border-t border-[#4B5563]/50">
+                    <Link
+                      to="/auth"
+                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-4 py-3 text-base rounded-lg hover:bg-[#2A2A2A] border border-transparent hover:border-[#3B82F6]/30"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Entrar
+                    </Link>
+                    <div className="px-4">
+                      <ModernButton asChild size="lg" className="w-full">
+                        <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                          Começar Agora
+                        </Link>
+                      </ModernButton>
+                    </div>
+                  </div>
+                )}
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
