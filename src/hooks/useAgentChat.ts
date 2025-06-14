@@ -1,6 +1,6 @@
-
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -77,30 +77,29 @@ export const useAgentChat = (agentId: string) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat-with-claude', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      console.log('Calling chat-with-claude edge function...');
+      
+      const { data, error } = await supabase.functions.invoke('chat-with-claude', {
+        body: {
           message: content,
           agentPrompt,
           chatHistory: messages,
           agentName: agentName || 'Agente IA',
           isCustomAgent: isCustomAgent || false,
           userId: user?.id
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Falha na comunicação com o agente');
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Falha na comunicação com o agente');
       }
 
-      const data = await response.json();
+      console.log('Edge function response:', data);
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response,
+        content: data.response || 'Resposta recebida com sucesso',
         role: 'assistant',
         timestamp: new Date()
       };

@@ -4,23 +4,44 @@ import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { QuizFlow } from '@/components/quiz/QuizFlow';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { generateCopy } from '@/utils/copyGenerators';
+import { generateCopyWithN8n } from '@/utils/copyGenerators';
+import { useAuth } from '@/contexts/AuthContext';
 import { Copy, Download, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Quiz = () => {
   const [currentStep, setCurrentStep] = useState<'selector' | 'quiz' | 'result'>('selector');
   const [selectedQuizType, setSelectedQuizType] = useState<string>('');
   const [generatedCopy, setGeneratedCopy] = useState<{ title: string; content: string } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { user } = useAuth();
 
   const handleSelectQuiz = (quizType: string) => {
     setSelectedQuizType(quizType);
     setCurrentStep('quiz');
   };
 
-  const handleQuizComplete = (answers: Record<string, string>) => {
-    const copy = generateCopy(answers, selectedQuizType);
-    setGeneratedCopy(copy);
-    setCurrentStep('result');
+  const handleQuizComplete = async (answers: Record<string, string>) => {
+    console.log('Quiz completed with answers:', answers);
+    setIsGenerating(true);
+    
+    try {
+      console.log('Generating copy with Claude via N8n...');
+      
+      // Tentar gerar via N8n + Claude primeiro
+      const copy = await generateCopyWithN8n(answers, selectedQuizType, user?.id);
+      
+      console.log('Copy generated successfully:', copy);
+      setGeneratedCopy(copy);
+      setCurrentStep('result');
+      
+      toast.success('Copy gerada com sucesso usando Claude AI!');
+    } catch (error) {
+      console.error('Erro ao gerar copy:', error);
+      toast.error('Erro ao gerar copy. Tente novamente.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleBackToSelector = () => {
@@ -37,7 +58,7 @@ const Quiz = () => {
   const handleCopyToClipboard = () => {
     if (generatedCopy) {
       navigator.clipboard.writeText(generatedCopy.content);
-      // You could add a toast notification here
+      toast.success('Copy copiada para a área de transferência!');
     }
   };
 
@@ -68,6 +89,7 @@ const Quiz = () => {
           quizType={selectedQuizType}
           onComplete={handleQuizComplete}
           onBack={handleBackToSelector}
+          isLoading={isGenerating}
         />
       </div>
     );
@@ -83,7 +105,7 @@ const Quiz = () => {
               🎉 Sua Copy Está Pronta!
             </h1>
             <p className="text-[#CCCCCC]">
-              Copy personalizada gerada com base nas suas respostas
+              Copy personalizada gerada com Claude AI via N8n
             </p>
           </div>
           <div className="flex gap-3">

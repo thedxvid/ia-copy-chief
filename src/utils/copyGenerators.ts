@@ -17,6 +17,11 @@ export async function generateCopyWithN8n(
   copyType: string,
   userId?: string
 ): Promise<{ title: string; content: string }> {
+  console.log('Starting copy generation with N8n + Claude...');
+  console.log('Answers:', answers);
+  console.log('Copy type:', copyType);
+  console.log('User ID:', userId);
+
   try {
     // Preparar dados para envio ao N8n
     const copyGenerationData = {
@@ -30,6 +35,8 @@ export async function generateCopyWithN8n(
       differentials: answers.differential || 'diferenciais únicos'
     };
 
+    console.log('Prepared data for N8n:', copyGenerationData);
+
     // Chamar edge function para integração N8n
     const { data, error } = await supabase.functions.invoke('n8n-integration', {
       body: {
@@ -41,21 +48,28 @@ export async function generateCopyWithN8n(
       }
     });
 
+    console.log('N8n integration response:', data);
+    console.log('N8n integration error:', error);
+
     if (error) {
       console.error('Erro na geração via N8n:', error);
-      // Fallback para geração local
-      return generateCopyFallback(answers, copyType);
+      throw new Error(`N8n Error: ${error.message}`);
+    }
+
+    if (!data || !data.copy) {
+      console.error('Invalid response from N8n:', data);
+      throw new Error('Resposta inválida do N8n');
     }
 
     return {
       title: getCopyTitle(copyType),
-      content: data.copy || 'Copy gerada com sucesso!'
+      content: data.copy
     };
 
   } catch (error) {
     console.error('Erro na integração N8n:', error);
-    // Fallback para geração local
-    return generateCopyFallback(answers, copyType);
+    // Re-throw para que o Quiz possa lidar com o erro
+    throw error;
   }
 }
 

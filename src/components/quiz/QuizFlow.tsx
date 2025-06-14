@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,16 +6,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
 import { QuizQuestion, getQuizQuestions, getQuizTitle } from '@/data/quizQuestions';
 
 interface QuizFlowProps {
   quizType: string;
   onComplete: (answers: Record<string, string>) => void;
   onBack: () => void;
+  isLoading?: boolean;
 }
 
-export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack }) => {
+export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack, isLoading = false }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -132,6 +132,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack
         <Button
           variant="ghost"
           onClick={onBack}
+          disabled={isLoading}
           className="text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A]"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -171,12 +172,20 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack
         <CardContent className="space-y-6">
           {renderQuestionInput(currentQ)}
           
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6] mr-3" />
+              <span className="text-white">Gerando sua copy personalizada com Claude AI...</span>
+            </div>
+          )}
+          
           {/* Navigation */}
           <div className="flex items-center justify-between pt-6 border-t border-[#4B5563]/20">
             <Button
               variant="outline"
               onClick={handlePrevious}
-              disabled={currentQuestion === 0}
+              disabled={currentQuestion === 0 || isLoading}
               className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -191,10 +200,15 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack
             
             <Button
               onClick={handleNext}
-              disabled={!canProceed}
+              disabled={!canProceed || isLoading}
               className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
             >
-              {currentQuestion === questions.length - 1 ? (
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Gerando...
+                </>
+              ) : currentQuestion === questions.length - 1 ? (
                 <>
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Finalizar
@@ -212,7 +226,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack
 
       {/* Help text */}
       <div className="text-center text-[#888888] text-sm">
-        💡 Responda com o máximo de detalhes possível para obter copies mais precisas
+        💡 Responda com o máximo de detalhes possível para obter copies mais precisas via Claude AI
       </div>
     </div>
   );
