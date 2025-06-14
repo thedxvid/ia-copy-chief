@@ -3,6 +3,7 @@ import React from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { TokenWidget } from '@/components/tokens/TokenWidget';
+import { FloatingAgentChat } from '@/components/chat/FloatingAgentChat';
 import { Bot } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -57,6 +58,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           </main>
         </SidebarInset>
+        
+        {/* Floating Agent Chat */}
+        <FloatingAgentChat />
       </div>
     </SidebarProvider>
   );
