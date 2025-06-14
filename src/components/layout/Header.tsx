@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
 import { ModernButton } from '@/components/ui/modern-button';
-import { ThemeToggle } from './ThemeToggle';
 import { Menu, X, User, LogOut, Bot } from 'lucide-react';
 import {
   DropdownMenu,
@@ -90,8 +89,6 @@ export const Header = () => {
               "flex items-center transition-all duration-300 ease-in-out",
               isScrolled ? "space-x-2" : "space-x-2 sm:space-x-4"
             )}>
-              <ThemeToggle />
-              
               {loading ? (
                 <div className="w-6 sm:w-8 h-6 sm:h-8 animate-spin rounded-full border-b-2 border-[#3B82F6]"></div>
               ) : user ? (
