@@ -1,5 +1,6 @@
 
 import { useState, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Message {
   id: string;
@@ -18,6 +19,7 @@ export const useAgentChat = (agentId: string) => {
     return saved ? JSON.parse(saved) : [];
   });
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   const saveToStorage = useCallback((msgs: Message[]) => {
     localStorage.setItem(`chat-${agentId}`, JSON.stringify(msgs));
@@ -37,17 +39,19 @@ export const useAgentChat = (agentId: string) => {
           message: userMessage,
           agentId: agentId,
           agentName: agentName,
+          userId: user?.id || 'anonymous',
           timestamp: new Date().toISOString(),
-          source: 'agent-chat'
+          source: 'agent-chat',
+          sessionId: `chat_${agentId}_${Date.now()}`,
+          messageCount: messages.length + 1
         }),
       });
 
-      console.log('Webhook triggered successfully for agent:', agentName);
+      console.log('N8n webhook triggered successfully for agent:', agentName);
     } catch (error) {
-      console.error('Error triggering webhook:', error);
-      // Não vamos mostrar erro para o usuário, apenas logar
+      console.error('Error triggering N8n webhook:', error);
     }
-  }, [agentId]);
+  }, [agentId, user?.id, messages.length]);
 
   const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string, isCustomAgent?: boolean) => {
     if (!content.trim()) return;
@@ -65,7 +69,7 @@ export const useAgentChat = (agentId: string) => {
       return updated;
     });
 
-    // Disparar webhook quando usuário envia mensagem
+    // Disparar webhook N8n quando usuário envia mensagem
     if (agentName) {
       triggerWebhook(content, agentName);
     }
@@ -82,7 +86,9 @@ export const useAgentChat = (agentId: string) => {
           message: content,
           agentPrompt,
           chatHistory: messages,
-          isCustomAgent: isCustomAgent || false
+          agentName: agentName || 'Agente IA',
+          isCustomAgent: isCustomAgent || false,
+          userId: user?.id
         }),
       });
 
@@ -109,7 +115,7 @@ export const useAgentChat = (agentId: string) => {
       
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.',
+        content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns segundos.',
         role: 'assistant',
         timestamp: new Date()
       };
@@ -122,7 +128,7 @@ export const useAgentChat = (agentId: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, saveToStorage, triggerWebhook]);
+  }, [messages, saveToStorage, triggerWebhook, user?.id]);
 
   const clearChat = useCallback(() => {
     setMessages([]);
