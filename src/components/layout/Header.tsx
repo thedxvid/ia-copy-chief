@@ -48,13 +48,19 @@ export const Header = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out">
       <div className={cn(
-        "transition-all duration-300 ease-in-out",
+        "mx-auto transition-all duration-300 ease-in-out",
         isScrolled
-          ? "mx-4 mt-4 rounded-2xl bg-neutral-900/80 backdrop-blur-md shadow-lg border border-white/10"
-          : "bg-[#121212]/90 backdrop-blur-md border-b border-[#4B5563]/50"
+          ? "mt-4 max-w-6xl w-[90%] rounded-full bg-neutral-900/80 backdrop-blur-md shadow-lg border border-white/10"
+          : "w-full rounded-none bg-[#121212]/90 backdrop-blur-md border-b border-[#4B5563]/50"
       )}>
-        <div className="container mx-auto px-3 sm:px-4">
-          <div className="flex items-center justify-between h-14 sm:h-16">
+        <div className={cn(
+          "mx-auto transition-all duration-300 ease-in-out",
+          isScrolled ? "px-6" : "container px-3 sm:px-4"
+        )}>
+          <div className={cn(
+            "flex items-center justify-between h-14 sm:h-16 transition-all duration-300 ease-in-out",
+            isScrolled && "gap-2"
+          )}>
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-2">
               <div className="w-7 sm:w-8 h-7 sm:h-8 bg-[#3B82F6] rounded-xl flex items-center justify-center">
@@ -64,7 +70,10 @@ export const Header = () => {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-6 lg:space-x-8">
+            <nav className={cn(
+              "hidden md:flex items-center transition-all duration-300 ease-in-out",
+              isScrolled ? "space-x-4" : "space-x-6 lg:space-x-8"
+            )}>
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -77,7 +86,10 @@ export const Header = () => {
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className={cn(
+              "flex items-center transition-all duration-300 ease-in-out",
+              isScrolled ? "space-x-2" : "space-x-2 sm:space-x-4"
+            )}>
               <ThemeToggle />
               
               {loading ? (
@@ -91,7 +103,10 @@ export const Header = () => {
                           {getInitials(user.user_metadata?.full_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="hidden lg:block text-white text-sm">
+                      <span className={cn(
+                        "text-white text-sm transition-all duration-300 ease-in-out",
+                        isScrolled ? "hidden xl:block" : "hidden lg:block"
+                      )}>
                         {user.user_metadata?.full_name || user.email}
                       </span>
                     </button>
@@ -111,7 +126,10 @@ export const Header = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <div className="hidden md:flex items-center space-x-2 lg:space-x-3">
+                <div className={cn(
+                  "hidden md:flex items-center transition-all duration-300 ease-in-out",
+                  isScrolled ? "space-x-2" : "space-x-2 lg:space-x-3"
+                )}>
                   <Link
                     to="/auth"
                     className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 lg:px-4 py-2 text-sm lg:text-base"
