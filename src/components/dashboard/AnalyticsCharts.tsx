@@ -2,16 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
-const performanceData = [
-  { name: 'Seg', ctr: 2.4, conversao: 1.8, engajamento: 65 },
-  { name: 'Ter', ctr: 3.2, conversao: 2.1, engajamento: 72 },
-  { name: 'Qua', ctr: 2.8, conversao: 2.4, engajamento: 68 },
-  { name: 'Qui', ctr: 4.1, conversao: 3.2, engajamento: 78 },
-  { name: 'Sex', ctr: 3.8, conversao: 2.9, engajamento: 75 },
-  { name: 'Sáb', ctr: 2.2, conversao: 1.6, engajamento: 58 },
-  { name: 'Dom', ctr: 1.9, conversao: 1.4, engajamento: 52 }
-];
+import { useCopyEvolution } from '@/hooks/useCopyEvolution';
 
 const projectDistribution = [
   { name: 'Email Marketing', value: 35, color: '#3B82F6' },
@@ -21,35 +12,108 @@ const projectDistribution = [
 ];
 
 export const AnalyticsCharts = () => {
+  const { evolutionData, loading, isUsingExampleData, stats } = useCopyEvolution();
+
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
         <CardHeader>
-          <CardTitle className="text-white">Performance Semanal</CardTitle>
+          <CardTitle className="text-white">Evolução da Qualidade das Copies</CardTitle>
           <CardDescription className="text-[#CCCCCC]">
-            CTR, Taxa de Conversão e Engajamento
+            Score de eficiência ao longo do tempo
+            {isUsingExampleData && (
+              <span className="block mt-1 text-xs text-yellow-400">
+                📊 Dados de demonstração - Crie suas copies para ver dados reais
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={performanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#4B5563" />
-              <XAxis dataKey="name" stroke="#CCCCCC" />
-              <YAxis stroke="#CCCCCC" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1E1E1E', 
-                  border: '1px solid #4B5563',
-                  borderRadius: '8px',
-                  color: '#CCCCCC'
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="ctr" stroke="#3B82F6" strokeWidth={2} name="CTR %" />
-              <Line type="monotone" dataKey="conversao" stroke="#10B981" strokeWidth={2} name="Conversão %" />
-              <Line type="monotone" dataKey="engajamento" stroke="#F59E0B" strokeWidth={2} name="Engajamento %" />
-            </LineChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <div className="text-[#CCCCCC]">Carregando...</div>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={evolutionData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#4B5563" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#CCCCCC"
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getDate()}/${date.getMonth() + 1}`;
+                    }}
+                  />
+                  <YAxis 
+                    stroke="#CCCCCC" 
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1E1E1E', 
+                      border: '1px solid #4B5563',
+                      borderRadius: '8px',
+                      color: '#CCCCCC'
+                    }}
+                    labelFormatter={(value) => {
+                      const date = new Date(value);
+                      return `Data: ${date.toLocaleDateString('pt-BR')}`;
+                    }}
+                    formatter={(value: any, name: any, props: any) => {
+                      const item = props.payload;
+                      return [
+                        `${value}% - ${item.copyType}`,
+                        item.productName
+                      ];
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="score" 
+                    stroke="#3B82F6" 
+                    strokeWidth={3}
+                    dot={(props: any) => {
+                      const { cx, cy, payload } = props;
+                      return (
+                        <circle 
+                          cx={cx} 
+                          cy={cy} 
+                          r={6} 
+                          fill={payload.color}
+                          stroke="#1E1E1E"
+                          strokeWidth={2}
+                        />
+                      );
+                    }}
+                    name="Score de Qualidade"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+
+              {/* Estatísticas resumidas */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t border-[#4B5563]/20">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-white">{stats.averageScore}%</div>
+                  <div className="text-xs text-[#CCCCCC]">Score Médio</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-500">{stats.bestScore}%</div>
+                  <div className="text-xs text-[#CCCCCC]">Melhor Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-bold text-blue-400 truncate">{stats.bestType}</div>
+                  <div className="text-xs text-[#CCCCCC]">Tipo c/ Melhor Média</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-purple-400">{stats.streak}</div>
+                  <div className="text-xs text-[#CCCCCC]">Copies (7 dias)</div>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
