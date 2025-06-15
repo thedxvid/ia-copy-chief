@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { ModernButton } from '@/components/ui/modern-button';
 import { useTypewriter } from '@/hooks/useTypewriter';
@@ -60,7 +61,7 @@ export const HeroSection = () => {
         </FadeInSection>
 
         <FadeInSection delay={800}>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto pt-12">
             <div className="bg-[#1A1A1A]/50 backdrop-blur-sm border border-[#2A2A2A] rounded-xl p-6">
               <Target className="w-8 h-8 text-[#3B82F6] mx-auto mb-3" />
               <h3 className="text-white font-semibold mb-2">Alta Conversão</h3>
@@ -87,3 +88,4 @@ export const HeroSection = () => {
     </section>
   );
 };
+
