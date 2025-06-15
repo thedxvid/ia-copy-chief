@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
-import { Bot, Zap, PenTool, Megaphone, FileText, TrendingUp, Send, User } from 'lucide-react';
+import React from 'react';
+import { Zap, PenTool, Megaphone, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 
@@ -77,10 +74,6 @@ const agents: Agent[] = [
 
 export function AgentsSection() {
   const { user } = useAuth();
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [chatInput, setChatInput] = useState('');
-  const [messages, setMessages] = useState<Array<{ type: 'user' | 'agent'; content: string }>>([]);
-  const [isTyping, setIsTyping] = useState(false);
 
   // Se o usuário estiver logado, mostrar CTA para ir para o dashboard
   if (user) {
@@ -108,64 +101,6 @@ export function AgentsSection() {
     );
   }
 
-  const triggerWebhook = async (userMessage: string, agentName: string, agentId: string) => {
-    try {
-      const webhookUrl = 'https://n8n.srv830837.hstgr.cloud/webhook-test/chat-user-message';
-      
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        mode: 'no-cors',
-        body: JSON.stringify({
-          message: userMessage,
-          agentId: agentId,
-          agentName: agentName,
-          timestamp: new Date().toISOString(),
-          source: 'home-demo'
-        }),
-      });
-
-      console.log('Demo webhook triggered for agent:', agentName);
-    } catch (error) {
-      console.error('Error triggering demo webhook:', error);
-    }
-  };
-
-  const handleAgentSelect = (agent: Agent) => {
-    setSelectedAgent(agent);
-    setMessages(agent.sampleMessages);
-    setChatInput('');
-  };
-
-  const handleSendMessage = () => {
-    if (!chatInput.trim() || !selectedAgent) return;
-
-    const newUserMessage = { type: 'user' as const, content: chatInput };
-    setMessages(prev => [...prev, newUserMessage]);
-    
-    // Disparar webhook para mensagem demo
-    triggerWebhook(chatInput, selectedAgent.name, selectedAgent.id);
-    
-    setChatInput('');
-    setIsTyping(true);
-
-    // Simular resposta do agente
-    setTimeout(() => {
-      const responses = [
-        "Ótima pergunta! Vou te ajudar com isso...",
-        "Perfeito! Deixa eu criar algo incrível para você...",
-        "Excelente! Vou usar minha expertise para resolver isso...",
-        "Entendi perfeitamente! Vou criar um conteúdo que vai bombar..."
-      ];
-      
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      setMessages(prev => [...prev, { type: 'agent', content: randomResponse }]);
-      setIsTyping(false);
-    }, 1500);
-  };
-
   return (
     <section id="agents" className="py-16 sm:py-20 px-3 sm:px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
       <div className="max-w-7xl mx-auto">
@@ -183,120 +118,24 @@ export function AgentsSection() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12">
           {agents.map((agent, index) => (
-            <Card
-              key={agent.id}
-              className={`group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#3B82F6]/20 bg-[#1E1E1E]/80 backdrop-blur-sm border-[#4B5563]/50 hover:border-[#3B82F6]/50 rounded-2xl animate-fade-in-up animate-stagger-${index + 1} ${
-                selectedAgent?.id === agent.id ? 'border-[#3B82F6] shadow-lg shadow-[#3B82F6]/30' : ''
-              }`}
-              onClick={() => handleAgentSelect(agent)}
-            >
-              <CardHeader className="text-center pb-3 sm:pb-4">
-                <div className="w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <agent.icon className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
-                </div>
-                <CardTitle className="text-white text-lg sm:text-xl font-bold">{agent.name}</CardTitle>
-                <CardDescription className="text-[#3B82F6] font-semibold text-sm sm:text-base">{agent.specialty}</CardDescription>
-              </CardHeader>
-              <CardContent className="px-4 sm:px-6">
-                <p className="text-[#CCCCCC] text-center text-xs sm:text-sm">{agent.description}</p>
-              </CardContent>
-            </Card>
+            <Link to="/auth?mode=signup" key={agent.id} className="block h-full">
+              <Card
+                className={`group h-full cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#3B82F6]/20 bg-[#1E1E1E]/80 backdrop-blur-sm border-[#4B5563]/50 hover:border-[#3B82F6]/50 rounded-2xl animate-fade-in-up animate-stagger-${index + 1}`}
+              >
+                <CardHeader className="text-center pb-3 sm:pb-4">
+                  <div className="w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <agent.icon className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
+                  </div>
+                  <CardTitle className="text-white text-lg sm:text-xl font-bold">{agent.name}</CardTitle>
+                  <CardDescription className="text-[#3B82F6] font-semibold text-sm sm:text-base">{agent.specialty}</CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6">
+                  <p className="text-[#CCCCCC] text-center text-xs sm:text-sm">{agent.description}</p>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
-
-        {selectedAgent && (
-          <Card className="max-w-4xl mx-auto bg-[#1E1E1E]/90 backdrop-blur-sm border-[#4B5563]/50 rounded-2xl overflow-hidden animate-fade-in">
-            <CardHeader className="bg-gradient-to-r from-[#3B82F6]/20 to-[#2563EB]/20 border-b border-[#4B5563]/50 p-4 sm:p-6">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <Avatar className="w-10 sm:w-12 h-10 sm:h-12">
-                  <AvatarFallback className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white">
-                    <selectedAgent.icon className="w-5 sm:w-6 h-5 sm:h-6" />
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle className="text-white text-lg sm:text-xl">{selectedAgent.name}</CardTitle>
-                  <CardDescription className="text-[#3B82F6] text-sm sm:text-base">{selectedAgent.specialty}</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="p-0">
-              <ScrollArea className="h-80 sm:h-96 p-4 sm:p-6">
-                <div className="space-y-3 sm:space-y-4">
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex gap-2 sm:gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      {message.type === 'agent' && (
-                        <Avatar className="w-7 sm:w-8 h-7 sm:h-8 mt-1">
-                          <AvatarFallback className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-xs">
-                            <selectedAgent.icon className="w-3 sm:w-4 h-3 sm:h-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      
-                      <div
-                        className={`max-w-[85%] sm:max-w-[80%] p-2 sm:p-3 rounded-2xl ${
-                          message.type === 'user'
-                            ? 'bg-[#3B82F6] text-white ml-auto'
-                            : 'bg-[#2A2A2A] text-[#CCCCCC] border border-[#4B5563]/50'
-                        }`}
-                      >
-                        <p className="text-xs sm:text-sm whitespace-pre-line break-words">{message.content}</p>
-                      </div>
-
-                      {message.type === 'user' && (
-                        <Avatar className="w-7 sm:w-8 h-7 sm:h-8 mt-1">
-                          <AvatarFallback className="bg-[#4B5563] text-white text-xs">
-                            <User className="w-3 sm:w-4 h-3 sm:h-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {isTyping && (
-                    <div className="flex gap-2 sm:gap-3 justify-start">
-                      <Avatar className="w-7 sm:w-8 h-7 sm:h-8 mt-1">
-                        <AvatarFallback className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-xs">
-                          <selectedAgent.icon className="w-3 sm:w-4 h-3 sm:h-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="bg-[#2A2A2A] border border-[#4B5563]/50 p-2 sm:p-3 rounded-2xl">
-                        <div className="flex space-x-1">
-                          <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
-                          <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-              
-              <div className="border-t border-[#4B5563]/50 p-3 sm:p-4">
-                <div className="flex gap-2 sm:gap-3">
-                  <Input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder={`Digite sua pergunta para ${selectedAgent.name}...`}
-                    className="flex-1 bg-[#2A2A2A] border-[#4B5563] text-white rounded-full text-sm"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!chatInput.trim() || isTyping}
-                    className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white rounded-full px-4 sm:px-6 hover:scale-105 transition-all duration-300"
-                    size="sm"
-                  >
-                    <Send className="w-3 sm:w-4 h-3 sm:h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </section>
   );
