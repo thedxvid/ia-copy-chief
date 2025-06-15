@@ -25,25 +25,30 @@ export const DemoChatSection = React.forwardRef<HTMLDivElement, DemoChatSectionP
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (agent) {
+    if (agent && agent.sampleMessages) {
       setMessages([]);
       
       let messageIndex = 0;
       const showNextMessage = () => {
         if (messageIndex < agent.sampleMessages.length) {
-          setIsTyping(false);
-          setMessages(prev => [...prev, agent.sampleMessages[messageIndex]]);
-          
           const currentMessage = agent.sampleMessages[messageIndex];
           messageIndex++;
-          
-          if (currentMessage.type === 'user' && messageIndex < agent.sampleMessages.length) {
-            setTimeout(() => {
-              setIsTyping(true);
-              setTimeout(showNextMessage, 1000); // Agent "thinks" for a second
-            }, 500);
+
+          if (currentMessage) {
+            setIsTyping(false);
+            setMessages(prev => [...prev, currentMessage]);
+            
+            if (currentMessage.type === 'user' && messageIndex < agent.sampleMessages.length) {
+              setTimeout(() => {
+                setIsTyping(true);
+                setTimeout(showNextMessage, 1000); // Agent "thinks" for a second
+              }, 500);
+            } else {
+              setTimeout(showNextMessage, 1500); // Time between agent messages
+            }
           } else {
-            setTimeout(showNextMessage, 1500); // Time between agent messages
+            // Skip if message is undefined and continue to the next one
+            showNextMessage();
           }
         } else {
           setIsTyping(false);
@@ -138,3 +143,4 @@ export const DemoChatSection = React.forwardRef<HTMLDivElement, DemoChatSectionP
 });
 
 DemoChatSection.displayName = 'DemoChatSection';
+
