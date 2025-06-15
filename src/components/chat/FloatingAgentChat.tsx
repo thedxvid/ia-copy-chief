@@ -26,11 +26,6 @@ export const FloatingAgentChat: React.FC = () => {
 
   const { agents: customAgents } = useCustomAgents();
 
-  // Só renderizar se o usuário estiver logado
-  if (!user) {
-    return null;
-  }
-
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare
   };
@@ -84,6 +79,11 @@ export const FloatingAgentChat: React.FC = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [chatStep, closeChat]);
+
+  // Só renderizar se o usuário estiver logado - MOVED AFTER ALL HOOKS
+  if (!user) {
+    return null;
+  }
 
   // Don't render anything if chat is closed and not minimized
   if (chatStep === 'closed') {
