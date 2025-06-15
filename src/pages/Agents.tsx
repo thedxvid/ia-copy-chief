@@ -16,7 +16,7 @@ const Agents = () => {
   const { agents: customAgents, loading, deleteAgent } = useCustomAgents();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { selectAgent } = useFloatingChat();
+  const { selectAgent, openAgentSelection } = useFloatingChat();
 
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare
@@ -56,14 +56,39 @@ const Agents = () => {
   ];
 
   const handleStartChat = (agent: any) => {
-    console.log('=== INICIANDO CHAT COM AGENTE ===');
+    console.log('🚀 INICIANDO CHAT COM AGENTE 🚀');
+    console.log('='.repeat(50));
     console.log('Agent ID:', agent.id);
     console.log('Agent Name:', agent.name);
-    console.log('Agent Prompt:', agent.prompt ? `${agent.prompt.substring(0, 100)}...` : 'MISSING PROMPT');
-    console.log('Is Custom:', agent.isCustom);
-    console.log('================================');
+    console.log('Agent Prompt:', agent.prompt ? `${agent.prompt.substring(0, 100)}...` : '❌ MISSING PROMPT');
+    console.log('Is Custom:', agent.isCustom || false);
+    console.log('Is Default:', agent.isDefault || false);
+    console.log('Full Agent Object:', agent);
+    console.log('='.repeat(50));
     
-    selectAgent(agent);
+    // Verificar se o agente tem todas as propriedades necessárias
+    if (!agent.prompt) {
+      console.error('❌ ERRO: Agente sem prompt definido!');
+      toast({
+        title: "Erro",
+        description: "Este agente não tem instruções configuradas.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Chamar selectAgent do hook useFloatingChat
+      selectAgent(agent);
+      console.log('✅ selectAgent chamado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao iniciar chat:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao iniciar conversa com o agente",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDeleteAgent = async (agentId: string) => {
@@ -126,6 +151,17 @@ const Agents = () => {
             <Plus className="w-4 h-4 mr-2" />
             Criar Agente
           </Button>
+        </div>
+
+        {/* Debug Info */}
+        <div className="bg-[#2A2A2A] border border-[#4B5563]/20 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-white mb-2">🔧 Debug Info</h3>
+          <div className="text-xs text-[#CCCCCC] space-y-1">
+            <p>• Total de agentes: {allAgents.length}</p>
+            <p>• Agentes padrão: {defaultAgents.length}</p>
+            <p>• Agentes customizados: {customAgents.length}</p>
+            <p>• Hook useFloatingChat carregado: ✅</p>
+          </div>
         </div>
 
         {loading ? (
