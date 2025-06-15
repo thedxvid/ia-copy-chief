@@ -35,6 +35,12 @@ export const Header = () => {
     navigate('/');
   };
 
+  const handleMobileNavigation = (path: string) => {
+    navigate(path);
+    setIsMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const getInitials = (name: string | undefined) => {
     if (!name) return 'U';
     return name
@@ -175,6 +181,7 @@ export const Header = () => {
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="md:hidden text-white p-1.5 sm:p-2 hover:bg-[#1E1E1E] rounded-xl transition-colors"
+                aria-label="Toggle menu"
               >
                 {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
@@ -186,34 +193,32 @@ export const Header = () => {
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/20 backdrop-blur-sm mt-14 sm:mt-16">
-          <div className="bg-[#121212]/90 backdrop-blur-md border border-[#4B5563]/30 rounded-2xl mx-4 mt-2 shadow-xl">
+          <div className="bg-[#121212]/95 backdrop-blur-md border border-[#4B5563]/30 rounded-2xl mx-4 mt-2 shadow-xl">
             <div className="py-4 px-3">
               <nav className="flex flex-col space-y-2">
                 {navItems.map((item) => (
-                  <Link
+                  <button
                     key={item.href}
-                    to={item.href}
-                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50"
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={() => handleMobileNavigation(item.href)}
+                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50 text-left"
                   >
                     {item.label}
-                  </Link>
+                  </button>
                 ))}
                 
                 {!user && (
                   <div className="flex flex-col space-y-2 pt-3 border-t border-[#4B5563]/30">
-                    <Link
-                      to="/auth"
-                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50"
-                      onClick={() => setIsMenuOpen(false)}
+                    <button
+                      onClick={() => handleMobileNavigation('/auth')}
+                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50 text-left"
                     >
                       Entrar
-                    </Link>
+                    </button>
                     <div className="px-3">
                       <ModernButton asChild size="sm" className="w-full text-sm">
-                        <Link to="/auth?mode=signup" onClick={() => setIsMenuOpen(false)}>
+                        <button onClick={() => handleMobileNavigation('/auth?mode=signup')}>
                           Começar Agora
-                        </Link>
+                        </button>
                       </ModernButton>
                     </div>
                   </div>
