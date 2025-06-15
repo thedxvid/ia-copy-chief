@@ -46,22 +46,21 @@ export const useFloatingChat = () => {
 
     console.log('✅ Prompt validado com sucesso');
 
-    // Usar função de callback para garantir estado atual
+    // Usar função callback para evitar stale closures
     setOpenAgents(currentAgents => {
       console.log('📋 Current agents antes da atualização:', currentAgents.length);
       
-      // Verificar se o agente já está aberto
       const existingAgent = currentAgents.find(a => a.id === agent.id);
+      
+      let updatedAgents: OpenAgent[];
       
       if (existingAgent) {
         console.log('📋 Agente já existe, maximizando...');
-        const updatedAgents = currentAgents.map(a => 
+        updatedAgents = currentAgents.map(a => 
           a.id === agent.id 
             ? { ...a, isMinimized: false, unreadCount: 0, lastActivity: Date.now() }
             : a
         );
-        console.log('📋 Agentes após maximizar:', updatedAgents.length);
-        return updatedAgents;
       } else {
         console.log('🆕 Criando novo chat para agente...');
         const newAgent: OpenAgent = {
@@ -71,7 +70,6 @@ export const useFloatingChat = () => {
           lastActivity: Date.now()
         };
         
-        let updatedAgents;
         if (currentAgents.length >= 3) {
           const sortedByActivity = [...currentAgents].sort((a, b) => a.lastActivity - b.lastActivity);
           console.log('⚠️ Limite de 3 chats atingido, removendo o mais antigo');
@@ -80,19 +78,22 @@ export const useFloatingChat = () => {
           console.log('📝 Adicionando novo agente à lista');
           updatedAgents = [...currentAgents, newAgent];
         }
-        
-        console.log('📋 Agentes após adicionar:', updatedAgents.length);
-        return updatedAgents;
       }
+      
+      console.log('📋 Agentes após atualização:', updatedAgents.length);
+      console.log('📋 Agentes IDs:', updatedAgents.map(a => a.id));
+      
+      // FORÇA a mudança de estado após atualizar openAgents
+      setTimeout(() => {
+        console.log('🔄 Forçando mudança para chatting...');
+        setChatStep('chatting');
+        setActiveAgentId(agent.id);
+      }, 0);
+      
+      return updatedAgents;
     });
     
-    // Definir agente ativo
-    setActiveAgentId(agent.id);
-    
-    // Mudar para estado de chat
-    setChatStep('chatting');
-    
-    console.log('✅ selectAgent executado - estado deveria ser chatting com agente', agent.id);
+    console.log('✅ selectAgent executado completo');
   }, []);
 
   const backToSelection = useCallback(() => {
@@ -113,28 +114,24 @@ export const useFloatingChat = () => {
     setOpenAgents(currentAgents => {
       const remainingAgents = currentAgents.filter(a => a.id !== agentId);
       console.log('Agentes restantes após fechar:', remainingAgents.length);
+      
+      // Se não há mais agentes, fechar completamente
+      if (remainingAgents.length === 0) {
+        setTimeout(() => {
+          setChatStep('closed');
+          setActiveAgentId(null);
+        }, 0);
+      } else if (activeAgentId === agentId) {
+        // Se estamos fechando o agente ativo, definir novo ativo
+        const newActiveId = remainingAgents[remainingAgents.length - 1].id;
+        setTimeout(() => {
+          setActiveAgentId(newActiveId);
+        }, 0);
+      }
+      
       return remainingAgents;
     });
-    
-    setActiveAgentId(currentActiveId => {
-      if (currentActiveId === agentId) {
-        // Se estamos fechando o agente ativo, precisamos definir um novo ou fechar tudo
-        setOpenAgents(currentAgents => {
-          const remainingAgents = currentAgents.filter(a => a.id !== agentId);
-          if (remainingAgents.length > 0) {
-            const newActiveId = remainingAgents[remainingAgents.length - 1].id;
-            setActiveAgentId(newActiveId);
-            return remainingAgents;
-          } else {
-            setChatStep('closed');
-            return [];
-          }
-        });
-        return null;
-      }
-      return currentActiveId;
-    });
-  }, []);
+  }, [activeAgentId]);
 
   const minimizeAgent = useCallback((agentId: string) => {
     console.log('📉 Minimizando agente:', agentId);
@@ -144,20 +141,10 @@ export const useFloatingChat = () => {
       )
     );
     
-    setActiveAgentId(currentActiveId => {
-      if (currentActiveId === agentId) {
-        setOpenAgents(currentAgents => {
-          const otherActiveAgents = currentAgents.filter(a => a.id !== agentId && !a.isMinimized);
-          if (otherActiveAgents.length > 0) {
-            return currentAgents;
-          }
-          return currentAgents;
-        });
-        return null;
-      }
-      return currentActiveId;
-    });
-  }, []);
+    if (activeAgentId === agentId) {
+      setActiveAgentId(null);
+    }
+  }, [activeAgentId]);
 
   const maximizeAgent = useCallback((agentId: string) => {
     console.log('📈 Maximizando agente:', agentId);

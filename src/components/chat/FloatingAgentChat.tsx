@@ -69,7 +69,7 @@ export const FloatingAgentChat: React.FC = () => {
     ...customAgents.map(formatCustomAgent)
   ];
 
-  // Debug mais claro do estado atual
+  // Debug detalhado do estado atual
   useEffect(() => {
     console.log('🎭 === FLOATING CHAT RENDER STATE === 🎭');
     console.log('chatStep:', chatStep);
@@ -82,7 +82,10 @@ export const FloatingAgentChat: React.FC = () => {
     }
     
     const shouldRenderChat = chatStep === 'chatting' && openAgents.length > 0;
-    console.log('SHOULD RENDER CHAT?', shouldRenderChat);
+    console.log('🔍 SHOULD RENDER CHAT?', shouldRenderChat);
+    console.log('🔍 Render conditions:');
+    console.log('  - chatStep === "chatting":', chatStep === 'chatting');
+    console.log('  - openAgents.length > 0:', openAgents.length > 0);
   }, [chatStep, openAgents, activeAgentId, user]);
 
   // Só renderizar se o usuário estiver logado
@@ -152,16 +155,25 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Estado: Chat ativo - RENDERIZAR SEMPRE que chatStep === 'chatting'
+  // Estado: Chat ativo - SEMPRE renderizar quando chatStep === 'chatting' E temos agentes
   if (chatStep === 'chatting') {
-    console.log('🟢 Rendering: Chat interface - openAgents:', openAgents.length);
+    console.log('🟢 ATTEMPTING CHAT RENDER - openAgents:', openAgents.length);
     
-    // Se não há agentes abertos mas estamos em chatting, voltar para closed
+    // Se não há agentes abertos mas estamos em chatting, algo está errado
     if (openAgents.length === 0) {
-      console.log('⚠️ No open agents in chatting state, closing...');
+      console.log('⚠️ CRITICAL: No open agents in chatting state!');
+      console.log('⚠️ Forçando volta para closed...');
       setTimeout(() => closeChat(), 0);
-      return null;
+      return (
+        <div className="fixed bottom-6 right-6 z-50">
+          <div className="bg-yellow-500 text-black p-2 rounded">
+            Debug: Tentando corrigir estado...
+          </div>
+        </div>
+      );
     }
+    
+    console.log('✅ RENDERING CHAT INTERFACE with', openAgents.length, 'agents');
     
     return (
       <div className="fixed bottom-6 right-6 z-50">
@@ -248,6 +260,12 @@ export const FloatingAgentChat: React.FC = () => {
   }
 
   // Fallback - não deveria acontecer
-  console.log('🔴 Rendering: Fallback (unexpected state)');
-  return null;
+  console.log('🔴 Rendering: Fallback (unexpected state)', { chatStep, openAgentsLength: openAgents.length });
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <div className="bg-red-500 text-white p-2 rounded">
+        Debug: Estado inesperado - {chatStep} / {openAgents.length}
+      </div>
+    </div>
+  );
 };
