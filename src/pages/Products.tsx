@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, Filter, Grid, List } from 'lucide-react';
@@ -11,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductModal } from '@/components/products/ProductModal';
 import { useToast } from '@/hooks/use-toast';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 interface Product {
   id: string;
@@ -129,17 +129,19 @@ export default function Products() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3B82F6]"></div>
-      </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3B82F6]"></div>
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-['Inter'] p-6">
-      <div className="max-w-7xl mx-auto">
+    <DashboardLayout>
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Produtos & Ofertas</h1>
             <p className="text-[#888888]">Gerencie suas ofertas de marketing digital</p>
@@ -154,7 +156,7 @@ export default function Products() {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-[#1A1A1A] rounded-lg p-6 mb-6 border border-[#2A2A2A]">
+        <div className="bg-[#1A1A1A] rounded-lg p-6 border border-[#2A2A2A]">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             <div className="flex flex-col sm:flex-row gap-4 flex-1 max-w-2xl">
               <div className="relative flex-1">
@@ -221,7 +223,7 @@ export default function Products() {
         </div>
 
         {/* Results Summary */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4">
           <span className="text-[#888888]">
             {filteredProducts.length} de {products.length} produtos
           </span>
@@ -287,18 +289,18 @@ export default function Products() {
             ))}
           </div>
         )}
-      </div>
 
-      {/* Product Modal */}
-      <ProductModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        product={selectedProduct}
-        onSuccess={() => {
-          refetch();
-          setIsModalOpen(false);
-        }}
-      />
-    </div>
+        {/* Product Modal */}
+        <ProductModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          product={selectedProduct}
+          onSuccess={() => {
+            refetch();
+            setIsModalOpen(false);
+          }}
+        />
+      </div>
+    </DashboardLayout>
   );
 }

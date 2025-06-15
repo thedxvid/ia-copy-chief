@@ -10,6 +10,7 @@ import { useQuizCopySave } from '@/hooks/useQuizCopySave';
 import { Copy, Download, RotateCcw, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 const Quiz = () => {
   const [currentStep, setCurrentStep] = useState<'selector' | 'quiz' | 'result'>('selector');
@@ -109,30 +110,30 @@ const Quiz = () => {
 
   if (currentStep === 'selector') {
     return (
-      <div className="min-h-screen bg-[#121212] text-white font-['Inter'] p-6">
+      <DashboardLayout>
         <QuizSelector onSelectQuiz={handleSelectQuiz} />
-      </div>
+      </DashboardLayout>
     );
   }
 
   if (currentStep === 'quiz') {
     return (
-      <div className="min-h-screen bg-[#121212] text-white font-['Inter'] p-6">
+      <DashboardLayout>
         <QuizFlow
           quizType={selectedQuizType}
           onComplete={handleQuizComplete}
           onBack={handleBackToSelector}
           isLoading={isGenerating}
         />
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-['Inter'] p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">
               🎉 Sua Copy Está Pronta!
@@ -263,7 +264,7 @@ const Quiz = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 
