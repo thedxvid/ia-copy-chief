@@ -494,6 +494,62 @@ export type Database = {
         }
         Relationships: []
       }
+      specialized_copies: {
+        Row: {
+          copy_data: Json
+          copy_type: string
+          created_at: string
+          id: string
+          parent_copy_id: string | null
+          performance_metrics: Json | null
+          platform: string | null
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+          version: number | null
+        }
+        Insert: {
+          copy_data?: Json
+          copy_type: string
+          created_at?: string
+          id?: string
+          parent_copy_id?: string | null
+          performance_metrics?: Json | null
+          platform?: string | null
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+          version?: number | null
+        }
+        Update: {
+          copy_data?: Json
+          copy_type?: string
+          created_at?: string
+          id?: string
+          parent_copy_id?: string | null
+          performance_metrics?: Json | null
+          platform?: string | null
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialized_copies_parent_copy_id_fkey"
+            columns: ["parent_copy_id"]
+            isOneToOne: false
+            referencedRelation: "specialized_copies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_purchases: {
         Row: {
           amount_paid: number | null

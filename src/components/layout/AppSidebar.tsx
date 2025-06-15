@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -11,6 +10,11 @@ import {
   LogOut,
   Bot,
   Settings,
+  Brain,
+  Megaphone,
+  Video,
+  FileText,
+  PenTool,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -38,34 +42,54 @@ import { ProfileSettings } from '@/components/profile/ProfileSettings';
 
 const menuItems = [
   {
-    title: 'Dashboard',
-    url: '/dashboard',
+    title: "Dashboard",
+    url: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    title: 'Agentes IA',
-    url: '/agents',
-    icon: Users,
-  },
-  {
-    title: 'Produtos',
-    url: '/products',
+    title: "Produtos",
+    url: "/products",
     icon: Package,
   },
   {
-    title: 'Ferramentas',
-    url: '/tools',
+    title: "Quiz IA",
+    url: "/quiz", 
+    icon: Brain,
+  },
+  {
+    title: "Anúncios",
+    url: "/ads",
+    icon: Megaphone,
+  },
+  {
+    title: "Vídeos de Venda",
+    url: "/sales-videos",
+    icon: Video,
+  },
+  {
+    title: "Páginas",
+    url: "/pages",
+    icon: FileText,
+  },
+  {
+    title: "Conteúdos",
+    url: "/content",
+    icon: PenTool,
+  },
+  {
+    title: "Ferramentas",
+    url: "/tools",
     icon: Wrench,
   },
   {
-    title: 'Histórico',
-    url: '/history',
+    title: "Histórico",
+    url: "/history",
     icon: History,
   },
   {
-    title: 'Quiz',
-    url: '/quiz',
-    icon: HelpCircle,
+    title: "Agentes IA",
+    url: "/agents",
+    icon: Bot,
   },
 ];
 

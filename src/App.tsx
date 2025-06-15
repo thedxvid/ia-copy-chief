@@ -1,106 +1,146 @@
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { QueryClient } from 'react-query';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppProvider } from "@/contexts/AppContext";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { Header } from "@/components/layout/Header";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Quiz from "./pages/Quiz";
-import Dashboard from "./pages/Dashboard";
-import Tools from "./pages/Tools";
-import History from "./pages/History";
-import Agents from "./pages/Agents";
-import Products from "./pages/Products";
-import NotFound from "./pages/NotFound";
+import Index from './pages/Index';
+import Auth from './pages/Auth';
+import Dashboard from './pages/Dashboard';
+import Products from './pages/Products';
+import Quiz from './pages/Quiz';
+import Tools from './pages/Tools';
+import History from './pages/History';
+import Agents from './pages/Agents';
+import NotFound from './pages/NotFound';
+import { useAuth } from './contexts/AuthContext';
+import { AppProvider } from './contexts/AppContext';
+import { TutorialProvider } from './contexts/TutorialContext';
+import FloatingAgentChat from './components/FloatingAgentChat';
+import Ads from './pages/Ads';
+import SalesVideos from './pages/SalesVideos';
+import Pages from './pages/Pages';
+import Content from './pages/Content';
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+function App() {
+  return (
+    <QueryClient>
       <AuthProvider>
         <AppProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <div className="min-h-screen flex flex-col">
-              <Routes>
-                {/* Public routes with Header */}
-                <Route path="/" element={
-                  <>
-                    <Header />
-                    <main className="flex-1">
-                      <Index />
-                    </main>
-                  </>
-                } />
-                <Route path="/auth" element={
-                  <>
-                    <Header />
-                    <main className="flex-1">
-                      <Auth />
-                    </main>
-                  </>
-                } />
-                
-                {/* Protected routes with Dashboard Layout */}
-                <Route path="/dashboard" element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <Dashboard />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/quiz" element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <Quiz />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/agents" element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <Agents />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/products" element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <Products />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/tools" element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <Tools />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/history" element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <History />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                } />
-                
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-          </BrowserRouter>
+          <TutorialProvider>
+            <Router>
+              <div className="min-h-screen bg-[#0A0A0A] font-inter">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route 
+                    path="/dashboard" 
+                    element={
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/products" 
+                    element={
+                      <ProtectedRoute>
+                        <Products />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/quiz" 
+                    element={
+                      <ProtectedRoute>
+                        <Quiz />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/tools" 
+                    element={
+                      <ProtectedRoute>
+                        <Tools />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/history" 
+                    element={
+                      <ProtectedRoute>
+                        <History />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/agents" 
+                    element={
+                      <ProtectedRoute>
+                        <Agents />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/ads" 
+                    element={
+                      <ProtectedRoute>
+                        <Ads />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/sales-videos" 
+                    element={
+                      <ProtectedRoute>
+                        <SalesVideos />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/pages" 
+                    element={
+                      <ProtectedRoute>
+                        <Pages />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/content" 
+                    element={
+                      <ProtectedRoute>
+                        <Content />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <Toaster />
+                <FloatingAgentChat />
+              </div>
+            </Router>
+          </TutorialProvider>
         </AppProvider>
       </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClient>
+  );
+}
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    console.log('User state:', user);
+  }, [user]);
+
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 export default App;
