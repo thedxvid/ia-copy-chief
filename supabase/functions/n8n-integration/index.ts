@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -18,10 +17,12 @@ serve(async (req) => {
       productData, 
       copyType, 
       customInstructions,
-      userId 
+      userId,
+      type,
+      data
     } = await req.json();
 
-    console.log('Copy generation request:', { userId, copyType, productName: productData?.name });
+    console.log('N8n integration request:', { userId, copyType, type });
 
     if (!userId) {
       throw new Error('User ID é obrigatório');
@@ -37,9 +38,21 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Estimar tokens necessários para geração de copy
-    const estimatedTokens = estimateTokensForCopy(copyType, productData, customInstructions);
-    console.log('Tokens estimados para copy:', estimatedTokens);
+    // Determinar prompt baseado no tipo de requisição
+    let prompt = '';
+    let estimatedTokens = 1500;
+
+    if (type === 'copy_generation' && data?.copy_type) {
+      // Nova estrutura para copies especializadas
+      prompt = data.prompt || buildSpecializedCopyPrompt(data.copy_type, data.briefing);
+      estimatedTokens = estimateSpecializedTokens(data.copy_type);
+    } else {
+      // Estrutura antiga para compatibilidade
+      prompt = buildCopyPrompt(copyType, productData, customInstructions);
+      estimatedTokens = estimateTokensForCopy(copyType, productData, customInstructions);
+    }
+
+    console.log('Tokens estimados:', estimatedTokens);
 
     // Verificar tokens disponíveis
     const { data: tokensData, error: tokensError } = await supabase
@@ -52,12 +65,9 @@ serve(async (req) => {
 
     const userTokens = tokensData?.[0];
     if (!userTokens || userTokens.total_available < estimatedTokens) {
-      console.log('Tokens insuficientes para copy:', { available: userTokens?.total_available, needed: estimatedTokens });
+      console.log('Tokens insuficientes:', { available: userTokens?.total_available, needed: estimatedTokens });
       throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para gerar esta copy.`);
     }
-
-    // Construir prompt baseado no tipo de copy
-    const prompt = buildCopyPrompt(copyType, productData, customInstructions);
 
     console.log('Gerando copy com Claude...');
 
@@ -71,7 +81,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-3-haiku-20240307',
-        max_tokens: 3000, // Mais tokens para copy longa
+        max_tokens: 3000,
         messages: [
           { role: 'human', content: prompt }
         ]
@@ -89,14 +99,14 @@ serve(async (req) => {
 
     // Calcular tokens reais usados
     const actualTokensUsed = claudeData.usage?.input_tokens + claudeData.usage?.output_tokens || estimatedTokens;
-    console.log('Tokens realmente usados para copy:', actualTokensUsed);
+    console.log('Tokens realmente usados:', actualTokensUsed);
 
     // Consumir tokens
     const { data: consumeResult, error: consumeError } = await supabase
       .rpc('consume_tokens', {
         p_user_id: userId,
         p_tokens_used: actualTokensUsed,
-        p_feature_used: `copy_generation_${copyType}`,
+        p_feature_used: `copy_generation_${data?.copy_type || copyType}`,
         p_prompt_tokens: claudeData.usage?.input_tokens || Math.floor(actualTokensUsed * 0.4),
         p_completion_tokens: claudeData.usage?.output_tokens || Math.floor(actualTokensUsed * 0.6)
       });
@@ -114,7 +124,7 @@ serve(async (req) => {
       generatedCopy,
       tokensUsed: actualTokensUsed,
       tokensRemaining: userTokens.total_available - actualTokensUsed,
-      copyType
+      copyType: data?.copy_type || copyType
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -129,6 +139,22 @@ serve(async (req) => {
     });
   }
 });
+
+function estimateSpecializedTokens(copyType: string): number {
+  const estimates: { [key: string]: number } = {
+    'sales_video': 3000,
+    'ads': 1500,
+    'page': 2500,
+    'content': 1200
+  };
+  
+  return estimates[copyType] || 2000;
+}
+
+function buildSpecializedCopyPrompt(copyType: string, briefing: any): string {
+  // O prompt já vem construído do hook useAICopyGeneration
+  return briefing?.prompt || 'Gere uma copy profissional e persuasiva.';
+}
 
 function estimateTokensForCopy(copyType: string, productData: any, customInstructions?: string): number {
   // Estimativas baseadas no tipo de copy
@@ -177,7 +203,7 @@ async function checkAndSendNotifications(supabase: any, userId: string, remainin
   const MONTHLY_TOKENS = 25000;
   const usagePercentage = ((MONTHLY_TOKENS - remainingTokens) / MONTHLY_TOKENS) * 100;
   
-  console.log('Verificando notificações copy:', { remainingTokens, usagePercentage });
+  console.log('Verificando notificações:', { remainingTokens, usagePercentage });
 
   const { data: profile } = await supabase
     .from('profiles')
