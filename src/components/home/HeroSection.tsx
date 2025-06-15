@@ -1,12 +1,16 @@
+
 import React from 'react';
 import { ModernButton } from '@/components/ui/modern-button';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import { FadeInSection } from '@/components/ui/fade-in-section';
 import { Link } from 'react-router-dom';
 import { Bot, Target, TrendingUp } from 'lucide-react';
+
 export const HeroSection = () => {
   const typewriterText = useTypewriter(['copies que convertem', 'conteúdo envolvente', 'anúncios persuasivos', 'emails que vendem'], 2000);
-  return <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
+
+  return (
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#121212] via-[#1A1A1A] to-[#0A0A0A]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]" />
@@ -56,7 +60,7 @@ export const HeroSection = () => {
         </FadeInSection>
 
         <FadeInSection delay={800}>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto pt-4">
             <div className="bg-[#1A1A1A]/50 backdrop-blur-sm border border-[#2A2A2A] rounded-xl p-6">
               <Target className="w-8 h-8 text-[#3B82F6] mx-auto mb-3" />
               <h3 className="text-white font-semibold mb-2">Alta Conversão</h3>
@@ -80,5 +84,6 @@ export const HeroSection = () => {
         <div className="absolute bottom-20 right-10 w-32 h-32 bg-gradient-to-r from-[#8B5CF6]/20 to-[#3B82F6]/20 rounded-full blur-xl animate-pulse animation-delay-2000" />
         <div className="absolute top-1/2 right-20 w-16 h-16 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl animate-pulse animation-delay-4000" />
       </div>
-    </section>;
+    </section>
+  );
 };
