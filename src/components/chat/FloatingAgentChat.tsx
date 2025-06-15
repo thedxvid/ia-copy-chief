@@ -69,84 +69,45 @@ export const FloatingAgentChat: React.FC = () => {
     ...customAgents.map(formatCustomAgent)
   ];
 
-  // Debug do estado atual
+  // Debug mais claro do estado atual
   useEffect(() => {
-    console.log('🎭 === FLOATING CHAT STATE DEBUG === 🎭');
+    console.log('🎭 === FLOATING CHAT RENDER STATE === 🎭');
     console.log('chatStep:', chatStep);
-    console.log('openAgents:', openAgents.length);
+    console.log('openAgents count:', openAgents.length);
     console.log('activeAgentId:', activeAgentId);
-    console.log('Should render chat?', chatStep === 'chatting' && openAgents.length > 0);
-    console.log('User logged in?', !!user);
-  }, [chatStep, openAgents, activeAgentId, user]);
-
-  // Debug function to clear all chat histories
-  const clearAllChats = () => {
-    if (window.confirm('⚠️ Isso irá limpar TODOS os históricos de chat. Tem certeza?')) {
-      console.log('🗑️ Clearing all chat histories...');
-      
-      allAgents.forEach(agent => {
-        localStorage.removeItem(`chat-${agent.id}`);
-        console.log(`Removed chat history for agent: ${agent.id}`);
-      });
-      
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('chat-')) {
-          localStorage.removeItem(key);
-          console.log(`Removed orphaned chat data: ${key}`);
-        }
-      });
-      
-      console.log('✅ All chat histories cleared!');
-      alert('✅ Todos os históricos de chat foram limpos! Recarregue a página para ver o efeito.');
+    console.log('user:', !!user);
+    
+    if (openAgents.length > 0) {
+      console.log('Open agents details:', openAgents.map(a => ({ id: a.id, name: a.name, minimized: a.isMinimized })));
     }
-  };
-
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && chatStep !== 'closed') {
-        closeChat();
-      }
-      
-      if (e.key >= '1' && e.key <= '3' && e.ctrlKey && openAgents.length > 0) {
-        const index = parseInt(e.key) - 1;
-        if (index < openAgents.length) {
-          const agent = openAgents[index];
-          if (agent.isMinimized) {
-            maximizeAgent(agent.id);
-          } else {
-            focusAgent(agent.id);
-          }
-        }
-      }
-
-      if (e.key === 'D' && e.ctrlKey && e.shiftKey) {
-        clearAllChats();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [chatStep, closeChat, openAgents, maximizeAgent, focusAgent]);
+    
+    const shouldRenderChat = chatStep === 'chatting' && openAgents.length > 0;
+    console.log('SHOULD RENDER CHAT?', shouldRenderChat);
+  }, [chatStep, openAgents, activeAgentId, user]);
 
   // Só renderizar se o usuário estiver logado
   if (!user) {
-    console.log('👤 User not logged in, not rendering chat');
+    console.log('❌ User not logged in, not rendering chat');
     return null;
   }
 
   // Calcular total de notificações
   const totalUnreadCount = openAgents.reduce((sum, agent) => sum + agent.unreadCount, 0);
 
-  console.log('🎨 === RENDER DECISION === 🎨');
-  console.log('chatStep:', chatStep);
-  console.log('openAgents.length:', openAgents.length);
-  console.log('Will render main button?', chatStep === 'closed' && openAgents.length === 0);
-  console.log('Will render selection?', chatStep === 'agent-selection');
-  console.log('Will render chat?', chatStep === 'chatting' && openAgents.length > 0);
+  // Debug função para limpar chats
+  const clearAllChats = () => {
+    if (window.confirm('⚠️ Isso irá limpar TODOS os históricos de chat. Tem certeza?')) {
+      allAgents.forEach(agent => {
+        localStorage.removeItem(`chat-${agent.id}`);
+      });
+      alert('✅ Todos os históricos foram limpos!');
+    }
+  };
 
-  // Button only state
-  if (chatStep === 'closed' && openAgents.length === 0) {
+  console.log('🎨 RENDER DECISION - chatStep:', chatStep, 'openAgents:', openAgents.length);
+
+  // Estado: Apenas botão principal
+  if (chatStep === 'closed') {
     console.log('🔵 Rendering: Main button only');
     return (
       <div className="fixed bottom-6 right-6 z-50">
@@ -155,7 +116,7 @@ export const FloatingAgentChat: React.FC = () => {
             <Button
               onClick={clearAllChats}
               className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg"
-              title="Debug: Clear All Chats (Ctrl+Shift+D)"
+              title="Debug: Clear All Chats"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -177,7 +138,7 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Agent selection state
+  // Estado: Seleção de agentes
   if (chatStep === 'agent-selection') {
     console.log('🟡 Rendering: Agent selection modal');
     return (
@@ -191,20 +152,26 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Chat state
+  // Estado: Chat ativo - RENDERIZAR SEMPRE que chatStep === 'chatting'
   if (chatStep === 'chatting') {
-    console.log('🟢 Rendering: Chat interface');
-    console.log('Active agents:', openAgents.map(a => ({ id: a.id, name: a.name, minimized: a.isMinimized })));
+    console.log('🟢 Rendering: Chat interface - openAgents:', openAgents.length);
+    
+    // Se não há agentes abertos mas estamos em chatting, voltar para closed
+    if (openAgents.length === 0) {
+      console.log('⚠️ No open agents in chatting state, closing...');
+      setTimeout(() => closeChat(), 0);
+      return null;
+    }
     
     return (
       <div className="fixed bottom-6 right-6 z-50">
         <div className="flex flex-col space-y-4">
-          {/* Minimized Agents Dock */}
+          {/* Agentes Minimizados */}
           {openAgents.some(agent => agent.isMinimized) && (
             <div className="flex space-x-2 justify-end">
               {openAgents
                 .filter(agent => agent.isMinimized)
-                .map((agent, index) => (
+                .map((agent) => (
                   <Button
                     key={agent.id}
                     onClick={() => maximizeAgent(agent.id)}
@@ -228,7 +195,7 @@ export const FloatingAgentChat: React.FC = () => {
             </div>
           )}
 
-          {/* Active Chat Windows */}
+          {/* Janelas de Chat Ativas */}
           <div className="flex flex-col space-y-4">
             {openAgents
               .filter(agent => !agent.isMinimized)
@@ -255,13 +222,13 @@ export const FloatingAgentChat: React.FC = () => {
               ))}
           </div>
 
-          {/* Action Buttons */}
+          {/* Botões de Ação */}
           <div className="flex justify-end space-x-2">
             {window.location.hostname === 'localhost' && (
               <Button
                 onClick={clearAllChats}
                 className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg"
-                title="Debug: Clear All Chats (Ctrl+Shift+D)"
+                title="Debug: Clear All Chats"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -280,7 +247,7 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Fallback - should not happen
+  // Fallback - não deveria acontecer
   console.log('🔴 Rendering: Fallback (unexpected state)');
   return null;
 };
