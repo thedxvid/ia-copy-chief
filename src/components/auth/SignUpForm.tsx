@@ -57,13 +57,21 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
     setLoading(true);
 
     try {
-      const { error } = await signUp(formData.email, formData.password, formData.fullName);
+      // Usar o sistema nativo do Supabase com redirect URL correto
+      const { error } = await signUp(
+        formData.email, 
+        formData.password, 
+        formData.fullName,
+        "https://pay.kiwify.com.br/nzX4lAh"
+      );
       
       if (error) {
         if (error.message.includes('User already registered')) {
           toast.error('Este email já está cadastrado');
         } else if (error.message.includes('Password should be at least 6 characters')) {
           toast.error('A senha deve ter pelo menos 6 caracteres');
+        } else if (error.message.includes('rate limit')) {
+          toast.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
         } else {
           toast.error(error.message || 'Erro ao criar conta');
         }
@@ -73,6 +81,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
       }
     } catch (error) {
       toast.error('Erro inesperado. Tente novamente.');
+      console.error('Signup error:', error);
     } finally {
       setLoading(false);
     }

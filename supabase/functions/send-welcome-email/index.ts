@@ -12,6 +12,7 @@ const corsHeaders = {
 interface WelcomeEmailRequest {
   email: string;
   name: string;
+  checkoutUrl?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -20,54 +21,162 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, name }: WelcomeEmailRequest = await req.json();
+    const { email, name, checkoutUrl }: WelcomeEmailRequest = await req.json();
 
-    const dashboardUrl = `${new URL(req.url).origin}/dashboard`;
+    const finalCheckoutUrl = checkoutUrl || "https://pay.kiwify.com.br/nzX4lAh";
 
     const emailResponse = await resend.emails.send({
       from: "CopyMaster <noreply@copymaster.app>",
       to: [email],
-      subject: "🎉 Pagamento Aprovado - Bem-vindo ao CopyMaster!",
+      subject: "🎉 Bem-vindo ao CopyMaster! Complete sua assinatura",
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #3B82F6; font-size: 32px; margin: 0;">CopyMaster</h1>
-            <p style="color: #6B7280; font-size: 16px;">Sua plataforma de copywriting com IA</p>
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Bem-vindo ao CopyMaster</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              line-height: 1.6;
+              color: #333333;
+              background-color: #f8f9fa;
+            }
+            
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #ffffff;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            }
+            
+            .header {
+              background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+              padding: 40px 30px;
+              text-align: center;
+            }
+            
+            .logo {
+              width: 60px;
+              height: 60px;
+              background: rgba(255, 255, 255, 0.2);
+              border-radius: 16px;
+              margin: 0 auto 20px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 24px;
+              font-weight: bold;
+              color: white;
+            }
+            
+            .header h1 {
+              color: white;
+              font-size: 28px;
+              font-weight: 700;
+              margin-bottom: 8px;
+            }
+            
+            .content {
+              padding: 40px 30px;
+            }
+            
+            .cta-button {
+              display: inline-block;
+              background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+              color: white;
+              text-decoration: none;
+              padding: 16px 32px;
+              border-radius: 8px;
+              font-weight: 600;
+              font-size: 16px;
+              margin: 20px 0;
+              box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            }
+            
+            .footer {
+              background-color: #1a1a1a;
+              padding: 30px;
+              text-align: center;
+              color: #888888;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">CM</div>
+              <h1>Bem-vindo ao CopyMaster!</h1>
+              <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px;">Sua jornada para copies que convertem começa agora</p>
+            </div>
+            
+            <div class="content">
+              <div style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #1a1a1a;">
+                Olá, ${name || 'Usuário'}! 👋
+              </div>
+              
+              <div style="font-size: 16px; color: #666666; margin-bottom: 30px; line-height: 1.6;">
+                Parabéns por confirmar seu email! Agora você está a apenas um passo de transformar suas vendas com nossa IA de copywriting.
+                <br><br>
+                <strong>Complete sua assinatura agora</strong> e tenha acesso imediato a:
+              </div>
+              
+              <div style="background-color: #f8fafc; border-radius: 8px; padding: 24px; margin: 30px 0;">
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                  <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); border-radius: 50%; margin-right: 12px;"></div>
+                  <div style="color: #374151; font-size: 14px;">Agentes IA especializados em copywriting</div>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                  <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); border-radius: 50%; margin-right: 12px;"></div>
+                  <div style="color: #374151; font-size: 14px;">Geração automática de ofertas irresistíveis</div>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                  <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); border-radius: 50%; margin-right: 12px;"></div>
+                  <div style="color: #374151; font-size: 14px;">Biblioteca com +1.000 copys vencedoras</div>
+                </div>
+                <div style="display: flex; align-items: center;">
+                  <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); border-radius: 50%; margin-right: 12px;"></div>
+                  <div style="color: #374151; font-size: 14px;">Suporte prioritário VIP</div>
+                </div>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${finalCheckoutUrl}" class="cta-button">
+                  🚀 Finalizar Assinatura Agora
+                </a>
+              </div>
+              
+              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #92400e; font-size: 14px; margin: 0;">
+                  <strong>⚡ Oferta Limitada:</strong> Apenas R$ 97/mês (valor normal R$ 1.132/mês). Esta promoção é válida apenas para novos usuários e pode acabar a qualquer momento.
+                </p>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p><strong>CopyMaster</strong> - Transformando ideias em copies que convertem</p>
+              <p>
+                Precisa de ajuda? Entre em contato: 
+                <a href="mailto:suporte@copymaster.app" style="color: #3B82F6;">suporte@copymaster.app</a>
+              </p>
+              <p style="margin-top: 20px; font-size: 12px;">
+                © 2024 CopyMaster. Todos os direitos reservados.
+              </p>
+            </div>
           </div>
-          
-          <div style="background: #F3F4F6; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
-            <h2 style="color: #1F2937; margin-top: 0;">🎉 Pagamento Aprovado!</h2>
-            <p style="color: #4B5563; font-size: 16px; line-height: 1.6;">
-              Olá ${name || 'Usuário'},<br><br>
-              Seu pagamento foi processado com sucesso! Agora você tem acesso completo ao CopyMaster.
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${dashboardUrl}" 
-               style="background: #3B82F6; color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
-              Acessar Dashboard
-            </a>
-          </div>
-          
-          <div style="background: #EFF6FF; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #1E40AF; margin-top: 0;">O que você pode fazer agora:</h3>
-            <ul style="color: #1F2937; line-height: 1.8;">
-              <li>✨ Gerar copies para qualquer nicho</li>
-              <li>🎯 Usar nossos agentes especializados</li>
-              <li>📊 Analisar performance de campanhas</li>
-              <li>🚀 Criar campanhas completas</li>
-              <li>💡 Acessar templates premium</li>
-            </ul>
-          </div>
-          
-          <div style="text-align: center; padding: 20px; border-top: 1px solid #E5E7EB; margin-top: 30px;">
-            <p style="color: #6B7280; font-size: 14px; margin: 0;">
-              Precisa de ajuda? Responda este email.<br>
-              © 2025 CopyMaster. Todos os direitos reservados.
-            </p>
-          </div>
-        </div>
+        </body>
+        </html>
       `,
     });
 

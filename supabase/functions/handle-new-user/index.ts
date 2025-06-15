@@ -21,61 +21,34 @@ const handler = async (req: Request): Promise<Response> => {
     const webhookData = await req.json();
     console.log("Webhook received:", webhookData);
 
-    // Para signup confirmations, enviar email personalizado
-    if (webhookData.event === "user.confirmation" || webhookData.record?.event_type === "signup") {
-      const user = webhookData.record || webhookData;
+    // Para usuários confirmados (após clique no email), enviar welcome email e processar checkout
+    if (webhookData.type === "user" && webhookData.record) {
+      const user = webhookData.record;
       const userMetadata = user.user_metadata || user.raw_user_meta_data || {};
       
-      console.log("Processing signup confirmation for:", user.email);
+      // Verificar se o email foi confirmado
+      if (user.email_confirmed_at && !user.last_sign_in_at) {
+        console.log("Processing confirmed user for:", user.email);
 
-      // Criar perfil do usuário
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          full_name: userMetadata?.full_name,
-          avatar_url: userMetadata?.avatar_url,
-          subscription_status: "pending",
-          checkout_url: userMetadata?.checkout_url || "https://pay.kiwify.com.br/nzX4lAh",
-        });
+        // Criar perfil do usuário
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: user.id,
+            full_name: userMetadata?.full_name,
+            avatar_url: userMetadata?.avatar_url,
+            subscription_status: "pending",
+            checkout_url: userMetadata?.checkout_url || "https://pay.kiwify.com.br/nzX4lAh",
+          });
 
-      if (profileError) {
-        console.error("Error creating profile:", profileError);
+        if (profileError) {
+          console.error("Error creating profile:", profileError);
+        }
+
+        // Enviar email de boas-vindas com link para checkout
+        const checkoutUrl = userMetadata?.checkout_url || "https://pay.kiwify.com.br/nzX4lAh";
+        await sendWelcomeEmail(user.email, userMetadata?.full_name, checkoutUrl);
       }
-
-      // Enviar email de confirmação personalizado
-      if (user.email && userMetadata?.confirmation_url) {
-        await sendCustomConfirmationEmail(
-          user.email, 
-          userMetadata?.full_name || "Usuário", 
-          userMetadata.confirmation_url
-        );
-      }
-    }
-
-    // Para novos usuários confirmados, processar checkout
-    if (webhookData.event === "user.created" || webhookData.record?.event_type === "user.created") {
-      const { user_metadata, id, email } = webhookData.record || webhookData;
-      
-      const checkoutUrl = user_metadata?.checkout_url || "https://pay.kiwify.com.br/nzX4lAh";
-
-      // Criar perfil se não existir
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          id: id,
-          full_name: user_metadata?.full_name,
-          avatar_url: user_metadata?.avatar_url,
-          subscription_status: "pending",
-          checkout_url: checkoutUrl,
-        });
-
-      if (error) {
-        console.error("Error creating/updating profile:", error);
-      }
-
-      // Enviar email com link de checkout
-      await sendCheckoutEmail(email, user_metadata?.full_name, checkoutUrl);
     }
 
     return new Response(
@@ -97,34 +70,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-async function sendCustomConfirmationEmail(email: string, name: string, confirmationUrl: string) {
+async function sendWelcomeEmail(email: string, name: string, checkoutUrl: string) {
   try {
-    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-confirmation-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-      },
-      body: JSON.stringify({ 
-        email, 
-        name, 
-        confirmationUrl 
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("Failed to send custom confirmation email");
-    } else {
-      console.log("Custom confirmation email sent successfully");
-    }
-  } catch (error) {
-    console.error("Error sending custom confirmation email:", error);
-  }
-}
-
-async function sendCheckoutEmail(email: string, name: string, checkoutUrl: string) {
-  try {
-    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-checkout-email`, {
+    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -134,10 +82,12 @@ async function sendCheckoutEmail(email: string, name: string, checkoutUrl: strin
     });
 
     if (!response.ok) {
-      console.error("Failed to send checkout email");
+      console.error("Failed to send welcome email");
+    } else {
+      console.log("Welcome email sent successfully");
     }
   } catch (error) {
-    console.error("Error sending checkout email:", error);
+    console.error("Error sending welcome email:", error);
   }
 }
 

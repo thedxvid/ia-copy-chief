@@ -10,14 +10,6 @@ enable_recovery = true
 subject = "Confirme seu email - CopyMaster"
 content_path = ""
 
-[auth.hook.send_email]
-enabled = true
-uri = "https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/send-confirmation-email"
-secrets = ["RESEND_API_KEY"]
-
-[functions.send-confirmation-email]
-verify_jwt = false
-
 [functions.handle-new-user]
 verify_jwt = false
 
