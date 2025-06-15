@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -115,7 +114,9 @@ export const useAgentChat = (agentId: string) => {
         console.error('Edge function error:', error);
         
         // **Tratamento específico para tokens insuficientes**
-        if (error.message?.includes('Tokens insuficientes') || error.details?.includes('tokens')) {
+        if (error.message?.includes('Tokens insuficientes') || 
+            error.details?.includes('tokens') || 
+            error.context?.status === 402) {
           toast.error('❌ Tokens Insuficientes!', {
             description: 'Você não tem tokens suficientes para esta conversa. Aguarde o reset mensal ou economize tokens.',
             duration: 8000,
@@ -138,7 +139,9 @@ export const useAgentChat = (agentId: string) => {
         }
 
         // **Tratamento para configuração incompleta**
-        if (error.message?.includes('ambiente incompleta') || error.message?.includes('ANTHROPIC_API_KEY')) {
+        if (error.message?.includes('ambiente incompleta') || 
+            error.message?.includes('ANTHROPIC_API_KEY') ||
+            error.context?.status === 503) {
           toast.error('❌ Configuração Incompleta!', {
             description: 'A chave da API do Claude não está configurada. Entre em contato com o suporte.',
             duration: 8000,
@@ -147,6 +150,29 @@ export const useAgentChat = (agentId: string) => {
           const errorMessage: Message = {
             id: (Date.now() + 1).toString(),
             content: '❌ **Configuração Incompleta**\n\nDesculpe, há um problema na configuração do sistema. A chave da API do Claude não está configurada corretamente.\n\n🔧 **O que fazer:**\n- Entre em contato com o suporte\n- Aguarde a correção da configuração\n- Tente novamente em alguns minutos',
+            role: 'assistant',
+            timestamp: new Date()
+          };
+
+          setMessages(prev => {
+            const updated = [...prev, errorMessage];
+            saveToStorage(updated);
+            return updated;
+          });
+          
+          return;
+        }
+
+        // **Tratamento para erro de validação da API (400)**
+        if (error.context?.status === 400 || error.message?.includes('400')) {
+          toast.error('❌ Erro de Validação!', {
+            description: 'Erro na estrutura da mensagem. Tente reformular sua pergunta.',
+            duration: 6000,
+          });
+          
+          const errorMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: '❌ **Erro de Validação**\n\nOcorreu um erro na estrutura da mensagem enviada. Tente reformular sua pergunta de forma mais simples ou direta.\n\n💭 **Dica:**\nTente ser mais específico em sua pergunta e evite caracteres especiais.',
             role: 'assistant',
             timestamp: new Date()
           };

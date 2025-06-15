@@ -74,18 +74,15 @@ serve(async (req) => {
       throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens.`);
     }
 
-    // Construir histórico para a API - com validação melhorada
+    // Construir histórico para a API - CORREÇÃO PRINCIPAL: separar system prompt das mensagens
     const messages = [];
     
-    // Adicionar prompt do sistema
-    messages.push({ role: "system", content: agentPrompt });
-    
-    // Adicionar histórico do chat se existir
+    // Adicionar histórico do chat se existir (SEM o system prompt)
     if (chatHistory && Array.isArray(chatHistory)) {
       for (const msg of chatHistory) {
-        if (msg && msg.content && msg.role) {
+        if (msg && msg.content && msg.role && msg.role !== 'system') {
           messages.push({
-            role: msg.role === 'user' ? 'human' : 'assistant',
+            role: msg.role === 'user' ? 'user' : 'assistant',
             content: msg.content
           });
         }
@@ -93,13 +90,14 @@ serve(async (req) => {
     }
     
     // Adicionar mensagem atual
-    messages.push({ role: "human", content: message });
+    messages.push({ role: "user", content: message });
 
     console.log('=== CLAUDE API CALL ===');
     console.log('Messages count:', messages.length);
+    console.log('System prompt length:', agentPrompt.length);
     console.log('Calling Claude API...');
 
-    // Chamar Claude API com timeout e retry
+    // Chamar Claude API com estrutura correta (system como parâmetro separado)
     let claudeResponse;
     let attempts = 0;
     const maxAttempts = 3;
@@ -109,6 +107,20 @@ serve(async (req) => {
       console.log(`Tentativa ${attempts}/${maxAttempts}`);
 
       try {
+        const requestBody = {
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 2000,
+          system: agentPrompt, // CORREÇÃO: system prompt como parâmetro separado
+          messages: messages
+        };
+
+        console.log('Request body structure:', {
+          model: requestBody.model,
+          max_tokens: requestBody.max_tokens,
+          system_length: requestBody.system?.length,
+          messages_count: requestBody.messages?.length
+        });
+
         claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
@@ -116,22 +128,19 @@ serve(async (req) => {
             'x-api-key': anthropicApiKey,
             'anthropic-version': '2023-06-01'
           },
-          body: JSON.stringify({
-            model: 'claude-3-haiku-20240307',
-            max_tokens: 2000,
-            messages: messages
-          }),
-          signal: AbortSignal.timeout(30000) // 30 segundos timeout
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(45000) // 45 segundos timeout
         });
 
         if (claudeResponse.ok) {
+          console.log('Claude API call successful');
           break; // Sucesso, sair do loop
         } else {
           const errorText = await claudeResponse.text();
           console.error(`Erro Claude API (tentativa ${attempts}):`, claudeResponse.status, errorText);
           
           if (attempts === maxAttempts) {
-            throw new Error(`Falha na comunicação com Claude API após ${maxAttempts} tentativas. Status: ${claudeResponse.status}`);
+            throw new Error(`Falha na comunicação com Claude API após ${maxAttempts} tentativas. Status: ${claudeResponse.status}. Erro: ${errorText}`);
           }
           
           // Aguardar um pouco antes da próxima tentativa
@@ -152,6 +161,7 @@ serve(async (req) => {
     const claudeData = await claudeResponse.json();
     console.log('Claude API response received');
     console.log('Usage:', claudeData.usage);
+    console.log('Response content preview:', claudeData.content?.[0]?.text?.substring(0, 100) + '...');
 
     const responseContent = claudeData.content?.[0]?.text || claudeData.content || 'Resposta vazia do agente';
 
