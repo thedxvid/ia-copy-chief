@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +47,7 @@ const EmailConfirmation = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-600 to-blue-500 bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite]">
+    <div className="min-h-screen bg-gradient-to-br from-[#121212] via-[#1A1A1A] to-[#121212] bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite]">
       <Header />
       
       <div className="flex items-center justify-center min-h-screen pt-16 px-4">

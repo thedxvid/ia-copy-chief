@@ -23,7 +23,7 @@ export const SubscriptionStatus: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-600 to-blue-500 bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#121212] via-[#1A1A1A] to-[#121212] bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite] flex items-center justify-center">
         <Card className="bg-white/95 backdrop-blur-md border-none shadow-2xl max-w-lg w-full mx-4">
           <CardContent className="flex items-center justify-center p-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -117,12 +117,12 @@ export const SubscriptionStatus: React.FC = () => {
   const statusInfo = getStatusInfo();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-600 to-blue-500 bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#121212] via-[#1A1A1A] to-[#121212] bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite] flex items-center justify-center px-4">
       <FadeInSection>
         <Card className="bg-white/95 backdrop-blur-md border-none shadow-2xl max-w-lg w-full animate-[slideUp_0.8s_ease-out]">
           <CardHeader className="text-center pb-6">
             <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center animate-[pulse_2s_infinite] shadow-lg">
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center animate-[pulse_2s_infinite] shadow-lg">
                 {statusInfo.icon}
               </div>
             </div>
@@ -142,7 +142,7 @@ export const SubscriptionStatus: React.FC = () => {
                   <p className="text-amber-800 font-semibold text-sm">Oferta Especial</p>
                 </div>
                 <p className="text-amber-700 text-sm">
-                  Apenas <strong>R$ 97/mês</strong> (valor normal R$ 1.132/mês). 
+                  Apenas <strong>R$ 97/mês</strong> (valor normal R$ 1.132). 
                   Esta promoção é válida apenas para novos usuários.
                 </p>
               </div>
@@ -175,7 +175,7 @@ export const SubscriptionStatus: React.FC = () => {
             <div className="text-center space-y-4">
               <Button
                 onClick={statusInfo.buttonAction}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
               >
                 <div className="flex items-center justify-center gap-3">
                   <CreditCard className="w-5 h-5" />

@@ -25,7 +25,7 @@ const EmailConfirmed = () => {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-500 via-blue-600 to-purple-600 bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite]">
+    <div className="min-h-screen bg-gradient-to-br from-[#121212] via-[#1A1A1A] to-[#121212] bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite]">
       <Header />
       
       <div className="flex items-center justify-center min-h-screen pt-16 px-4">
@@ -64,14 +64,14 @@ const EmailConfirmed = () => {
                   <p className="text-amber-800 font-semibold text-sm">Oferta Limitada</p>
                 </div>
                 <p className="text-amber-700 text-sm">
-                  Apenas <strong>R$ 97/mês</strong> (valor normal R$ 1.132/mês). 
+                  Apenas <strong>R$ 97/mês</strong> (valor normal R$ 1.132). 
                   Esta promoção é válida apenas para novos usuários.
                 </p>
               </div>
 
               <div className="text-center space-y-4">
                 <Button 
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
                   asChild
                 >
                   <Link to="/checkout" className="flex items-center justify-center gap-3">
