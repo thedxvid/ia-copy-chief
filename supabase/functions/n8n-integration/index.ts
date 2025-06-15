@@ -123,7 +123,7 @@ serve(async (req) => {
 
     console.log('🤖 Calling Claude API...');
 
-    // Chamar Claude API
+    // Chamar Claude API com a sintaxe correta
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -135,7 +135,7 @@ serve(async (req) => {
         model: 'claude-3-haiku-20240307',
         max_tokens: 3000,
         messages: [
-          { role: 'human', content: prompt }
+          { role: 'user', content: prompt } // ✅ CORRIGIDO: user ao invés de human
         ]
       })
     });
@@ -143,7 +143,20 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Claude API error:', response.status, errorText);
-      throw new Error('Falha na comunicação com Claude API');
+      
+      // Melhor tratamento de erros específicos da API Claude
+      if (response.status === 400) {
+        console.error('🚨 Bad Request - Verificar sintaxe da requisição');
+        throw new Error('Erro na formatação da requisição para Claude API');
+      } else if (response.status === 401) {
+        console.error('🚨 Unauthorized - API Key inválida');
+        throw new Error('Chave da API Claude inválida');
+      } else if (response.status === 429) {
+        console.error('🚨 Rate Limited - Muitas requisições');
+        throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos');
+      } else {
+        throw new Error(`Falha na comunicação com Claude API: ${response.status}`);
+      }
     }
 
     const claudeData = await response.json();
