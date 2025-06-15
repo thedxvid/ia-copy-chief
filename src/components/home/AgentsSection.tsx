@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Bot, Zap, PenTool, Megaphone, FileText, TrendingUp, Send, User } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,7 +85,7 @@ export function AgentsSection() {
   // Se o usuário estiver logado, mostrar CTA para ir para o dashboard
   if (user) {
     return (
-      <section className="py-16 sm:py-20 px-3 sm:px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
+      <section id="agents" className="py-16 sm:py-20 px-3 sm:px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
         <div className="max-w-7xl mx-auto text-center">
           <div className="animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6 px-2">
@@ -168,7 +167,7 @@ export function AgentsSection() {
   };
 
   return (
-    <section className="py-16 sm:py-20 px-3 sm:px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
+    <section id="agents" className="py-16 sm:py-20 px-3 sm:px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12 sm:mb-16 animate-fade-in-up">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6 px-2">

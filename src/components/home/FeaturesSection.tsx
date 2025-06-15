@@ -45,7 +45,7 @@ export function FeaturesSection() {
   ];
 
   return (
-    <section className="py-20 sm:py-32 px-3 sm:px-4 relative bg-[#121212]">
+    <section id="features" className="py-20 sm:py-32 px-3 sm:px-4 relative bg-[#121212]">
       <div className="max-w-7xl mx-auto">
         <FadeInSection>
           <div className="text-center mb-16 sm:mb-24">

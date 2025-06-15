@@ -8,6 +8,7 @@ import { HowItWorksSection } from '@/components/home/HowItWorksSection';
 import { OfferSection } from '@/components/home/OfferSection';
 import { CTASection } from '@/components/home/CTASection';
 import { FadeInSection } from '@/components/ui/fade-in-section';
+import Footer from '@/components/layout/Footer';
 
 const Index = () => {
   return (
@@ -35,6 +36,8 @@ const Index = () => {
       <FadeInSection delay={500}>
         <CTASection />
       </FadeInSection>
+
+      <Footer />
     </div>
   );
 };

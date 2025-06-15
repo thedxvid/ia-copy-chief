@@ -39,7 +39,7 @@ export function OfferSection() {
   const totalValue = benefits.reduce((sum, benefit) => {
     return sum + parseInt(benefit.value.replace('R$ ', '').replace('/mês', ''));
   }, 0);
-  return <section className="relative py-16 sm:py-24 px-3 sm:px-4 bg-gradient-to-b from-[#121212] via-[#1A1A1A] to-[#121212] overflow-hidden">
+  return <section id="pricing" className="relative py-16 sm:py-24 px-3 sm:px-4 bg-gradient-to-b from-[#121212] via-[#1A1A1A] to-[#121212] overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-gradient-to-r from-[#3B82F6]/10 to-[#2563EB]/5 rounded-full blur-3xl animate-float" />
