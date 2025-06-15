@@ -46,7 +46,7 @@ export const useFloatingChat = () => {
 
     console.log('✅ Prompt validado com sucesso');
 
-    // Usar função callback para evitar stale closures
+    // Atualizar estados de forma síncrona
     setOpenAgents(currentAgents => {
       console.log('📋 Current agents antes da atualização:', currentAgents.length);
       
@@ -83,17 +83,14 @@ export const useFloatingChat = () => {
       console.log('📋 Agentes após atualização:', updatedAgents.length);
       console.log('📋 Agentes IDs:', updatedAgents.map(a => a.id));
       
-      // FORÇA a mudança de estado após atualizar openAgents
-      setTimeout(() => {
-        console.log('🔄 Forçando mudança para chatting...');
-        setChatStep('chatting');
-        setActiveAgentId(agent.id);
-      }, 0);
-      
       return updatedAgents;
     });
     
-    console.log('✅ selectAgent executado completo');
+    // Atualizar chatStep e activeAgentId imediatamente
+    setChatStep('chatting');
+    setActiveAgentId(agent.id);
+    
+    console.log('✅ selectAgent executado completo - mudando para chatting');
   }, []);
 
   const backToSelection = useCallback(() => {
@@ -117,16 +114,12 @@ export const useFloatingChat = () => {
       
       // Se não há mais agentes, fechar completamente
       if (remainingAgents.length === 0) {
-        setTimeout(() => {
-          setChatStep('closed');
-          setActiveAgentId(null);
-        }, 0);
+        setChatStep('closed');
+        setActiveAgentId(null);
       } else if (activeAgentId === agentId) {
         // Se estamos fechando o agente ativo, definir novo ativo
         const newActiveId = remainingAgents[remainingAgents.length - 1].id;
-        setTimeout(() => {
-          setActiveAgentId(newActiveId);
-        }, 0);
+        setActiveAgentId(newActiveId);
       }
       
       return remainingAgents;

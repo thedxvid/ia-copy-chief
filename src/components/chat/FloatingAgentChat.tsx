@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Bot, MessageSquare, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
 import { useFloatingChat } from '@/hooks/useFloatingChat';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
@@ -12,6 +12,8 @@ import { ChatActions } from './ChatActions';
 
 export const FloatingAgentChat: React.FC = () => {
   const { user } = useAuth();
+  const [forceRender, setForceRender] = useState(0);
+  
   const {
     chatStep,
     openAgents,
@@ -28,6 +30,12 @@ export const FloatingAgentChat: React.FC = () => {
   } = useFloatingChat();
 
   const { agents: customAgents } = useCustomAgents();
+
+  // Força re-render quando estados críticos mudam
+  useEffect(() => {
+    console.log('🔄 FORCE RENDER TRIGGER:', { chatStep, openAgentsCount: openAgents.length, activeAgentId });
+    setForceRender(prev => prev + 1);
+  }, [chatStep, openAgents.length, activeAgentId]);
 
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare
@@ -71,24 +79,16 @@ export const FloatingAgentChat: React.FC = () => {
     ...customAgents.map(formatCustomAgent)
   ];
 
-  // Debug detalhado do estado atual
-  useEffect(() => {
-    console.log('🎭 === FLOATING CHAT RENDER STATE === 🎭');
-    console.log('chatStep:', chatStep);
-    console.log('openAgents count:', openAgents.length);
-    console.log('activeAgentId:', activeAgentId);
-    console.log('user:', !!user);
-    
-    if (openAgents.length > 0) {
-      console.log('Open agents details:', openAgents.map(a => ({ id: a.id, name: a.name, minimized: a.isMinimized })));
-    }
-    
-    const shouldRenderChat = chatStep === 'chatting' && openAgents.length > 0;
-    console.log('🔍 SHOULD RENDER CHAT?', shouldRenderChat);
-    console.log('🔍 Render conditions:');
-    console.log('  - chatStep === "chatting":', chatStep === 'chatting');
-    console.log('  - openAgents.length > 0:', openAgents.length > 0);
-  }, [chatStep, openAgents, activeAgentId, user]);
+  // Debug mais completo do estado atual
+  console.log('🎭 === FLOATING CHAT RENDER STATE (force:', forceRender, ') === 🎭');
+  console.log('chatStep:', chatStep);
+  console.log('openAgents count:', openAgents.length);
+  console.log('activeAgentId:', activeAgentId);
+  console.log('user:', !!user);
+  
+  if (openAgents.length > 0) {
+    console.log('Open agents details:', openAgents.map(a => ({ id: a.id, name: a.name, minimized: a.isMinimized })));
+  }
 
   // Só renderizar se o usuário estiver logado
   if (!user) {
@@ -109,10 +109,11 @@ export const FloatingAgentChat: React.FC = () => {
     }
   };
 
-  console.log('🎨 RENDER DECISION - chatStep:', chatStep, 'openAgents:', openAgents.length);
+  // LÓGICA DE RENDERIZAÇÃO SIMPLIFICADA
+  console.log('🎨 RENDER DECISION:', { chatStep, openAgentsCount: openAgents.length });
 
-  // Estado: Apenas botão principal
-  if (chatStep === 'closed') {
+  // Estado: Apenas botão principal (quando não há chats ativos)
+  if (chatStep === 'closed' || (chatStep === 'chatting' && openAgents.length === 0)) {
     console.log('🔵 Rendering: Main button only');
     return (
       <FloatingChatButton
@@ -137,25 +138,9 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Estado: Chat ativo
-  if (chatStep === 'chatting') {
-    console.log('🟢 ATTEMPTING CHAT RENDER - openAgents:', openAgents.length);
-    
-    // Se não há agentes abertos mas estamos em chatting, algo está errado
-    if (openAgents.length === 0) {
-      console.log('⚠️ CRITICAL: No open agents in chatting state!');
-      console.log('⚠️ Forçando volta para closed...');
-      setTimeout(() => closeChat(), 0);
-      return (
-        <div className="fixed bottom-6 right-6 z-50">
-          <div className="bg-yellow-500 text-black p-2 rounded">
-            Debug: Tentando corrigir estado...
-          </div>
-        </div>
-      );
-    }
-    
-    console.log('✅ RENDERING CHAT INTERFACE with', openAgents.length, 'agents');
+  // Estado: Chat ativo (tem agentes abertos)
+  if (chatStep === 'chatting' && openAgents.length > 0) {
+    console.log('🟢 RENDERING CHAT INTERFACE with', openAgents.length, 'agents');
     
     return (
       <div className="fixed bottom-6 right-6 z-50">
