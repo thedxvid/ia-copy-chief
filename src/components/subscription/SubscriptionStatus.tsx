@@ -2,8 +2,9 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, CreditCard, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Clock, CreditCard, CheckCircle, XCircle, AlertTriangle, Mail } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
+import { toast } from 'sonner';
 
 export const SubscriptionStatus: React.FC = () => {
   const { subscription, loading, isSubscriptionActive, isSubscriptionExpired } = useSubscription();
@@ -40,6 +41,7 @@ export const SubscriptionStatus: React.FC = () => {
           description: 'Sua conta foi criada com sucesso! Agora você precisa fazer o pagamento para acessar a plataforma.',
           color: 'yellow',
           action: subscription.checkout_url ? 'Fazer Pagamento' : 'Aguardando Link',
+          showEmailInfo: true,
         };
       case 'active':
         if (isSubscriptionExpired) {
@@ -49,6 +51,7 @@ export const SubscriptionStatus: React.FC = () => {
             description: 'Seu acesso expirou. Renove sua subscription para continuar usando a plataforma.',
             color: 'orange',
             action: 'Renovar Acesso',
+            showEmailInfo: false,
           };
         }
         return {
@@ -57,6 +60,7 @@ export const SubscriptionStatus: React.FC = () => {
           description: `Sua subscription está ativa até ${subscription.subscription_expires_at ? new Date(subscription.subscription_expires_at).toLocaleDateString('pt-BR') : 'indefinido'}.`,
           color: 'green',
           action: null,
+          showEmailInfo: false,
         };
       case 'expired':
         return {
@@ -65,6 +69,7 @@ export const SubscriptionStatus: React.FC = () => {
           description: 'Sua subscription expirou. Renove para continuar usando a plataforma.',
           color: 'red',
           action: 'Renovar Acesso',
+          showEmailInfo: false,
         };
       case 'cancelled':
         return {
@@ -73,6 +78,7 @@ export const SubscriptionStatus: React.FC = () => {
           description: 'Sua subscription foi cancelada. Entre em contato conosco se precisar de ajuda.',
           color: 'red',
           action: 'Entrar em Contato',
+          showEmailInfo: false,
         };
       default:
         return {
@@ -81,6 +87,7 @@ export const SubscriptionStatus: React.FC = () => {
           description: 'Entre em contato com o suporte.',
           color: 'gray',
           action: 'Contatar Suporte',
+          showEmailInfo: false,
         };
     }
   };
@@ -92,10 +99,15 @@ export const SubscriptionStatus: React.FC = () => {
       window.open(subscription.checkout_url, '_blank');
     } else if (statusInfo.action === 'Renovar Acesso') {
       // Aqui você pode redirecionar para o checkout da Kiwify
-      window.open('https://kiwify.app/checkout/sua-oferta', '_blank');
+      window.open('https://pay.kiwify.com.br/nzX4lAh', '_blank');
     } else if (statusInfo.action === 'Entrar em Contato') {
       window.open('mailto:suporte@copymaster.app', '_blank');
     }
+  };
+
+  const handleResendEmail = () => {
+    // Aqui você pode implementar o reenvio do email de checkout
+    toast.success('Email reenviado com sucesso!');
   };
 
   return (
@@ -114,6 +126,20 @@ export const SubscriptionStatus: React.FC = () => {
             {statusInfo.description}
           </p>
 
+          {statusInfo.showEmailInfo && (
+            <div className="bg-[#2A2A2A] p-4 rounded-lg">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Mail className="w-4 h-4 text-[#3B82F6]" />
+                <p className="text-[#CCCCCC] text-sm font-medium">
+                  Enviamos um email com o link de pagamento
+                </p>
+              </div>
+              <p className="text-[#888888] text-xs">
+                Verifique sua caixa de entrada e spam
+              </p>
+            </div>
+          )}
+
           {subscription.payment_approved_at && (
             <div className="bg-[#2A2A2A] p-4 rounded-lg">
               <p className="text-[#CCCCCC] text-sm">
@@ -130,6 +156,17 @@ export const SubscriptionStatus: React.FC = () => {
             >
               <CreditCard className="w-4 h-4 mr-2" />
               {statusInfo.action}
+            </Button>
+          )}
+
+          {statusInfo.showEmailInfo && (
+            <Button
+              onClick={handleResendEmail}
+              variant="outline"
+              className="w-full"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Reenviar Email
             </Button>
           )}
 

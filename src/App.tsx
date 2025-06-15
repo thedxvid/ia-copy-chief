@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
@@ -13,6 +12,7 @@ import Tools from './pages/Tools';
 import History from './pages/History';
 import Agents from './pages/Agents';
 import NotFound from './pages/NotFound';
+import Checkout from './pages/Checkout';
 import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import { TutorialProvider } from './contexts/TutorialContext';
@@ -36,6 +36,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/checkout" element={<Checkout />} />
                   <Route 
                     path="/dashboard" 
                     element={

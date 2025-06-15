@@ -6,13 +6,15 @@ import { SignUpForm } from '@/components/auth/SignUpForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Navigate } from 'react-router-dom';
 
 const Auth = () => {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('login');
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { subscription, loading: subscriptionLoading, isSubscriptionActive } = useSubscription();
 
-  if (loading) {
+  if (authLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3B82F6]"></div>
@@ -21,7 +23,18 @@ const Auth = () => {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    // Se o usuário tem status "pending", redirecionar para checkout
+    if (subscription?.subscription_status === 'pending') {
+      return <Navigate to="/checkout" replace />;
+    }
+    
+    // Se tem subscription ativa, redirecionar para dashboard
+    if (isSubscriptionActive) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    
+    // Para outros status, redirecionar para checkout
+    return <Navigate to="/checkout" replace />;
   }
 
   return (
