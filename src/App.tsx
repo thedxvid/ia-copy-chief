@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
@@ -15,6 +16,10 @@ import History from './pages/History';
 import Agents from './pages/Agents';
 import NotFound from './pages/NotFound';
 import Checkout from './pages/Checkout';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import { TutorialProvider } from './contexts/TutorialContext';
@@ -41,6 +46,10 @@ function App() {
                   <Route path="/email-confirmation" element={<EmailConfirmation />} />
                   <Route path="/email-confirmed" element={<EmailConfirmed />} />
                   <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
                   <Route 
                     path="/dashboard" 
                     element={
