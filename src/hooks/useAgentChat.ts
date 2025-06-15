@@ -58,6 +58,12 @@ export const useAgentChat = (agentId: string) => {
   const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string, isCustomAgent?: boolean) => {
     if (!content.trim()) return;
 
+    console.log('=== SEND MESSAGE DEBUG ===');
+    console.log('Content:', content);
+    console.log('Agent Name:', agentName);
+    console.log('Is Custom:', isCustomAgent);
+    console.log('User ID:', user?.id);
+
     const userMessage: Message = {
       id: Date.now().toString(),
       content,
@@ -79,18 +85,31 @@ export const useAgentChat = (agentId: string) => {
     setIsLoading(true);
 
     try {
+      console.log('=== CALLING EDGE FUNCTION ===');
       console.log('Calling chat-with-claude edge function...');
       
-      const { data, error } = await supabase.functions.invoke('chat-with-claude', {
-        body: {
-          message: content,
-          agentPrompt,
-          chatHistory: messages,
-          agentName: agentName || 'Agente IA',
-          isCustomAgent: isCustomAgent || false,
-          userId: user?.id
-        }
+      const requestBody = {
+        message: content,
+        agentPrompt,
+        chatHistory: messages,
+        agentName: agentName || 'Agente IA',
+        isCustomAgent: isCustomAgent || false,
+        userId: user?.id
+      };
+
+      console.log('Request body:', {
+        ...requestBody,
+        agentPrompt: agentPrompt ? `${agentPrompt.substring(0, 100)}...` : 'MISSING',
+        chatHistory: `${messages.length} messages`
       });
+      
+      const { data, error } = await supabase.functions.invoke('chat-with-claude', {
+        body: requestBody
+      });
+
+      console.log('=== EDGE FUNCTION RESPONSE ===');
+      console.log('Error:', error);
+      console.log('Data:', data);
 
       if (error) {
         console.error('Edge function error:', error);
@@ -117,11 +136,39 @@ export const useAgentChat = (agentId: string) => {
           
           return;
         }
+
+        // **Tratamento para configuração incompleta**
+        if (error.message?.includes('ambiente incompleta') || error.message?.includes('ANTHROPIC_API_KEY')) {
+          toast.error('❌ Configuração Incompleta!', {
+            description: 'A chave da API do Claude não está configurada. Entre em contato com o suporte.',
+            duration: 8000,
+          });
+          
+          const errorMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: '❌ **Configuração Incompleta**\n\nDesculpe, há um problema na configuração do sistema. A chave da API do Claude não está configurada corretamente.\n\n🔧 **O que fazer:**\n- Entre em contato com o suporte\n- Aguarde a correção da configuração\n- Tente novamente em alguns minutos',
+            role: 'assistant',
+            timestamp: new Date()
+          };
+
+          setMessages(prev => {
+            const updated = [...prev, errorMessage];
+            saveToStorage(updated);
+            return updated;
+          });
+          
+          return;
+        }
         
         throw new Error(error.message || 'Falha na comunicação com o agente');
       }
 
-      console.log('Edge function response:', data);
+      console.log('Edge function response received:', data);
+      
+      // **Verificar se há resposta válida**
+      if (!data || !data.response) {
+        throw new Error('Resposta inválida do agente');
+      }
       
       // **Mostrar feedback sobre tokens usados**
       if (data.tokensUsed) {
@@ -146,7 +193,7 @@ export const useAgentChat = (agentId: string) => {
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response || 'Resposta recebida com sucesso',
+        content: data.response,
         role: 'assistant',
         timestamp: new Date()
       };
@@ -157,6 +204,7 @@ export const useAgentChat = (agentId: string) => {
         return updated;
       });
     } catch (error) {
+      console.error('=== SEND MESSAGE ERROR ===');
       console.error('Erro ao enviar mensagem:', error);
       
       // Verificar se é erro de tokens
@@ -165,9 +213,14 @@ export const useAgentChat = (agentId: string) => {
           description: 'Você não tem tokens suficientes para esta operação.',
           duration: 6000,
         });
+      } else if (error.message?.includes('ambiente') || error.message?.includes('configuração')) {
+        toast.error('❌ Problema de Configuração!', {
+          description: 'Há um problema na configuração do sistema. Tente novamente em alguns minutos.',
+          duration: 6000,
+        });
       } else {
         toast.error('❌ Erro no Chat', {
-          description: 'Erro ao enviar mensagem. Tente novamente.',
+          description: 'Erro ao enviar mensagem. Verifique sua conexão e tente novamente.',
           duration: 5000,
         });
       }
@@ -176,7 +229,9 @@ export const useAgentChat = (agentId: string) => {
         id: (Date.now() + 1).toString(),
         content: error.message?.includes('tokens') 
           ? '❌ **Tokens Insuficientes**\n\nDesculpe, você não tem tokens suficientes para continuar o chat. Seus tokens serão renovados no início do próximo mês.'
-          : '❌ **Erro Temporário**\n\nDesculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns segundos.',
+          : error.message?.includes('configuração') || error.message?.includes('ambiente')
+          ? '❌ **Problema de Configuração**\n\nDesculpe, há um problema temporário na configuração do sistema. Tente novamente em alguns minutos.'
+          : '❌ **Erro Temporário**\n\nDesculpe, ocorreu um erro ao processar sua mensagem. Verifique sua conexão e tente novamente.',
         role: 'assistant',
         timestamp: new Date()
       };
