@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Agent } from '@/data/agents';
@@ -22,7 +21,7 @@ const TypingIndicator = () => (
 export const DemoChatSection = React.forwardRef<HTMLDivElement, DemoChatSectionProps>(({ agent }, ref) => {
   const [messages, setMessages] = useState<Agent['sampleMessages']>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (agent && agent.sampleMessages) {
@@ -60,7 +59,12 @@ export const DemoChatSection = React.forwardRef<HTMLDivElement, DemoChatSectionP
   }, [agent]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   }, [messages, isTyping]);
 
   if (!agent) return null;
@@ -90,7 +94,7 @@ export const DemoChatSection = React.forwardRef<HTMLDivElement, DemoChatSectionP
           </div>
 
           {/* Chat Body */}
-          <div className="p-4 sm:p-6 h-96 overflow-y-auto space-y-6">
+          <div ref={chatContainerRef} className="p-4 sm:p-6 h-96 overflow-y-auto space-y-6">
             {messages.map((msg, index) => (
               <div key={index} className={cn("flex items-start gap-3 animate-fade-in", msg.type === 'user' ? "justify-end" : "justify-start")}>
                 {msg.type === 'agent' && (
@@ -124,7 +128,6 @@ export const DemoChatSection = React.forwardRef<HTMLDivElement, DemoChatSectionP
                 </div>
               </div>
             )}
-            <div ref={chatEndRef} />
           </div>
 
           {/* Chat Footer */}
@@ -143,4 +146,3 @@ export const DemoChatSection = React.forwardRef<HTMLDivElement, DemoChatSectionP
 });
 
 DemoChatSection.displayName = 'DemoChatSection';
-
