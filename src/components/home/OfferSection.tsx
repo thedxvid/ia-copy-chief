@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Check, Clock, Users, Award, Zap, Target, TrendingUp, Shield } from 'lucide-react';
 import { ModernCard } from '@/components/ui/modern-card';
@@ -130,11 +131,11 @@ export function OfferSection() {
 
           {/* Pricing Side - agora será a segunda na ordem mobile */}
           <div className="animate-fade-in-up animate-stagger-3 order-2">
-            <ModernCard className="p-6 sm:p-8 bg-gradient-to-b from-[#1E1E1E] to-[#2A2A2A] border-2 border-[#3B82F6]/50 relative overflow-hidden">
+            <ModernCard className="bg-gradient-to-b from-[#1E1E1E] to-[#2A2A2A] border-2 border-[#3B82F6]/50 relative overflow-hidden">
               {/* Shine effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full animate-[shimmer_3s_infinite]" />
               
-              <div className="relative z-10">
+              <div className="relative z-10 p-6 sm:p-8">
                 {/* Value Anchor */}
                 <div className="text-center mb-6 sm:mb-8">
                   <p className="text-[#CCCCCC] mb-2 text-sm sm:text-base">Valor real de tudo isso:</p>
