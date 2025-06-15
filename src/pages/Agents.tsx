@@ -1,22 +1,23 @@
+
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bot, MessageSquare, Zap, Settings, Plus, Edit, Trash2, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CreateAgentModal } from '@/components/agents/CreateAgentModal';
+import { AgentChatModal } from '@/components/agents/AgentChatModal';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useFloatingChatContext } from '@/contexts/FloatingChatContext';
 
 const Agents = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [loadingAgentId, setLoadingAgentId] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   
   const { agents: customAgents, loading, deleteAgent } = useCustomAgents();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { selectAgent, chatStep, openAgents, activeAgentId } = useFloatingChatContext();
 
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare
@@ -55,58 +56,26 @@ const Agents = () => {
     }
   ];
 
-  const handleStartChat = async (agent: any) => {
-    console.log('🚀 === INICIANDO CHAT DEBUG === 🚀');
-    console.log('Agent ID:', agent.id);
-    console.log('Agent Name:', agent.name);
-    console.log('Agent Prompt exists:', !!agent.prompt);
-    console.log('Current chatStep:', chatStep);
-    console.log('Current openAgents:', openAgents.length);
-    console.log('Current activeAgentId:', activeAgentId);
-    
-    setLoadingAgentId(agent.id);
+  const handleStartChat = (agent: any) => {
+    console.log('🚀 Abrindo chat com agente:', agent.name);
     
     if (!agent.prompt) {
-      console.error('❌ ERRO: Agente sem prompt definido!');
       toast({
         title: "Erro",
         description: "Este agente não tem instruções configuradas.",
         variant: "destructive"
       });
-      setLoadingAgentId(null);
       return;
     }
 
-    try {
-      console.log('📞 Chamando selectAgent do contexto global...');
-      
-      selectAgent(agent);
-      
-      console.log('✅ selectAgent executado com sucesso');
-      
-      toast({
-        title: "Chat Iniciado!",
-        description: `Conversa com ${agent.name} foi iniciada`,
-        duration: 3000,
-      });
-      
-      setTimeout(() => {
-        console.log('🔍 Estado após selectAgent:');
-        console.log('- chatStep atual:', chatStep);
-        console.log('- openAgents length:', openAgents.length);
-        console.log('- activeAgentId:', activeAgentId);
-        setLoadingAgentId(null);
-      }, 100);
-      
-    } catch (error) {
-      console.error('❌ Erro ao iniciar chat:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao iniciar conversa com o agente",
-        variant: "destructive"
-      });
-      setLoadingAgentId(null);
-    }
+    setSelectedAgent(agent);
+    setIsChatModalOpen(true);
+    
+    toast({
+      title: "Chat Iniciado!",
+      description: `Conversa com ${agent.name} foi iniciada`,
+      duration: 3000,
+    });
   };
 
   const handleDeleteAgent = async (agentId: string) => {
@@ -169,21 +138,6 @@ const Agents = () => {
             <Plus className="w-4 h-4 mr-2" />
             Criar Agente
           </Button>
-        </div>
-
-        {/* Debug Estado do Chat - Agora usando contexto global */}
-        <div className="bg-[#2A2A2A] border border-[#4B5563]/20 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-white mb-2">🔧 Estado do Chat Flutuante (Contexto Global)</h3>
-          <div className="text-xs text-[#CCCCCC] space-y-1">
-            <p>• Chat Step: <span className="text-[#3B82F6] font-mono">{chatStep}</span></p>
-            <p>• Agentes Abertos: <span className="text-[#10B981] font-mono">{openAgents.length}</span></p>
-            <p>• Agente Ativo: <span className="text-[#F59E0B] font-mono">{activeAgentId || 'nenhum'}</span></p>
-            <p>• Total de agentes: {allAgents.length}</p>
-            {loadingAgentId && (
-              <p className="text-[#F59E0B]">• Iniciando chat com: {loadingAgentId}</p>
-            )}
-            <p className="text-green-400">✅ Usando contexto global centralizado</p>
-          </div>
         </div>
 
         {loading ? (
@@ -270,16 +224,11 @@ const Agents = () => {
                     </span>
                     <Button 
                       size="sm" 
-                      className={`text-white transition-all duration-200 ${
-                        loadingAgentId === agent.id 
-                          ? 'bg-[#F59E0B] hover:bg-[#D97706]' 
-                          : 'bg-[#3B82F6] hover:bg-[#2563EB]'
-                      }`}
+                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-all duration-200"
                       onClick={() => handleStartChat(agent)}
-                      disabled={loadingAgentId === agent.id}
                     >
                       <MessageSquare className="w-4 h-4 mr-2" />
-                      {loadingAgentId === agent.id ? 'Iniciando...' : 'Conversar'}
+                      Conversar
                     </Button>
                   </div>
                 </CardContent>
@@ -291,6 +240,15 @@ const Agents = () => {
         <CreateAgentModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
+        />
+
+        <AgentChatModal
+          agent={selectedAgent}
+          isOpen={isChatModalOpen}
+          onClose={() => {
+            setIsChatModalOpen(false);
+            setSelectedAgent(null);
+          }}
         />
       </div>
     </DashboardLayout>
