@@ -68,6 +68,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
           toast.error(error.message || 'Erro ao criar conta');
         }
       } else {
+        toast.success('Conta criada! Verifique seu email para confirmar o cadastro.');
         navigate(`/email-confirmation?email=${encodeURIComponent(formData.email)}`);
       }
     } catch (error) {
