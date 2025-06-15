@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Header } from '@/components/layout/Header';
 import { HeroSection } from '@/components/home/HeroSection';
 import { AgentsSection } from '@/components/home/AgentsSection';
 import { FeaturesSection } from '@/components/home/FeaturesSection';
@@ -11,6 +12,8 @@ import { FadeInSection } from '@/components/ui/fade-in-section';
 const Index = () => {
   return (
     <div className="min-h-screen bg-[#121212]">
+      <Header />
+      
       <HeroSection />
       
       <FadeInSection delay={100}>
