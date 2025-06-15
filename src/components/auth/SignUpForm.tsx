@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface SignUpFormProps {
   onSwitchToLogin?: () => void;
@@ -21,6 +22,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
+  const navigate = useNavigate();
 
   const passwordRequirements = [
     { test: (pwd: string) => pwd.length >= 8, text: 'Pelo menos 8 caracteres' },
@@ -66,7 +68,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
           toast.error(error.message || 'Erro ao criar conta');
         }
       } else {
-        toast.success('Conta criada! Verifique seu email para confirmar.');
+        navigate(`/email-confirmation?email=${encodeURIComponent(formData.email)}`);
       }
     } catch (error) {
       toast.error('Erro inesperado. Tente novamente.');
