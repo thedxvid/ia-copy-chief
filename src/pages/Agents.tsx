@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bot, MessageSquare, Zap, Settings, Plus, Edit, Trash2, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
+import { Bot, MessageSquare, Zap, Settings, Plus, Edit, Trash2, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CreateAgentModal } from '@/components/agents/CreateAgentModal';
 import { AgentChatModal } from '@/components/agents/AgentChatModal';
@@ -57,7 +56,7 @@ const Agents = () => {
   ];
 
   const handleStartChat = (agent: any) => {
-    console.log('🚀 Abrindo chat com agente:', agent.name);
+    console.log('🚀 Abrindo chat com agente:', agent.name, 'ID:', agent.id);
     
     if (!agent.prompt) {
       toast({
@@ -68,12 +67,31 @@ const Agents = () => {
       return;
     }
 
+    // Validar se o agente tem ID único
+    if (!agent.id) {
+      console.error('❌ ERRO: Agente sem ID válido!', agent);
+      toast({
+        title: "Erro",
+        description: "Este agente não tem um ID válido.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Log detalhado para debug
+    console.log('📝 DEBUG: Dados do agente selecionado:', {
+      id: agent.id,
+      name: agent.name,
+      isCustom: agent.isCustom,
+      prompt: agent.prompt ? `${agent.prompt.substring(0, 50)}...` : 'SEM PROMPT'
+    });
+
     setSelectedAgent(agent);
     setIsChatModalOpen(true);
     
     toast({
       title: "Chat Iniciado!",
-      description: `Conversa com ${agent.name} foi iniciada`,
+      description: `Conversa com ${agent.name} foi iniciada (ID: ${agent.id})`,
       duration: 3000,
     });
   };
@@ -93,6 +111,39 @@ const Agents = () => {
           variant: "destructive"
         });
       }
+    }
+  };
+
+  // Função de debug para mostrar todos os chats salvos
+  const showDebugInfo = () => {
+    const allKeys = Object.keys(localStorage).filter(key => key.startsWith('chat-'));
+    console.log('🔍 DEBUG: Todos os chats salvos no localStorage:');
+    
+    allKeys.forEach(key => {
+      const data = localStorage.getItem(key);
+      const parsed = data ? JSON.parse(data) : [];
+      console.log(`- ${key}: ${parsed.length} mensagens`);
+    });
+
+    toast({
+      title: "Debug Info",
+      description: `${allKeys.length} chats encontrados no localStorage. Veja o console.`,
+      duration: 5000,
+    });
+  };
+
+  // Função para limpar todos os chats
+  const clearAllChats = () => {
+    if (window.confirm('Tem certeza que deseja limpar TODOS os chats salvos?')) {
+      const allKeys = Object.keys(localStorage).filter(key => key.startsWith('chat-'));
+      allKeys.forEach(key => localStorage.removeItem(key));
+      
+      console.log('🧹 Todos os chats foram limpos do localStorage');
+      toast({
+        title: "Chats Limpos!",
+        description: `${allKeys.length} chats foram removidos.`,
+        duration: 3000,
+      });
     }
   };
 
@@ -131,13 +182,38 @@ const Agents = () => {
 
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-white">Seus Agentes</h2>
-          <Button 
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Criar Agente
-          </Button>
+          <div className="flex items-center space-x-2">
+            {/* Botões de debug apenas em localhost */}
+            {window.location.hostname === 'localhost' && (
+              <>
+                <Button 
+                  onClick={showDebugInfo}
+                  variant="outline"
+                  size="sm"
+                  className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+                >
+                  <Bug className="w-4 h-4 mr-2" />
+                  Debug
+                </Button>
+                <Button 
+                  onClick={clearAllChats}
+                  variant="outline"
+                  size="sm"
+                  className="border-red-600 text-red-400 hover:bg-red-900/20"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Limpar Todos
+                </Button>
+              </>
+            )}
+            <Button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Criar Agente
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -242,14 +318,19 @@ const Agents = () => {
           onClose={() => setIsCreateModalOpen(false)}
         />
 
-        <AgentChatModal
-          agent={selectedAgent}
-          isOpen={isChatModalOpen}
-          onClose={() => {
-            setIsChatModalOpen(false);
-            setSelectedAgent(null);
-          }}
-        />
+        {/* CHAVE ÚNICA BASEADA NO AGENT.ID PARA FORÇAR REINICIALIZAÇÃO */}
+        {selectedAgent && (
+          <AgentChatModal
+            key={`chat-${selectedAgent.id}-${Date.now()}`}
+            agent={selectedAgent}
+            isOpen={isChatModalOpen}
+            onClose={() => {
+              console.log('🔄 Fechando chat do agente:', selectedAgent.name, 'ID:', selectedAgent.id);
+              setIsChatModalOpen(false);
+              setSelectedAgent(null);
+            }}
+          />
+        )}
       </div>
     </DashboardLayout>
   );

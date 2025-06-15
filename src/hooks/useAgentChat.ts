@@ -1,5 +1,4 @@
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -16,22 +15,51 @@ interface ChatHistory {
 }
 
 export const useAgentChat = (agentId: string) => {
+  // Validação e logging detalhado do agentId
+  useEffect(() => {
+    console.log('🔄 useAgentChat INICIALIZADO para agente:', agentId);
+    console.log('🔍 Tipo do agentId:', typeof agentId, 'Valor:', agentId);
+    
+    if (!agentId) {
+      console.error('❌ ERRO CRÍTICO: agentId é inválido!', agentId);
+    }
+  }, [agentId]);
+
   const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = localStorage.getItem(`chat-${agentId}`);
+    // Garantir que agentId seja válido antes de acessar localStorage
+    if (!agentId) {
+      console.error('❌ agentId inválido no useState inicial:', agentId);
+      return [];
+    }
+
+    const storageKey = `chat-${agentId}`;
+    const saved = localStorage.getItem(storageKey);
     const parsed = saved ? JSON.parse(saved) : [];
     
-    console.log(`=== LOADING CHAT HISTORY FOR AGENT: ${agentId} ===`);
-    console.log(`Found ${parsed.length} messages in localStorage`);
-    console.log('Messages preview:', parsed.slice(-2));
+    console.log(`💾 CARREGANDO HISTÓRICO para agente [${agentId}]:`);
+    console.log(`📁 Chave do localStorage: ${storageKey}`);
+    console.log(`📊 Mensagens encontradas: ${parsed.length}`);
+    console.log('📝 Preview das mensagens:', parsed.slice(-2).map(m => ({
+      role: m.role,
+      content: m.content?.substring(0, 50) + '...',
+      timestamp: m.timestamp
+    })));
     
     return parsed;
   });
+
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
   const saveToStorage = useCallback((msgs: Message[]) => {
-    localStorage.setItem(`chat-${agentId}`, JSON.stringify(msgs));
-    console.log(`💾 Saved ${msgs.length} messages for agent ${agentId}`);
+    if (!agentId) {
+      console.error('❌ Tentativa de salvar sem agentId válido:', agentId);
+      return;
+    }
+
+    const storageKey = `chat-${agentId}`;
+    localStorage.setItem(storageKey, JSON.stringify(msgs));
+    console.log(`💾 SALVO: ${msgs.length} mensagens para [${agentId}] na chave ${storageKey}`);
   }, [agentId]);
 
   const triggerWebhook = useCallback(async (userMessage: string, agentName: string) => {
@@ -56,23 +84,30 @@ export const useAgentChat = (agentId: string) => {
         }),
       });
 
-      console.log('N8n webhook triggered successfully for agent:', agentName);
+      console.log('📡 N8n webhook triggered para agente:', agentName, 'ID:', agentId);
     } catch (error) {
-      console.error('Error triggering N8n webhook:', error);
+      console.error('❌ Erro no webhook N8n:', error);
     }
   }, [agentId, user?.id, messages.length]);
 
   const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string, isCustomAgent?: boolean) => {
     if (!content.trim()) return;
 
-    console.log('=== SEND MESSAGE DEBUG ===');
-    console.log('Agent ID:', agentId);
-    console.log('Content:', content);
-    console.log('Agent Name:', agentName);
-    console.log('Is Custom:', isCustomAgent);
-    console.log('User ID:', user?.id);
-    console.log('Agent Prompt (first 200 chars):', agentPrompt ? agentPrompt.substring(0, 200) : 'MISSING PROMPT');
-    console.log('Current message count:', messages.length);
+    console.log('=== 📤 ENVIANDO MENSAGEM ===');
+    console.log('🤖 Agent ID:', agentId);
+    console.log('📝 Content:', content.substring(0, 100) + '...');
+    console.log('👤 Agent Name:', agentName);
+    console.log('🔧 Is Custom:', isCustomAgent);
+    console.log('🆔 User ID:', user?.id);
+    console.log('📋 Current message count:', messages.length);
+    console.log('🎯 Storage Key que será usado:', `chat-${agentId}`);
+
+    // Validação crítica do agentId
+    if (!agentId) {
+      console.error('❌ ERRO CRÍTICO: Tentativa de enviar mensagem sem agentId válido!');
+      toast.error('Erro: ID do agente inválido');
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -84,6 +119,7 @@ export const useAgentChat = (agentId: string) => {
     setMessages(prev => {
       const updated = [...prev, userMessage];
       saveToStorage(updated);
+      console.log(`✅ Mensagem do usuário adicionada ao histórico de [${agentId}]. Total: ${updated.length}`);
       return updated;
     });
 
@@ -95,8 +131,7 @@ export const useAgentChat = (agentId: string) => {
     setIsLoading(true);
 
     try {
-      console.log('=== CALLING EDGE FUNCTION ===');
-      console.log('Calling chat-with-claude edge function...');
+      console.log('=== 🔄 CHAMANDO EDGE FUNCTION ===');
       
       const requestBody = {
         message: content,
@@ -107,7 +142,7 @@ export const useAgentChat = (agentId: string) => {
         userId: user?.id
       };
 
-      console.log('Request body summary:', {
+      console.log('📦 Request body summary:', {
         message: content.substring(0, 50) + '...',
         agentPrompt: agentPrompt ? `${agentPrompt.substring(0, 100)}...` : 'MISSING',
         chatHistoryLength: messages.length,
@@ -120,12 +155,12 @@ export const useAgentChat = (agentId: string) => {
         body: requestBody
       });
 
-      console.log('=== EDGE FUNCTION RESPONSE ===');
-      console.log('Error:', error);
-      console.log('Data:', data);
+      console.log('=== 📨 RESPOSTA DA EDGE FUNCTION ===');
+      console.log('❌ Error:', error);
+      console.log('✅ Data:', data);
 
       if (error) {
-        console.error('Edge function error:', error);
+        console.error('❌ Edge function error:', error);
         
         // **Tratamento específico para tokens insuficientes**
         if (error.message?.includes('Tokens insuficientes') || 
@@ -203,7 +238,7 @@ export const useAgentChat = (agentId: string) => {
         throw new Error(error.message || 'Falha na comunicação com o agente');
       }
 
-      console.log('Edge function response received:', data);
+      console.log('✅ Edge function response recebida:', data);
       
       // **Verificar se há resposta válida**
       if (!data || !data.response) {
@@ -238,18 +273,18 @@ export const useAgentChat = (agentId: string) => {
         timestamp: new Date()
       };
 
-      console.log('💬 Assistant response received for agent:', agentName);
-      console.log('Response preview:', data.response.substring(0, 100) + '...');
+      console.log(`💬 Resposta do assistente recebida para agente [${agentId}]:`, agentName);
+      console.log('📄 Preview da resposta:', data.response.substring(0, 100) + '...');
 
       setMessages(prev => {
         const updated = [...prev, assistantMessage];
         saveToStorage(updated);
-        console.log(`✅ Chat updated for agent ${agentId}. Total messages: ${updated.length}`);
+        console.log(`✅ Chat atualizado para agente [${agentId}]. Total de mensagens: ${updated.length}`);
         return updated;
       });
     } catch (error) {
-      console.error('=== SEND MESSAGE ERROR ===');
-      console.error('Erro ao enviar mensagem:', error);
+      console.error('=== ❌ ERRO AO ENVIAR MENSAGEM ===');
+      console.error('Erro detalhado:', error);
       
       // Verificar se é erro de tokens
       if (error.message?.includes('tokens') || error.message?.includes('402')) {
@@ -291,9 +326,11 @@ export const useAgentChat = (agentId: string) => {
   }, [messages, saveToStorage, triggerWebhook, user?.id, agentId]);
 
   const clearChat = useCallback(() => {
-    console.log(`🗑️ Clearing chat for agent: ${agentId}`);
+    console.log(`🗑️ LIMPANDO chat para agente: [${agentId}]`);
+    const storageKey = `chat-${agentId}`;
     setMessages([]);
-    localStorage.removeItem(`chat-${agentId}`);
+    localStorage.removeItem(storageKey);
+    console.log(`✅ Chat limpo: chave ${storageKey} removida do localStorage`);
   }, [agentId]);
 
   const exportChat = useCallback((agentName: string) => {
