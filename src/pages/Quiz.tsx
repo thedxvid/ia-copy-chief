@@ -30,44 +30,53 @@ const Quiz = () => {
   };
 
   const handleQuizComplete = async (answers: Record<string, string>) => {
-    console.log('Quiz completed with answers:', answers);
-    console.log('User:', user);
-    console.log('Selected quiz type:', selectedQuizType);
+    console.log('🎯 Quiz completed with answers:', answers);
+    console.log('👤 Current user:', user);
+    console.log('📝 Selected quiz type:', selectedQuizType);
     
     // Verificar se o usuário está autenticado
     if (!user?.id) {
+      console.error('❌ User not authenticated');
       toast.error('Você precisa estar logado para gerar copy. Redirecionando...');
       navigate('/auth');
       return;
     }
 
+    console.log('✅ User authenticated, proceeding with copy generation');
+    console.log('🆔 User ID:', user.id);
+
     setQuizAnswers(answers);
     setIsGenerating(true);
     
     try {
-      console.log('Generating copy with N8n integration...');
-      console.log('User ID:', user.id);
-      
       // Construir prompt baseado nas respostas do quiz
       const prompt = buildQuizPrompt(answers, selectedQuizType);
-      console.log('Built prompt:', prompt);
+      console.log('📝 Built prompt for quiz:', prompt.substring(0, 200) + '...');
       
-      const result = await triggerN8nWorkflow({
+      // Preparar dados estruturados para o N8n
+      const requestData = {
         type: 'copy_generation',
-        user_id: user.id,
+        user_id: user.id, // Campo obrigatório
         data: {
           copy_type: selectedQuizType,
           prompt,
-          briefing: answers,
-          quiz_answers: answers
+          quiz_answers: answers,
+          target_audience: answers.target || 'público geral',
+          product_info: answers.product || 'produto/serviço',
+          briefing: answers
         },
         workflow_id: 'quiz-copy-generation',
         session_id: `quiz_${selectedQuizType}_${Date.now()}`
-      });
+      };
 
-      console.log('N8n result:', result);
+      console.log('🚀 Sending request to N8n integration:', JSON.stringify(requestData, null, 2));
+      
+      const result = await triggerN8nWorkflow(requestData);
+
+      console.log('✅ N8n result received:', result);
       
       if (!result || !result.generatedCopy) {
+        console.error('❌ Invalid result from N8n:', result);
         throw new Error('Nenhuma copy foi gerada');
       }
 
@@ -76,13 +85,18 @@ const Quiz = () => {
         content: result.generatedCopy
       };
       
-      console.log('Copy generated successfully:', copy);
+      console.log('🎉 Copy generated successfully:', {
+        title: copy.title,
+        contentLength: copy.content.length
+      });
+      
       setGeneratedCopy(copy);
       setCurrentStep('result');
       
       // Salvar automaticamente no histórico
       if (copy) {
         try {
+          console.log('💾 Saving copy to history...');
           const savedCopy = await saveQuizCopy({
             quizType: selectedQuizType,
             quizAnswers: answers,
@@ -91,17 +105,17 @@ const Quiz = () => {
           
           if (savedCopy) {
             setSavedCopyId(savedCopy.id);
-            console.log('Copy saved to history with ID:', savedCopy.id);
+            console.log('✅ Copy saved to history with ID:', savedCopy.id);
           }
         } catch (saveError) {
-          console.error('Erro ao salvar no histórico:', saveError);
+          console.error('⚠️ Error saving to history:', saveError);
           // Não bloquear o fluxo se o salvamento falhar
         }
       }
       
       toast.success('Copy gerada com sucesso!');
     } catch (error) {
-      console.error('Erro ao gerar copy:', error);
+      console.error('💥 Error generating copy:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       
       if (errorMessage.includes('Tokens insuficientes')) {
