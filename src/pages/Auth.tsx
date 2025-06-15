@@ -16,6 +16,12 @@ const Auth = () => {
   const { user, loading: authLoading } = useAuth();
   const { subscription, loading: subscriptionLoading, isSubscriptionActive } = useSubscription();
 
+  // Lista de emails de administradores definitivos
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  
+  // Verificar se é admin
+  const isAdmin = user?.email && adminEmails.includes(user.email);
+
   if (authLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212]">
@@ -25,6 +31,11 @@ const Auth = () => {
   }
 
   if (user) {
+    // Se é admin, redirecionar direto para dashboard
+    if (isAdmin) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    
     // Se o usuário tem status "pending", redirecionar para checkout
     if (subscription?.subscription_status === 'pending') {
       return <Navigate to="/checkout" replace />;

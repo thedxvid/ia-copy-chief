@@ -7,6 +7,12 @@ import { SubscriptionStatus } from '@/components/subscription/SubscriptionStatus
 const Checkout = () => {
   const { user, loading } = useAuth();
 
+  // Lista de emails de administradores definitivos
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  
+  // Verificar se é admin
+  const isAdmin = user?.email && adminEmails.includes(user.email);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212]">
@@ -17,6 +23,11 @@ const Checkout = () => {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Se é admin, redirecionar direto para dashboard
+  if (isAdmin) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <SubscriptionStatus />;

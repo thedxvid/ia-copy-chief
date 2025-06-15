@@ -14,6 +14,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { subscription, loading: subscriptionLoading, isSubscriptionActive } = useSubscription();
   const location = useLocation();
 
+  // Lista de emails de administradores definitivos
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  
+  // Verificar se é admin
+  const isAdmin = user?.email && adminEmails.includes(user.email);
+
   if (authLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212]">
@@ -24,6 +30,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Se é admin, permitir acesso direto sem verificar subscription
+  if (isAdmin) {
+    return <>{children}</>;
   }
 
   // Se o usuário tem status "pending" e não está na página de checkout, redirecionar
