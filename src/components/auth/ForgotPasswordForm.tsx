@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,10 +7,10 @@ import { ArrowLeft, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ForgotPasswordFormProps {
-  onBack: () => void;
+  onBackToLogin?: () => void;
 }
 
-export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
+export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -69,14 +68,16 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
           </Button>
         </div>
 
-        <Button
-          variant="link"
-          onClick={onBack}
-          className="text-primary hover:text-primary/80"
-        >
-          <ArrowLeft size={16} className="mr-2" />
-          Voltar ao login
-        </Button>
+        {onBackToLogin && (
+          <Button
+            variant="link"
+            onClick={onBackToLogin}
+            className="text-primary hover:text-primary/80"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Voltar ao login
+          </Button>
+        )}
       </div>
     );
   }
@@ -115,15 +116,17 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
           )}
         </Button>
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onBack}
-          className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
-        >
-          <ArrowLeft size={16} className="mr-2" />
-          Voltar ao login
-        </Button>
+        {onBackToLogin && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onBackToLogin}
+            className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Voltar ao login
+          </Button>
+        )}
       </div>
     </form>
   );

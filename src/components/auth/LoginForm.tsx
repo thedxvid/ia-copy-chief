@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +8,15 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
-export const LoginForm = () => {
+interface LoginFormProps {
+  onSwitchToSignUp?: () => void;
+  onSwitchToForgot?: () => void;
+}
+
+export const LoginForm: React.FC<LoginFormProps> = ({ 
+  onSwitchToSignUp, 
+  onSwitchToForgot 
+}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -94,6 +103,35 @@ export const LoginForm = () => {
           'Entrar'
         )}
       </Button>
+
+      {onSwitchToForgot && (
+        <div className="text-center">
+          <Button
+            type="button"
+            variant="link"
+            onClick={onSwitchToForgot}
+            className="text-primary hover:text-primary/80"
+          >
+            Esqueci minha senha
+          </Button>
+        </div>
+      )}
+
+      {onSwitchToSignUp && (
+        <div className="text-center">
+          <p className="text-gray-400">
+            Não tem uma conta?{' '}
+            <Button
+              type="button"
+              variant="link"
+              onClick={onSwitchToSignUp}
+              className="text-primary hover:text-primary/80 p-0"
+            >
+              Criar conta
+            </Button>
+          </p>
+        </div>
+      )}
     </form>
   );
 };

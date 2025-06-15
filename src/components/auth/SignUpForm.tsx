@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-export const SignUpForm = () => {
+interface SignUpFormProps {
+  onSwitchToLogin?: () => void;
+}
+
+export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -199,6 +202,22 @@ export const SignUpForm = () => {
           'Criar conta'
         )}
       </Button>
+
+      {onSwitchToLogin && (
+        <div className="text-center">
+          <p className="text-gray-400">
+            Já tem uma conta?{' '}
+            <Button
+              type="button"
+              variant="link"
+              onClick={onSwitchToLogin}
+              className="text-primary hover:text-primary/80 p-0"
+            >
+              Fazer login
+            </Button>
+          </p>
+        </div>
+      )}
     </form>
   );
 };

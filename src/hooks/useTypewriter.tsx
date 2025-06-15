@@ -1,25 +1,17 @@
 
 import { useState, useEffect } from 'react';
 
-interface UseTypewriterProps {
-  words: string[];
-  loop?: boolean;
-  delayBetweenWords?: number;
-  typeSpeed?: number;
-  deleteSpeed?: number;
-}
-
-export const useTypewriter = ({
-  words,
-  loop = true,
-  delayBetweenWords = 2000,
-  typeSpeed = 150,
-  deleteSpeed = 100,
-}: UseTypewriterProps) => {
+export const useTypewriter = (
+  words: string[],
+  delayBetweenWords: number = 2000
+) => {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [currentText, setCurrentText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+
+  const typeSpeed = 150;
+  const deleteSpeed = 100;
 
   useEffect(() => {
     const currentWord = words[currentWordIndex];
@@ -36,20 +28,13 @@ export const useTypewriter = ({
         
         if (currentText === '') {
           setIsDeleting(false);
-          setCurrentWordIndex((prev) => {
-            if (loop) {
-              return (prev + 1) % words.length;
-            }
-            return prev < words.length - 1 ? prev + 1 : prev;
-          });
+          setCurrentWordIndex((prev) => (prev + 1) % words.length);
         }
       } else {
         setCurrentText(currentWord.substring(0, currentText.length + 1));
         
         if (currentText === currentWord) {
-          if (loop || currentWordIndex < words.length - 1) {
-            setIsPaused(true);
-          }
+          setIsPaused(true);
         }
       }
     }, isPaused ? delayBetweenWords : isDeleting ? deleteSpeed : typeSpeed);
@@ -61,10 +46,7 @@ export const useTypewriter = ({
     isDeleting,
     isPaused,
     words,
-    loop,
     delayBetweenWords,
-    typeSpeed,
-    deleteSpeed,
   ]);
 
   return currentText;
