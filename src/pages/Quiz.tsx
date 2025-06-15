@@ -53,10 +53,10 @@ const Quiz = () => {
       const prompt = buildQuizPrompt(answers, selectedQuizType);
       console.log('📝 Built prompt for quiz:', prompt.substring(0, 200) + '...');
       
-      // Preparar dados estruturados para o N8n
+      // Preparar dados estruturados para o N8n - com tipos explícitos
       const requestData = {
-        type: 'copy_generation',
-        user_id: user.id, // Campo obrigatório
+        type: 'copy_generation' as const, // Explicitly typed as literal
+        user_id: user.id,
         data: {
           copy_type: selectedQuizType,
           prompt,
