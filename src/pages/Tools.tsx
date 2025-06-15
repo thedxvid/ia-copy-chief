@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Zap, FileText, MessageSquare, Target } from 'lucide-react';
@@ -51,58 +52,60 @@ const Tools = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Ferramentas de Copy</h1>
-        <p className="text-[#CCCCCC]">
-          Utilize nossas ferramentas especializadas para criar copies de alta conversão
-        </p>
-        <div className="mt-4 text-sm text-[#CCCCCC]">
-          Tokens disponíveis: {tokens?.total_available?.toLocaleString() || 0}
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Ferramentas de Copy</h1>
+          <p className="text-[#CCCCCC]">
+            Utilize nossas ferramentas especializadas para criar copies de alta conversão
+          </p>
+          <div className="mt-4 text-sm text-[#CCCCCC]">
+            Tokens disponíveis: {tokens?.total_available?.toLocaleString() || 0}
+          </div>
         </div>
-      </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {tools.map((tool, index) => (
-          <Card key={index} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-colors">
-            <CardHeader>
-              <div className="flex items-center space-x-3">
-                <div className={`w-12 h-12 ${tool.color} rounded-xl flex items-center justify-center`}>
-                  <tool.icon className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-white">{tool.title}</CardTitle>
-                  <CardDescription className="text-[#CCCCCC]">
-                    {tool.description}
-                  </CardDescription>
-                  <div className="text-xs text-[#CCCCCC] mt-1">
-                    ~{tool.estimatedTokens} tokens
+        <div className="grid md:grid-cols-2 gap-6">
+          {tools.map((tool, index) => (
+            <Card key={index} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-colors">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className={`w-12 h-12 ${tool.color} rounded-xl flex items-center justify-center`}>
+                    <tool.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-white">{tool.title}</CardTitle>
+                    <CardDescription className="text-[#CCCCCC]">
+                      {tool.description}
+                    </CardDescription>
+                    <div className="text-xs text-[#CCCCCC] mt-1">
+                      ~{tool.estimatedTokens} tokens
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                onClick={() => handleToolClick(tool)}
-                className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-              >
-                Usar Ferramenta
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  onClick={() => handleToolClick(tool)}
+                  className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                >
+                  Usar Ferramenta
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <CopyPlayground />
+
+        {selectedTool && (
+          <ToolModal
+            isOpen={!!selectedTool}
+            onClose={() => setSelectedTool(null)}
+            tool={selectedTool}
+          />
+        )}
       </div>
-
-      <CopyPlayground />
-
-      {selectedTool && (
-        <ToolModal
-          isOpen={!!selectedTool}
-          onClose={() => setSelectedTool(null)}
-          tool={selectedTool}
-        />
-      )}
-    </div>
+    </DashboardLayout>
   );
 };
 
