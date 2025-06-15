@@ -60,21 +60,11 @@ export const HeroSection = () => {
         </FadeInSection>
 
         <FadeInSection delay={600}>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <div className="flex justify-center mb-12">
             <ModernButton size="lg" className="text-lg px-8 py-4" asChild>
               <Link to="/auth">
-                Começar Agora - Grátis
+                Começar Agora
                 <Sparkles className="ml-2 w-5 h-5" />
-              </Link>
-            </ModernButton>
-            <ModernButton 
-              variant="outline" 
-              size="lg" 
-              className="text-lg px-8 py-4 border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white"
-              asChild
-            >
-              <Link to="/quiz">
-                Ver Demo
               </Link>
             </ModernButton>
           </div>
