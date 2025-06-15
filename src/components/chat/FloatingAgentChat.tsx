@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Bot, MessageSquare, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
 import { useFloatingChat } from '@/hooks/useFloatingChat';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
+import { useAuth } from '@/contexts/AuthContext';
 import { AgentSelector } from './AgentSelector';
 import { ChatWindow } from './ChatWindow';
 
 export const FloatingAgentChat: React.FC = () => {
+  const { user } = useAuth();
   const {
     chatStep,
     selectedAgent,
@@ -23,6 +25,11 @@ export const FloatingAgentChat: React.FC = () => {
   } = useFloatingChat();
 
   const { agents: customAgents } = useCustomAgents();
+
+  // Só renderizar se o usuário estiver logado
+  if (!user) {
+    return null;
+  }
 
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare

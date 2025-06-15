@@ -24,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -32,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -66,7 +68,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      console.log('Starting logout process...');
+      
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+      }
+      
+      // Clear any remaining local storage
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+      console.log('Logout completed, redirecting...');
+      
+      // Force redirect to home page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if there's an error, redirect to home
+      window.location.href = '/';
+    }
   };
 
   const resetPassword = async (email: string) => {

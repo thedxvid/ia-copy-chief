@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
 interface Agent {
   id: string;
@@ -75,10 +77,37 @@ const agents: Agent[] = [
 ];
 
 export function AgentsSection() {
+  const { user } = useAuth();
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<Array<{ type: 'user' | 'agent'; content: string }>>([]);
   const [isTyping, setIsTyping] = useState(false);
+
+  // Se o usuário estiver logado, mostrar CTA para ir para o dashboard
+  if (user) {
+    return (
+      <section className="py-16 sm:py-20 px-3 sm:px-4 bg-gradient-to-b from-[#121212] to-[#0F0F0F]">
+        <div className="max-w-7xl mx-auto text-center">
+          <div className="animate-fade-in-up">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6 px-2">
+              Bem-vindo de volta!
+              <span className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] bg-clip-text text-transparent block mt-2">
+                Seus Agentes Te Aguardam
+              </span>
+            </h2>
+            <p className="text-lg sm:text-xl text-[#CCCCCC] max-w-3xl mx-auto px-2 mb-8">
+              Acesse seu dashboard para conversar com os agentes especialistas e criar copies que convertem.
+            </p>
+            <Link to="/dashboard">
+              <Button className="bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white px-8 py-4 text-lg rounded-full hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl">
+                Ir para o Dashboard
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const triggerWebhook = async (userMessage: string, agentName: string, agentId: string) => {
     try {
