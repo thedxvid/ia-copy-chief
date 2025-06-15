@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -192,8 +191,8 @@ export const Header = () => {
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/20 backdrop-blur-sm mt-14 sm:mt-16">
-          <div className="bg-[#121212]/95 backdrop-blur-md border border-[#4B5563]/30 rounded-2xl mx-4 mt-2 shadow-xl">
+        <div className="md:hidden fixed inset-0 z-40 bg-black/20 backdrop-blur-sm mt-14 sm:mt-16 pointer-events-auto">
+          <div className="bg-[#121212]/95 backdrop-blur-md border border-[#4B5563]/30 rounded-2xl mx-4 mt-2 shadow-xl pointer-events-auto">
             <div className="py-4 px-3">
               <nav className="flex flex-col space-y-2">
                 {navItems.map((item) => (
