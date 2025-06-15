@@ -77,7 +77,10 @@ export const useCustomAgents = () => {
       .single();
 
     if (error) throw error;
-    await fetchAgents();
+    
+    // Adicionar o novo agente imediatamente à lista local
+    setAgents(prev => [data, ...prev]);
+    
     return data;
   };
 
@@ -88,7 +91,13 @@ export const useCustomAgents = () => {
       .eq('id', agentId);
 
     if (error) throw error;
-    await fetchAgents();
+    
+    // Atualizar o agente na lista local
+    setAgents(prev => 
+      prev.map(agent => 
+        agent.id === agentId ? { ...agent, ...updates } : agent
+      )
+    );
   };
 
   const deleteAgent = async (agentId: string) => {
@@ -98,7 +107,9 @@ export const useCustomAgents = () => {
       .eq('id', agentId);
 
     if (error) throw error;
-    await fetchAgents();
+    
+    // Remover o agente da lista local
+    setAgents(prev => prev.filter(agent => agent.id !== agentId));
   };
 
   const uploadFile = async (agentId: string, file: File) => {

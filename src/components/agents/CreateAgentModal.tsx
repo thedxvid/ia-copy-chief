@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
     setIsLoading(true);
     
     try {
+      // Criar o agente (isso já atualiza a lista local automaticamente)
       const agent = await createAgent(formData);
       
       // Upload dos arquivos se houver
