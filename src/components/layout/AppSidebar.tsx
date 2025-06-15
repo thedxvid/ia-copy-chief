@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Users,
-  Wrench,
-  History,
-  HelpCircle,
   Package,
-  LogOut,
-  Bot,
-  Settings,
   Brain,
   Megaphone,
   Video,
   FileText,
   PenTool,
+  Wrench,
+  History,
+  Bot,
+  Settings,
+  HelpCircle,
+  Users,
+  User,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';

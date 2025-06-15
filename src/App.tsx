@@ -1,7 +1,8 @@
+
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { QueryClient } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import Index from './pages/Index';
 import Auth from './pages/Auth';
@@ -12,18 +13,20 @@ import Tools from './pages/Tools';
 import History from './pages/History';
 import Agents from './pages/Agents';
 import NotFound from './pages/NotFound';
-import { useAuth } from './contexts/AuthContext';
+import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import { TutorialProvider } from './contexts/TutorialContext';
-import FloatingAgentChat from './components/FloatingAgentChat';
+import { FloatingAgentChat } from './components/chat/FloatingAgentChat';
 import Ads from './pages/Ads';
 import SalesVideos from './pages/SalesVideos';
 import Pages from './pages/Pages';
 import Content from './pages/Content';
 
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <QueryClient>
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AppProvider>
           <TutorialProvider>
@@ -121,7 +124,7 @@ function App() {
           </TutorialProvider>
         </AppProvider>
       </AuthProvider>
-    </QueryClient>
+    </QueryClientProvider>
   );
 }
 

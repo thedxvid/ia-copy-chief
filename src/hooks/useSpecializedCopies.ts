@@ -14,11 +14,11 @@ export interface SpecializedCopy {
   title: string;
   copy_data: any;
   status: CopyStatus;
-  platform?: string;
+  platform?: string | null;
   performance_metrics?: any;
-  tags?: string[];
+  tags?: string[] | null;
   version: number;
-  parent_copy_id?: string;
+  parent_copy_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,7 +55,17 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
         throw fetchError;
       }
 
-      setCopies(data || []);
+      // Type cast the data to match our interface
+      const typedData = (data || []).map(item => ({
+        ...item,
+        copy_type: item.copy_type as CopyType,
+        status: item.status as CopyStatus,
+        platform: item.platform || undefined,
+        tags: item.tags || undefined,
+        parent_copy_id: item.parent_copy_id || undefined
+      }));
+
+      setCopies(typedData);
     } catch (err) {
       console.error('Erro ao buscar copies especializadas:', err);
       setError('Erro ao carregar copies');
