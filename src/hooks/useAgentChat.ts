@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,13 +18,20 @@ interface ChatHistory {
 export const useAgentChat = (agentId: string) => {
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = localStorage.getItem(`chat-${agentId}`);
-    return saved ? JSON.parse(saved) : [];
+    const parsed = saved ? JSON.parse(saved) : [];
+    
+    console.log(`=== LOADING CHAT HISTORY FOR AGENT: ${agentId} ===`);
+    console.log(`Found ${parsed.length} messages in localStorage`);
+    console.log('Messages preview:', parsed.slice(-2));
+    
+    return parsed;
   });
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
   const saveToStorage = useCallback((msgs: Message[]) => {
     localStorage.setItem(`chat-${agentId}`, JSON.stringify(msgs));
+    console.log(`💾 Saved ${msgs.length} messages for agent ${agentId}`);
   }, [agentId]);
 
   const triggerWebhook = useCallback(async (userMessage: string, agentName: string) => {
@@ -58,10 +66,13 @@ export const useAgentChat = (agentId: string) => {
     if (!content.trim()) return;
 
     console.log('=== SEND MESSAGE DEBUG ===');
+    console.log('Agent ID:', agentId);
     console.log('Content:', content);
     console.log('Agent Name:', agentName);
     console.log('Is Custom:', isCustomAgent);
     console.log('User ID:', user?.id);
+    console.log('Agent Prompt (first 200 chars):', agentPrompt ? agentPrompt.substring(0, 200) : 'MISSING PROMPT');
+    console.log('Current message count:', messages.length);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -96,10 +107,13 @@ export const useAgentChat = (agentId: string) => {
         userId: user?.id
       };
 
-      console.log('Request body:', {
-        ...requestBody,
+      console.log('Request body summary:', {
+        message: content.substring(0, 50) + '...',
         agentPrompt: agentPrompt ? `${agentPrompt.substring(0, 100)}...` : 'MISSING',
-        chatHistory: `${messages.length} messages`
+        chatHistoryLength: messages.length,
+        agentName,
+        isCustomAgent,
+        userId: user?.id
       });
       
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
@@ -224,9 +238,13 @@ export const useAgentChat = (agentId: string) => {
         timestamp: new Date()
       };
 
+      console.log('💬 Assistant response received for agent:', agentName);
+      console.log('Response preview:', data.response.substring(0, 100) + '...');
+
       setMessages(prev => {
         const updated = [...prev, assistantMessage];
         saveToStorage(updated);
+        console.log(`✅ Chat updated for agent ${agentId}. Total messages: ${updated.length}`);
         return updated;
       });
     } catch (error) {
@@ -270,9 +288,10 @@ export const useAgentChat = (agentId: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, saveToStorage, triggerWebhook, user?.id]);
+  }, [messages, saveToStorage, triggerWebhook, user?.id, agentId]);
 
   const clearChat = useCallback(() => {
+    console.log(`🗑️ Clearing chat for agent: ${agentId}`);
     setMessages([]);
     localStorage.removeItem(`chat-${agentId}`);
   }, [agentId]);

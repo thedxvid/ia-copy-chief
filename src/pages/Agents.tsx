@@ -1,22 +1,22 @@
+
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bot, MessageSquare, Zap, Settings, Plus, Edit, Trash2, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AgentChatModal } from '@/components/agents/AgentChatModal';
 import { CreateAgentModal } from '@/components/agents/CreateAgentModal';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useFloatingChat } from '@/hooks/useFloatingChat';
 
 const Agents = () => {
-  const [selectedAgent, setSelectedAgent] = useState<any>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   const { agents: customAgents, loading, deleteAgent } = useCustomAgents();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { selectAgent } = useFloatingChat();
 
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare
@@ -56,8 +56,14 @@ const Agents = () => {
   ];
 
   const handleStartChat = (agent: any) => {
-    setSelectedAgent(agent);
-    setIsChatOpen(true);
+    console.log('=== INICIANDO CHAT COM AGENTE ===');
+    console.log('Agent ID:', agent.id);
+    console.log('Agent Name:', agent.name);
+    console.log('Agent Prompt:', agent.prompt ? `${agent.prompt.substring(0, 100)}...` : 'MISSING PROMPT');
+    console.log('Is Custom:', agent.isCustom);
+    console.log('================================');
+    
+    selectAgent(agent);
   };
 
   const handleDeleteAgent = async (agentId: string) => {
@@ -199,6 +205,14 @@ const Agents = () => {
                   <CardDescription className="text-[#CCCCCC] mb-4">
                     {agent.description}
                   </CardDescription>
+                  
+                  {/* Debug Info - mostrar prompt ativo */}
+                  {agent.prompt && (
+                    <div className="mb-3 p-2 bg-[#2A2A2A] rounded text-xs text-[#888888]">
+                      <strong>Prompt ativo:</strong> {agent.prompt.substring(0, 80)}...
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-[#CCCCCC]">
                       {agent.tasks} tarefas completadas
@@ -221,12 +235,6 @@ const Agents = () => {
         <CreateAgentModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
-        />
-
-        <AgentChatModal
-          agent={selectedAgent}
-          isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
         />
       </div>
     </DashboardLayout>

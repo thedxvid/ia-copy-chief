@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bot, MessageSquare, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
+import { Bot, MessageSquare, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, Trash2 } from 'lucide-react';
 import { useFloatingChat } from '@/hooks/useFloatingChat';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,6 +69,30 @@ export const FloatingAgentChat: React.FC = () => {
     ...customAgents.map(formatCustomAgent)
   ];
 
+  // Debug function to clear all chat histories
+  const clearAllChats = () => {
+    if (window.confirm('⚠️ Isso irá limpar TODOS os históricos de chat. Tem certeza?')) {
+      console.log('🗑️ Clearing all chat histories...');
+      
+      // Clear localStorage for all agents
+      allAgents.forEach(agent => {
+        localStorage.removeItem(`chat-${agent.id}`);
+        console.log(`Removed chat history for agent: ${agent.id}`);
+      });
+      
+      // Clear any orphaned chat data
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('chat-')) {
+          localStorage.removeItem(key);
+          console.log(`Removed orphaned chat data: ${key}`);
+        }
+      });
+      
+      console.log('✅ All chat histories cleared!');
+      alert('✅ Todos os históricos de chat foram limpos! Recarregue a página para ver o efeito.');
+    }
+  };
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -88,6 +112,11 @@ export const FloatingAgentChat: React.FC = () => {
           }
         }
       }
+
+      // Debug shortcut: Ctrl+Shift+D to clear all chats
+      if (e.key === 'D' && e.ctrlKey && e.shiftKey) {
+        clearAllChats();
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
@@ -106,17 +135,30 @@ export const FloatingAgentChat: React.FC = () => {
   if (chatStep === 'closed' && openAgents.length === 0) {
     return (
       <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          onClick={openAgentSelection}
-          className="w-14 h-14 rounded-full bg-[#3B82F6] hover:bg-[#2563EB] text-white shadow-lg hover:shadow-xl transition-all duration-200 relative"
-        >
-          <Bot className="w-6 h-6" />
-          {totalUnreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
-            </span>
+        <div className="flex flex-col items-end space-y-2">
+          {/* Debug button - only show in development */}
+          {window.location.hostname === 'localhost' && (
+            <Button
+              onClick={clearAllChats}
+              className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg"
+              title="Debug: Clear All Chats (Ctrl+Shift+D)"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
           )}
-        </Button>
+          
+          <Button
+            onClick={openAgentSelection}
+            className="w-14 h-14 rounded-full bg-[#3B82F6] hover:bg-[#2563EB] text-white shadow-lg hover:shadow-xl transition-all duration-200 relative"
+          >
+            <Bot className="w-6 h-6" />
+            {totalUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -192,7 +234,18 @@ export const FloatingAgentChat: React.FC = () => {
           </div>
 
           {/* Floating Action Button for New Chat */}
-          <div className="flex justify-end">
+          <div className="flex justify-end space-x-2">
+            {/* Debug button - only show in development */}
+            {window.location.hostname === 'localhost' && (
+              <Button
+                onClick={clearAllChats}
+                className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg"
+                title="Debug: Clear All Chats (Ctrl+Shift+D)"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+            
             <Button
               onClick={openAgentSelection}
               className="w-12 h-12 rounded-full bg-[#10B981] hover:bg-[#059669] text-white shadow-lg hover:shadow-xl transition-all duration-200"
