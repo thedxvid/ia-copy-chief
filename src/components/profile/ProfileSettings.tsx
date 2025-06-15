@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Mail, Shield, LogOut, Camera, Save } from 'lucide-react';
+import { User, Mail, Shield, LogOut, Camera, Save, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProfileSettingsProps {
@@ -19,6 +19,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [formData, setFormData] = useState({
     fullName: user?.user_metadata?.full_name || '',
     email: user?.email || '',
@@ -32,6 +33,79 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validar tipo e tamanho do arquivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Erro no upload",
+        description: "Por favor, selecione apenas arquivos de imagem.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      toast({
+        title: "Erro no upload",
+        description: "A imagem deve ter no máximo 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingAvatar(true);
+
+    try {
+      // Criar nome único para o arquivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Fazer upload do arquivo
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Obter URL pública da imagem
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Atualizar metadados do usuário
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          avatar_url: data.publicUrl,
+        }
+      });
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Avatar atualizado",
+        description: "Sua foto de perfil foi atualizada com sucesso.",
+      });
+
+    } catch (error: any) {
+      console.error('Erro no upload do avatar:', error);
+      toast({
+        title: "Erro no upload",
+        description: error.message || "Não foi possível fazer o upload da imagem.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+      // Limpar o input
+      event.target.value = '';
+    }
   };
 
   const handleUpdateProfile = async () => {
@@ -76,9 +150,25 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
               {getInitials(user?.user_metadata?.full_name)}
             </AvatarFallback>
           </Avatar>
-          <button className="absolute bottom-0 right-0 w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center text-white hover:bg-[#2563EB] transition-colors">
-            <Camera className="w-4 h-4" />
-          </button>
+          <div className="absolute bottom-0 right-0">
+            <input
+              type="file"
+              id="avatar-upload"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+            <label
+              htmlFor="avatar-upload"
+              className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center text-white hover:bg-[#2563EB] transition-colors cursor-pointer"
+            >
+              {uploadingAvatar ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+            </label>
+          </div>
         </div>
         <div>
           <h2 className="text-2xl font-bold text-white">Configurações do Perfil</h2>
