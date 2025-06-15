@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from '@/lib/utils';
 
 const modernButtonVariants = cva(
-  "modern-button relative inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed transform-gpu rounded-xl",
+  "modern-button relative inline-flex items-center justify-center overflow-hidden gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed transform-gpu rounded-xl",
   {
     variants: {
       variant: {
@@ -44,7 +44,7 @@ const ModernButton = React.forwardRef<HTMLButtonElement, ModernButtonProps>(
     const buttonContent = (
       <>
         {/* Shine effect */}
-        <div className="absolute inset-0 rounded-xl opacity-0 transition-opacity duration-700 pointer-events-none group-hover:opacity-100">
+        <div className="absolute inset-0 opacity-0 transition-opacity duration-700 pointer-events-none group-hover:opacity-100">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
         </div>
         
@@ -61,7 +61,7 @@ const ModernButton = React.forwardRef<HTMLButtonElement, ModernButtonProps>(
         </span>
         
         {/* Ripple effect container */}
-        <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="ripple-container" />
         </div>
       </>

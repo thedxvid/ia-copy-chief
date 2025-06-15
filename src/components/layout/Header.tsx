@@ -166,7 +166,7 @@ export const Header = () => {
                     Entrar
                   </Link>
                   <ModernButton asChild size="sm" className="text-sm">
-                    <Link to="/auth">Começar Agora</Link>
+                    <Link to="/auth?mode=signup">Começar Agora</Link>
                   </ModernButton>
                 </div>
               )}
@@ -211,7 +211,7 @@ export const Header = () => {
                     </Link>
                     <div className="px-3">
                       <ModernButton asChild size="sm" className="w-full text-sm">
-                        <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                        <Link to="/auth?mode=signup" onClick={() => setIsMenuOpen(false)}>
                           Começar Agora
                         </Link>
                       </ModernButton>
