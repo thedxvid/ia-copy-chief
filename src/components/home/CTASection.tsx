@@ -49,7 +49,7 @@ export function CTASection() {
             className="text-lg sm:text-xl px-8 sm:px-12 py-4 sm:py-6 group bg-[#FFFFFF]/20 text-[#FFFFFF] border-[#FFFFFF]/30 hover:bg-[#FFFFFF]/30 rounded-2xl w-full sm:w-auto" 
             asChild
           >
-            <Link to="/auth" className="flex items-center justify-center gap-3">
+            <Link to="/auth?mode=signup" className="flex items-center justify-center gap-3">
               <Sparkles className="w-5 sm:w-6 h-5 sm:h-6 group-hover:rotate-12 transition-transform" />
               Começar Meu Quiz Gratuito Agora
               <ArrowRight className="w-5 sm:w-6 h-5 sm:h-6 group-hover:translate-x-1 transition-transform" />

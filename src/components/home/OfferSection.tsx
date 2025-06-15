@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { Check, Clock, Users, Award, Zap, Target, TrendingUp, Shield } from 'lucide-react';
 import { ModernCard } from '@/components/ui/modern-card';
 import { ModernButton } from '@/components/ui/modern-button';
 import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
 
 export function OfferSection() {
   const benefits = [
@@ -157,9 +157,12 @@ export function OfferSection() {
                 <ModernButton 
                   size="lg" 
                   className="w-full bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-lg sm:text-xl font-bold py-4 sm:py-6 rounded-full hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-[#3B82F6]/30 mb-4 sm:mb-6"
+                  asChild
                 >
-                  <Zap className="w-5 sm:w-6 h-5 sm:h-6 mr-3" />
-                  Quero Desbloquear Agora
+                  <Link to="/auth?mode=signup" className="flex items-center justify-center gap-3">
+                    <Zap className="w-5 sm:w-6 h-5 sm:h-6" />
+                    Quero Desbloquear Agora
+                  </Link>
                 </ModernButton>
 
                 {/* Guarantees */}
