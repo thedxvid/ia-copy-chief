@@ -12,59 +12,153 @@ interface Agent {
   isCustom?: boolean;
 }
 
+interface OpenAgent extends Agent {
+  isMinimized: boolean;
+  unreadCount: number;
+  lastActivity: number;
+}
+
 export const useFloatingChat = () => {
   const [chatStep, setChatStep] = useState<ChatStep>('closed');
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [openAgents, setOpenAgents] = useState<OpenAgent[]>([]);
+  const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
 
   const openAgentSelection = useCallback(() => {
     setChatStep('agent-selection');
-    setIsMinimized(false);
   }, []);
 
   const selectAgent = useCallback((agent: Agent) => {
-    setSelectedAgent(agent);
+    // Verificar se o agente já está aberto
+    const existingAgent = openAgents.find(a => a.id === agent.id);
+    
+    if (existingAgent) {
+      // Se já está aberto, apenas maximizar e focar
+      setOpenAgents(prev => 
+        prev.map(a => 
+          a.id === agent.id 
+            ? { ...a, isMinimized: false, unreadCount: 0 }
+            : a
+        )
+      );
+      setActiveAgentId(agent.id);
+    } else {
+      // Limitar a 3 chats simultâneos
+      setOpenAgents(prev => {
+        const newAgent: OpenAgent = {
+          ...agent,
+          isMinimized: false,
+          unreadCount: 0,
+          lastActivity: Date.now()
+        };
+        
+        if (prev.length >= 3) {
+          // Remover o chat mais antigo (menos ativo)
+          const sortedByActivity = [...prev].sort((a, b) => a.lastActivity - b.lastActivity);
+          return [...sortedByActivity.slice(1), newAgent];
+        }
+        
+        return [...prev, newAgent];
+      });
+      setActiveAgentId(agent.id);
+    }
+    
     setChatStep('chatting');
-    setUnreadCount(0);
-  }, []);
+  }, [openAgents]);
 
   const backToSelection = useCallback(() => {
     setChatStep('agent-selection');
-    setSelectedAgent(null);
+    setActiveAgentId(null);
   }, []);
 
   const closeChat = useCallback(() => {
-    setChatStep('closed');
-    setSelectedAgent(null);
-    setIsMinimized(false);
-  }, []);
-
-  const minimizeChat = useCallback(() => {
-    setIsMinimized(true);
-  }, []);
-
-  const maximizeChat = useCallback(() => {
-    setIsMinimized(false);
-  }, []);
-
-  const incrementUnread = useCallback(() => {
-    if (isMinimized || chatStep === 'closed') {
-      setUnreadCount(prev => prev + 1);
+    if (openAgents.length === 0) {
+      setChatStep('closed');
+      setActiveAgentId(null);
+    } else {
+      setChatStep('chatting');
     }
-  }, [isMinimized, chatStep]);
+  }, [openAgents.length]);
+
+  const closeAgent = useCallback((agentId: string) => {
+    setOpenAgents(prev => prev.filter(a => a.id !== agentId));
+    
+    if (activeAgentId === agentId) {
+      const remainingAgents = openAgents.filter(a => a.id !== agentId);
+      if (remainingAgents.length > 0) {
+        setActiveAgentId(remainingAgents[remainingAgents.length - 1].id);
+      } else {
+        setChatStep('closed');
+        setActiveAgentId(null);
+      }
+    }
+  }, [activeAgentId, openAgents]);
+
+  const minimizeAgent = useCallback((agentId: string) => {
+    setOpenAgents(prev => 
+      prev.map(a => 
+        a.id === agentId ? { ...a, isMinimized: true } : a
+      )
+    );
+    
+    if (activeAgentId === agentId) {
+      const otherActiveAgents = openAgents.filter(a => a.id !== agentId && !a.isMinimized);
+      if (otherActiveAgents.length > 0) {
+        setActiveAgentId(otherActiveAgents[otherActiveAgents.length - 1].id);
+      } else {
+        setActiveAgentId(null);
+      }
+    }
+  }, [activeAgentId, openAgents]);
+
+  const maximizeAgent = useCallback((agentId: string) => {
+    setOpenAgents(prev => 
+      prev.map(a => 
+        a.id === agentId 
+          ? { ...a, isMinimized: false, unreadCount: 0, lastActivity: Date.now() }
+          : a
+      )
+    );
+    setActiveAgentId(agentId);
+    setChatStep('chatting');
+  }, []);
+
+  const incrementUnread = useCallback((agentId: string) => {
+    setOpenAgents(prev => 
+      prev.map(a => 
+        a.id === agentId 
+          ? { 
+              ...a, 
+              unreadCount: a.isMinimized || activeAgentId !== agentId ? a.unreadCount + 1 : a.unreadCount,
+              lastActivity: Date.now()
+            }
+          : a
+      )
+    );
+  }, [activeAgentId]);
+
+  const focusAgent = useCallback((agentId: string) => {
+    setActiveAgentId(agentId);
+    setOpenAgents(prev => 
+      prev.map(a => 
+        a.id === agentId 
+          ? { ...a, lastActivity: Date.now() }
+          : a
+      )
+    );
+  }, []);
 
   return {
     chatStep,
-    selectedAgent,
-    isMinimized,
-    unreadCount,
+    openAgents,
+    activeAgentId,
     openAgentSelection,
     selectAgent,
     backToSelection,
     closeChat,
-    minimizeChat,
-    maximizeChat,
+    closeAgent,
+    minimizeAgent,
+    maximizeAgent,
     incrementUnread,
+    focusAgent,
   };
 };

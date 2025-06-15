@@ -12,16 +12,17 @@ export const FloatingAgentChat: React.FC = () => {
   const { user } = useAuth();
   const {
     chatStep,
-    selectedAgent,
-    isMinimized,
-    unreadCount,
+    openAgents,
+    activeAgentId,
     openAgentSelection,
     selectAgent,
     backToSelection,
     closeChat,
-    minimizeChat,
-    maximizeChat,
+    closeAgent,
+    minimizeAgent,
+    maximizeAgent,
     incrementUnread,
+    focusAgent,
   } = useFloatingChat();
 
   const { agents: customAgents } = useCustomAgents();
@@ -74,19 +75,35 @@ export const FloatingAgentChat: React.FC = () => {
       if (e.key === 'Escape' && chatStep !== 'closed') {
         closeChat();
       }
+      
+      // Teclas numéricas para alternar entre chats (1, 2, 3)
+      if (e.key >= '1' && e.key <= '3' && e.ctrlKey && openAgents.length > 0) {
+        const index = parseInt(e.key) - 1;
+        if (index < openAgents.length) {
+          const agent = openAgents[index];
+          if (agent.isMinimized) {
+            maximizeAgent(agent.id);
+          } else {
+            focusAgent(agent.id);
+          }
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [chatStep, closeChat]);
+  }, [chatStep, closeChat, openAgents, maximizeAgent, focusAgent]);
 
-  // Só renderizar se o usuário estiver logado - MOVED AFTER ALL HOOKS
+  // Só renderizar se o usuário estiver logado
   if (!user) {
     return null;
   }
 
-  // Don't render anything if chat is closed and not minimized
-  if (chatStep === 'closed') {
+  // Calcular total de notificações
+  const totalUnreadCount = openAgents.reduce((sum, agent) => sum + agent.unreadCount, 0);
+
+  // Don't render anything if chat is closed and no agents are open
+  if (chatStep === 'closed' && openAgents.length === 0) {
     return (
       <div className="fixed bottom-6 right-6 z-50">
         <Button
@@ -94,33 +111,9 @@ export const FloatingAgentChat: React.FC = () => {
           className="w-14 h-14 rounded-full bg-[#3B82F6] hover:bg-[#2563EB] text-white shadow-lg hover:shadow-xl transition-all duration-200 relative"
         >
           <Bot className="w-6 h-6" />
-          {unreadCount > 0 && (
+          {totalUnreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
-        </Button>
-      </div>
-    );
-  }
-
-  // Minimized state - show small button with agent info
-  if (isMinimized && selectedAgent) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          onClick={maximizeChat}
-          className="h-12 px-4 rounded-full bg-[#3B82F6] hover:bg-[#2563EB] text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2 relative"
-        >
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
-            selectedAgent.isCustom ? 'bg-[#10B981]' : 'bg-[#2563EB]'
-          }`}>
-            <selectedAgent.icon className="w-3 h-3 text-white" />
-          </div>
-          <span className="text-sm font-medium">{selectedAgent.name}</span>
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
             </span>
           )}
         </Button>
@@ -130,6 +123,7 @@ export const FloatingAgentChat: React.FC = () => {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
+      {/* Agent Selection Modal */}
       {chatStep === 'agent-selection' && (
         <AgentSelector
           agents={allAgents}
@@ -138,14 +132,76 @@ export const FloatingAgentChat: React.FC = () => {
         />
       )}
       
-      {chatStep === 'chatting' && selectedAgent && (
-        <ChatWindow
-          agent={selectedAgent}
-          onBack={backToSelection}
-          onMinimize={minimizeChat}
-          onClose={closeChat}
-          onNewMessage={incrementUnread}
-        />
+      {/* Active Chat Windows */}
+      {chatStep === 'chatting' && openAgents.length > 0 && (
+        <div className="flex flex-col space-y-4">
+          {/* Minimized Agents Dock */}
+          {openAgents.some(agent => agent.isMinimized) && (
+            <div className="flex space-x-2 justify-end">
+              {openAgents
+                .filter(agent => agent.isMinimized)
+                .map((agent, index) => (
+                  <Button
+                    key={agent.id}
+                    onClick={() => maximizeAgent(agent.id)}
+                    className="h-10 px-3 rounded-lg bg-[#2A2A2A] hover:bg-[#3B82F6] text-white shadow-lg transition-all duration-200 flex items-center space-x-2 relative"
+                  >
+                    <div className={`w-4 h-4 rounded flex items-center justify-center ${
+                      agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
+                    }`}>
+                      <agent.icon className="w-2 h-2 text-white" />
+                    </div>
+                    <span className="text-xs font-medium truncate max-w-20">
+                      {agent.name}
+                    </span>
+                    {agent.unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                        {agent.unreadCount > 9 ? '9+' : agent.unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                ))}
+            </div>
+          )}
+
+          {/* Active Chat Windows */}
+          <div className="flex flex-col space-y-4">
+            {openAgents
+              .filter(agent => !agent.isMinimized)
+              .map((agent, index) => (
+                <div
+                  key={agent.id}
+                  className={`transition-all duration-200 ${
+                    activeAgentId === agent.id ? 'z-20' : 'z-10 opacity-90'
+                  }`}
+                  style={{
+                    transform: index > 0 ? `translateX(-${index * 20}px) translateY(-${index * 20}px)` : 'none'
+                  }}
+                >
+                  <ChatWindow
+                    agent={agent}
+                    onBack={backToSelection}
+                    onMinimize={() => minimizeAgent(agent.id)}
+                    onClose={() => closeAgent(agent.id)}
+                    onNewMessage={() => incrementUnread(agent.id)}
+                    onFocus={() => focusAgent(agent.id)}
+                    isActive={activeAgentId === agent.id}
+                  />
+                </div>
+              ))}
+          </div>
+
+          {/* Floating Action Button for New Chat */}
+          <div className="flex justify-end">
+            <Button
+              onClick={openAgentSelection}
+              className="w-12 h-12 rounded-full bg-[#10B981] hover:bg-[#059669] text-white shadow-lg hover:shadow-xl transition-all duration-200"
+              title="Abrir novo chat"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

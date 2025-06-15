@@ -23,6 +23,8 @@ interface ChatWindowProps {
   onMinimize: () => void;
   onClose: () => void;
   onNewMessage?: () => void;
+  onFocus?: () => void;
+  isActive?: boolean;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -30,7 +32,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onBack,
   onMinimize,
   onClose,
-  onNewMessage
+  onNewMessage,
+  onFocus,
+  isActive = true
 }) => {
   const [message, setMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -49,10 +53,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [messages]);
 
   useEffect(() => {
-    if (textareaRef.current) {
+    if (textareaRef.current && isActive) {
       textareaRef.current.focus();
     }
-  }, []);
+  }, [isActive]);
 
   // Trigger callback when new message arrives
   useEffect(() => {
@@ -78,10 +82,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
+  const handleFocus = () => {
+    if (onFocus) {
+      onFocus();
+    }
+  };
+
   return (
-    <div className="bg-[#1E1E1E] border border-[#4B5563]/20 rounded-lg shadow-xl w-80 h-96 flex flex-col">
+    <div 
+      className={`bg-[#1E1E1E] border rounded-lg shadow-xl w-80 h-96 flex flex-col transition-all duration-200 ${
+        isActive 
+          ? 'border-[#3B82F6]/50 shadow-[#3B82F6]/20' 
+          : 'border-[#4B5563]/20'
+      }`}
+      onClick={handleFocus}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-[#4B5563]/20 bg-[#252525] rounded-t-lg">
+      <div className={`flex items-center justify-between p-3 border-b rounded-t-lg ${
+        isActive 
+          ? 'bg-[#252525] border-[#3B82F6]/30' 
+          : 'bg-[#1A1A1A] border-[#4B5563]/20'
+      }`}>
         <div className="flex items-center space-x-2">
           <Button
             variant="ghost"
@@ -98,6 +119,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-white text-sm truncate">{agent.name}</p>
+            {!isActive && (
+              <p className="text-xs text-[#888888]">Clique para focar</p>
+            )}
           </div>
         </div>
         <div className="flex space-x-1">
@@ -151,6 +175,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={handleFocus}
             placeholder={`Mensagem para ${agent.name}...`}
             className="flex-1 min-h-[36px] max-h-20 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none text-sm"
             disabled={isLoading}
