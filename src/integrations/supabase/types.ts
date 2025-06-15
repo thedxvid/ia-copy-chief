@@ -89,6 +89,42 @@ export type Database = {
         }
         Relationships: []
       }
+      kiwify_webhooks: {
+        Row: {
+          created_at: string | null
+          customer_email: string
+          customer_id: string | null
+          event_type: string
+          id: string
+          kiwify_order_id: string
+          processed: boolean | null
+          raw_data: Json
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          customer_email: string
+          customer_id?: string | null
+          event_type: string
+          id?: string
+          kiwify_order_id: string
+          processed?: boolean | null
+          raw_data: Json
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          customer_email?: string
+          customer_id?: string | null
+          event_type?: string
+          id?: string
+          kiwify_order_id?: string
+          processed?: boolean | null
+          raw_data?: Json
+          status?: string
+        }
+        Relationships: []
+      }
       product_analytics: {
         Row: {
           benchmark_data: Json | null
@@ -410,14 +446,19 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          checkout_url: string | null
           created_at: string
           extra_tokens: number | null
           full_name: string | null
           id: string
+          kiwify_customer_id: string | null
           monthly_tokens: number | null
           notified_10: boolean | null
           notified_50: boolean | null
           notified_90: boolean | null
+          payment_approved_at: string | null
+          subscription_expires_at: string | null
+          subscription_status: string | null
           tokens_reset_date: string | null
           total_tokens_used: number | null
           tutorial_completed: boolean
@@ -427,14 +468,19 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          checkout_url?: string | null
           created_at?: string
           extra_tokens?: number | null
           full_name?: string | null
           id: string
+          kiwify_customer_id?: string | null
           monthly_tokens?: number | null
           notified_10?: boolean | null
           notified_50?: boolean | null
           notified_90?: boolean | null
+          payment_approved_at?: string | null
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
           tokens_reset_date?: string | null
           total_tokens_used?: number | null
           tutorial_completed?: boolean
@@ -444,14 +490,19 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          checkout_url?: string | null
           created_at?: string
           extra_tokens?: number | null
           full_name?: string | null
           id?: string
+          kiwify_customer_id?: string | null
           monthly_tokens?: number | null
           notified_10?: boolean | null
           notified_50?: boolean | null
           notified_90?: boolean | null
+          payment_approved_at?: string | null
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
           tokens_reset_date?: string | null
           total_tokens_used?: number | null
           tutorial_completed?: boolean

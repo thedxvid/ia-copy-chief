@@ -17,6 +17,7 @@ import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import { TutorialProvider } from './contexts/TutorialContext';
 import { FloatingAgentChat } from './components/chat/FloatingAgentChat';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import Ads from './pages/Ads';
 import SalesVideos from './pages/SalesVideos';
 import Pages from './pages/Pages';
@@ -126,24 +127,6 @@ function App() {
       </AuthProvider>
     </QueryClientProvider>
   );
-}
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-
-  useEffect(() => {
-    console.log('User state:', user);
-  }, [user]);
-
-  if (loading) {
-    return <div>Carregando...</div>;
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  return <>{children}</>;
 }
 
 export default App;
