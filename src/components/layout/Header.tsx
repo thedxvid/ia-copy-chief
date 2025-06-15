@@ -215,11 +215,12 @@ export const Header = () => {
                       Entrar
                     </button>
                     <div className="px-3">
-                      <ModernButton asChild size="sm" className="w-full text-sm">
-                        <button onClick={() => handleMobileNavigation('/auth?mode=signup')}>
-                          Começar Agora
-                        </button>
-                      </ModernButton>
+                      <button
+                        onClick={() => handleMobileNavigation('/auth?mode=signup')}
+                        className="w-full bg-[#3B82F6] text-white py-2 px-4 rounded-xl text-sm font-medium hover:bg-[#2563EB] transition-colors"
+                      >
+                        Começar Agora
+                      </button>
                     </div>
                   </div>
                 )}
