@@ -1,13 +1,12 @@
-
 import React, { useState } from 'react';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { QuizFlow } from '@/components/quiz/QuizFlow';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { generateCopyWithN8n } from '@/utils/copyGenerators';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuizCopySave } from '@/hooks/useQuizCopySave';
-import { Copy, Download, RotateCcw, History } from 'lucide-react';
+import { useN8nIntegration } from '@/hooks/useN8nIntegration';
+import { Copy, Download, RotateCcw, History, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -22,6 +21,7 @@ const Quiz = () => {
   
   const { user } = useAuth();
   const { saveQuizCopy, isSaving } = useQuizCopySave();
+  const { triggerN8nWorkflow } = useN8nIntegration();
   const navigate = useNavigate();
 
   const handleSelectQuiz = (quizType: string) => {
@@ -31,20 +31,57 @@ const Quiz = () => {
 
   const handleQuizComplete = async (answers: Record<string, string>) => {
     console.log('Quiz completed with answers:', answers);
+    console.log('User:', user);
+    console.log('Selected quiz type:', selectedQuizType);
+    
+    // Verificar se o usuário está autenticado
+    if (!user?.id) {
+      toast.error('Você precisa estar logado para gerar copy. Redirecionando...');
+      navigate('/auth');
+      return;
+    }
+
     setQuizAnswers(answers);
     setIsGenerating(true);
     
     try {
-      console.log('Generating copy with Claude via N8n...');
+      console.log('Generating copy with N8n integration...');
+      console.log('User ID:', user.id);
       
-      const copy = await generateCopyWithN8n(answers, selectedQuizType, user?.id);
+      // Construir prompt baseado nas respostas do quiz
+      const prompt = buildQuizPrompt(answers, selectedQuizType);
+      console.log('Built prompt:', prompt);
+      
+      const result = await triggerN8nWorkflow({
+        type: 'copy_generation',
+        user_id: user.id,
+        data: {
+          copy_type: selectedQuizType,
+          prompt,
+          briefing: answers,
+          quiz_answers: answers
+        },
+        workflow_id: 'quiz-copy-generation',
+        session_id: `quiz_${selectedQuizType}_${Date.now()}`
+      });
+
+      console.log('N8n result:', result);
+      
+      if (!result || !result.generatedCopy) {
+        throw new Error('Nenhuma copy foi gerada');
+      }
+
+      const copy = {
+        title: getQuizTitle(selectedQuizType),
+        content: result.generatedCopy
+      };
       
       console.log('Copy generated successfully:', copy);
       setGeneratedCopy(copy);
       setCurrentStep('result');
       
-      // Salvar automaticamente no histórico se o usuário estiver logado
-      if (user?.id && copy) {
+      // Salvar automaticamente no histórico
+      if (copy) {
         try {
           const savedCopy = await saveQuizCopy({
             quizType: selectedQuizType,
@@ -54,6 +91,7 @@ const Quiz = () => {
           
           if (savedCopy) {
             setSavedCopyId(savedCopy.id);
+            console.log('Copy saved to history with ID:', savedCopy.id);
           }
         } catch (saveError) {
           console.error('Erro ao salvar no histórico:', saveError);
@@ -61,13 +99,48 @@ const Quiz = () => {
         }
       }
       
-      toast.success('Copy gerada com sucesso usando Claude AI!');
+      toast.success('Copy gerada com sucesso!');
     } catch (error) {
       console.error('Erro ao gerar copy:', error);
-      toast.error('Erro ao gerar copy. Tente novamente.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      
+      if (errorMessage.includes('Tokens insuficientes')) {
+        toast.error('Tokens insuficientes para gerar copy. Verifique seus créditos.');
+      } else if (errorMessage.includes('User ID é obrigatório')) {
+        toast.error('Erro de autenticação. Faça login novamente.');
+        navigate('/auth');
+      } else {
+        toast.error(`Erro ao gerar copy: ${errorMessage}`);
+      }
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const buildQuizPrompt = (answers: Record<string, string>, quizType: string): string => {
+    const answersText = Object.entries(answers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+
+    const typePrompts = {
+      vsl: `Crie um roteiro completo de VSL (Video Sales Letter) baseado nas seguintes informações:\n\n${answersText}\n\nEstruture em: Hook, Desenvolvimento (problema/agitação/solução), Oferta e CTA final.`,
+      product: `Crie uma estrutura de oferta completa baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Proposta de valor, benefícios, bônus, garantia e urgência.`,
+      landing: `Crie uma copy completa para landing page baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Headline, subheadline, benefícios, prova social e CTA.`,
+      ads: `Crie múltiplas variações de anúncios pagos baseado nas seguintes informações:\n\n${answersText}\n\nGere pelo menos 3 variações com diferentes abordagens.`
+    };
+
+    return typePrompts[quizType as keyof typeof typePrompts] || 
+           `Crie uma copy profissional baseada nas seguintes informações:\n\n${answersText}`;
+  };
+
+  const getQuizTitle = (quizType: string): string => {
+    const titles = {
+      vsl: 'Roteiro de Vídeo de Vendas (VSL)',
+      product: 'Estrutura de Oferta',
+      landing: 'Copy de Landing Page',
+      ads: 'Anúncios Pagos'
+    };
+    return titles[quizType as keyof typeof titles] || 'Copy Personalizada';
   };
 
   const handleBackToSelector = () => {
@@ -108,6 +181,31 @@ const Quiz = () => {
     toast.success('Navegando para o histórico...');
   };
 
+  // Verificar se o usuário está logado antes de mostrar o quiz
+  if (!user) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto text-center py-16">
+          <div className="bg-[#1E1E1E] border border-[#4B5563]/20 rounded-lg p-8">
+            <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Login Necessário
+            </h2>
+            <p className="text-[#CCCCCC] mb-6">
+              Você precisa estar logado para usar o gerador de copy com quiz.
+            </p>
+            <Button
+              onClick={() => navigate('/auth')}
+              className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+            >
+              Fazer Login
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   if (currentStep === 'selector') {
     return (
       <DashboardLayout>
@@ -139,7 +237,7 @@ const Quiz = () => {
               🎉 Sua Copy Está Pronta!
             </h1>
             <p className="text-[#CCCCCC]">
-              Copy personalizada gerada com Claude AI via N8n
+              Copy personalizada gerada com IA
               {savedCopyId && (
                 <span className="ml-2 text-[#3B82F6]">
                   • Salva no histórico ✓

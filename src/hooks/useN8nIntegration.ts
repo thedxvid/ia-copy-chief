@@ -15,23 +15,46 @@ export const useN8nIntegration = () => {
   const [error, setError] = useState<string | null>(null);
 
   const triggerN8nWorkflow = async (integrationData: N8nIntegrationData) => {
+    console.log('triggerN8nWorkflow called with:', integrationData);
+    
     setIsLoading(true);
     setError(null);
 
     try {
+      // Validação dos dados antes de enviar
+      if (!integrationData.user_id) {
+        throw new Error('User ID é obrigatório');
+      }
+
+      if (!integrationData.type) {
+        throw new Error('Tipo de integração é obrigatório');
+      }
+
+      console.log('Calling supabase.functions.invoke with:', {
+        functionName: 'n8n-integration',
+        body: integrationData
+      });
+
       const { data, error: functionError } = await supabase.functions.invoke('n8n-integration', {
         body: integrationData
       });
 
+      console.log('Supabase function response:', { data, error: functionError });
+
       if (functionError) {
-        throw new Error(functionError.message);
+        console.error('Function error:', functionError);
+        throw new Error(functionError.message || 'Erro na função Supabase');
+      }
+
+      if (!data) {
+        throw new Error('Nenhum dado retornado da função');
       }
 
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError(errorMessage);
       console.error('Erro na integração N8n:', err);
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -45,6 +68,14 @@ export const useN8nIntegration = () => {
     targetAudience: string,
     productInfo: string
   ) => {
+    console.log('generateCopyWithN8n called with:', {
+      userId, 
+      copyType, 
+      targetAudience, 
+      productInfo,
+      quizAnswers
+    });
+
     return triggerN8nWorkflow({
       type: 'copy_generation',
       user_id: userId,
