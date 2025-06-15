@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -16,6 +17,7 @@ import {
   Users,
   User,
   LogOut,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -99,6 +101,12 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  // Lista de emails de admin
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  
+  // Verificar se é admin
+  const isAdmin = user?.email && adminEmails.includes(user.email);
+
   return (
     <Sidebar 
       className="!bg-zinc-950 md:!bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl z-50 transition-colors duration-300" 
@@ -140,6 +148,24 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              
+              {/* Item Admin (apenas para administradores) */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    size="sm"
+                    className={`text-white hover:bg-[#2A2A2A] hover:text-[#3B82F6] transition-colors ${
+                      location.pathname === '/admin' ? 'bg-[#3B82F6]/20 text-[#3B82F6] border-r-2 border-[#3B82F6]' : ''
+                    }`}
+                  >
+                    <Link to="/admin">
+                      <Shield className="w-4 h-4 flex-shrink-0" />
+                      <span className="group-data-[collapsible=icon]:hidden">Admin</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

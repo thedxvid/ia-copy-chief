@@ -20,6 +20,7 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import Admin from './pages/Admin';
 import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import { TutorialProvider } from './contexts/TutorialContext';
@@ -55,6 +56,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Dashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin" 
+                    element={
+                      <ProtectedRoute>
+                        <Admin />
                       </ProtectedRoute>
                     } 
                   />

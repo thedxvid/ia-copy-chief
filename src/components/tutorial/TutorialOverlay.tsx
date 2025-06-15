@@ -133,9 +133,10 @@ export const TutorialOverlay: React.FC = () => {
               totalSteps={totalSteps} 
             />
 
-            {/* Navegação */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex gap-2 flex-1">
+            {/* Navegação - Layout responsivo melhorado */}
+            <div className="space-y-3">
+              {/* Botões principais de navegação */}
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   onClick={previousStep}
@@ -164,22 +165,25 @@ export const TutorialOverlay: React.FC = () => {
                 </Button>
               </div>
 
-              <div className="flex gap-2">
+              {/* Botões secundários */}
+              <div className="flex gap-2 justify-center">
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={skipTutorial}
-                  className="text-[#888888] hover:text-white hover:bg-[#2A2A2A]"
+                  className="text-[#888888] hover:text-white hover:bg-[#2A2A2A] text-xs"
                 >
-                  <SkipForward className="w-4 h-4 mr-1" />
+                  <SkipForward className="w-3 h-3 mr-1" />
                   Pular
                 </Button>
 
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={completeTutorial}
-                  className="text-[#888888] hover:text-white hover:bg-[#2A2A2A]"
+                  className="text-[#888888] hover:text-white hover:bg-[#2A2A2A] text-xs"
                 >
-                  <EyeOff className="w-4 h-4 mr-1" />
+                  <EyeOff className="w-3 h-3 mr-1" />
                   Não mostrar mais
                 </Button>
               </div>
