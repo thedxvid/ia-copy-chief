@@ -69,18 +69,26 @@ export const FloatingAgentChat: React.FC = () => {
     ...customAgents.map(formatCustomAgent)
   ];
 
+  // Debug do estado atual
+  useEffect(() => {
+    console.log('🎭 === FLOATING CHAT STATE DEBUG === 🎭');
+    console.log('chatStep:', chatStep);
+    console.log('openAgents:', openAgents.length);
+    console.log('activeAgentId:', activeAgentId);
+    console.log('Should render chat?', chatStep === 'chatting' && openAgents.length > 0);
+    console.log('User logged in?', !!user);
+  }, [chatStep, openAgents, activeAgentId, user]);
+
   // Debug function to clear all chat histories
   const clearAllChats = () => {
     if (window.confirm('⚠️ Isso irá limpar TODOS os históricos de chat. Tem certeza?')) {
       console.log('🗑️ Clearing all chat histories...');
       
-      // Clear localStorage for all agents
       allAgents.forEach(agent => {
         localStorage.removeItem(`chat-${agent.id}`);
         console.log(`Removed chat history for agent: ${agent.id}`);
       });
       
-      // Clear any orphaned chat data
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('chat-')) {
           localStorage.removeItem(key);
@@ -100,7 +108,6 @@ export const FloatingAgentChat: React.FC = () => {
         closeChat();
       }
       
-      // Teclas numéricas para alternar entre chats (1, 2, 3)
       if (e.key >= '1' && e.key <= '3' && e.ctrlKey && openAgents.length > 0) {
         const index = parseInt(e.key) - 1;
         if (index < openAgents.length) {
@@ -113,7 +120,6 @@ export const FloatingAgentChat: React.FC = () => {
         }
       }
 
-      // Debug shortcut: Ctrl+Shift+D to clear all chats
       if (e.key === 'D' && e.ctrlKey && e.shiftKey) {
         clearAllChats();
       }
@@ -125,18 +131,26 @@ export const FloatingAgentChat: React.FC = () => {
 
   // Só renderizar se o usuário estiver logado
   if (!user) {
+    console.log('👤 User not logged in, not rendering chat');
     return null;
   }
 
   // Calcular total de notificações
   const totalUnreadCount = openAgents.reduce((sum, agent) => sum + agent.unreadCount, 0);
 
-  // Don't render anything if chat is closed and no agents are open
+  console.log('🎨 === RENDER DECISION === 🎨');
+  console.log('chatStep:', chatStep);
+  console.log('openAgents.length:', openAgents.length);
+  console.log('Will render main button?', chatStep === 'closed' && openAgents.length === 0);
+  console.log('Will render selection?', chatStep === 'agent-selection');
+  console.log('Will render chat?', chatStep === 'chatting' && openAgents.length > 0);
+
+  // Button only state
   if (chatStep === 'closed' && openAgents.length === 0) {
+    console.log('🔵 Rendering: Main button only');
     return (
       <div className="fixed bottom-6 right-6 z-50">
         <div className="flex flex-col items-end space-y-2">
-          {/* Debug button - only show in development */}
           {window.location.hostname === 'localhost' && (
             <Button
               onClick={clearAllChats}
@@ -163,19 +177,27 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  return (
-    <div className="fixed bottom-6 right-6 z-50">
-      {/* Agent Selection Modal */}
-      {chatStep === 'agent-selection' && (
+  // Agent selection state
+  if (chatStep === 'agent-selection') {
+    console.log('🟡 Rendering: Agent selection modal');
+    return (
+      <div className="fixed bottom-6 right-6 z-50">
         <AgentSelector
           agents={allAgents}
           onSelectAgent={selectAgent}
           onClose={closeChat}
         />
-      )}
-      
-      {/* Active Chat Windows */}
-      {chatStep === 'chatting' && openAgents.length > 0 && (
+      </div>
+    );
+  }
+
+  // Chat state
+  if (chatStep === 'chatting') {
+    console.log('🟢 Rendering: Chat interface');
+    console.log('Active agents:', openAgents.map(a => ({ id: a.id, name: a.name, minimized: a.isMinimized })));
+    
+    return (
+      <div className="fixed bottom-6 right-6 z-50">
         <div className="flex flex-col space-y-4">
           {/* Minimized Agents Dock */}
           {openAgents.some(agent => agent.isMinimized) && (
@@ -233,9 +255,8 @@ export const FloatingAgentChat: React.FC = () => {
               ))}
           </div>
 
-          {/* Floating Action Button for New Chat */}
+          {/* Action Buttons */}
           <div className="flex justify-end space-x-2">
-            {/* Debug button - only show in development */}
             {window.location.hostname === 'localhost' && (
               <Button
                 onClick={clearAllChats}
@@ -255,7 +276,11 @@ export const FloatingAgentChat: React.FC = () => {
             </Button>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  // Fallback - should not happen
+  console.log('🔴 Rendering: Fallback (unexpected state)');
+  return null;
 };

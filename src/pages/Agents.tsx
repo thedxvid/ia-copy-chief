@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +11,12 @@ import { useFloatingChat } from '@/hooks/useFloatingChat';
 
 const Agents = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [loadingAgentId, setLoadingAgentId] = useState<string | null>(null);
   
   const { agents: customAgents, loading, deleteAgent } = useCustomAgents();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { selectAgent, openAgentSelection } = useFloatingChat();
+  const { selectAgent, chatStep, openAgents, activeAgentId } = useFloatingChat();
 
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare
@@ -55,18 +55,18 @@ const Agents = () => {
     }
   ];
 
-  const handleStartChat = (agent: any) => {
-    console.log('🚀 INICIANDO CHAT COM AGENTE 🚀');
-    console.log('='.repeat(50));
+  const handleStartChat = async (agent: any) => {
+    console.log('🚀 === INICIANDO CHAT DEBUG === 🚀');
     console.log('Agent ID:', agent.id);
     console.log('Agent Name:', agent.name);
-    console.log('Agent Prompt:', agent.prompt ? `${agent.prompt.substring(0, 100)}...` : '❌ MISSING PROMPT');
-    console.log('Is Custom:', agent.isCustom || false);
-    console.log('Is Default:', agent.isDefault || false);
-    console.log('Full Agent Object:', agent);
-    console.log('='.repeat(50));
+    console.log('Agent Prompt exists:', !!agent.prompt);
+    console.log('Current chatStep:', chatStep);
+    console.log('Current openAgents:', openAgents.length);
+    console.log('Current activeAgentId:', activeAgentId);
     
-    // Verificar se o agente tem todas as propriedades necessárias
+    setLoadingAgentId(agent.id);
+    
+    // Verificar se o agente tem prompt
     if (!agent.prompt) {
       console.error('❌ ERRO: Agente sem prompt definido!');
       toast({
@@ -74,13 +74,35 @@ const Agents = () => {
         description: "Este agente não tem instruções configuradas.",
         variant: "destructive"
       });
+      setLoadingAgentId(null);
       return;
     }
 
     try {
-      // Chamar selectAgent do hook useFloatingChat
+      console.log('📞 Chamando selectAgent...');
+      
+      // Chamar selectAgent
       selectAgent(agent);
-      console.log('✅ selectAgent chamado com sucesso');
+      
+      console.log('✅ selectAgent executado com sucesso');
+      console.log('Novo chatStep esperado: chatting');
+      
+      // Toast de sucesso
+      toast({
+        title: "Chat Iniciado!",
+        description: `Conversa com ${agent.name} foi iniciada`,
+        duration: 3000,
+      });
+      
+      // Pequeno delay para permitir que o estado seja atualizado
+      setTimeout(() => {
+        console.log('🔍 Estado após selectAgent:');
+        console.log('- chatStep atual:', chatStep);
+        console.log('- openAgents length:', openAgents.length);
+        console.log('- activeAgentId:', activeAgentId);
+        setLoadingAgentId(null);
+      }, 100);
+      
     } catch (error) {
       console.error('❌ Erro ao iniciar chat:', error);
       toast({
@@ -88,6 +110,7 @@ const Agents = () => {
         description: "Erro ao iniciar conversa com o agente",
         variant: "destructive"
       });
+      setLoadingAgentId(null);
     }
   };
 
@@ -153,14 +176,17 @@ const Agents = () => {
           </Button>
         </div>
 
-        {/* Debug Info */}
+        {/* Debug Estado do Chat */}
         <div className="bg-[#2A2A2A] border border-[#4B5563]/20 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-white mb-2">🔧 Debug Info</h3>
+          <h3 className="text-sm font-medium text-white mb-2">🔧 Estado do Chat Flutuante</h3>
           <div className="text-xs text-[#CCCCCC] space-y-1">
+            <p>• Chat Step: <span className="text-[#3B82F6] font-mono">{chatStep}</span></p>
+            <p>• Agentes Abertos: <span className="text-[#10B981] font-mono">{openAgents.length}</span></p>
+            <p>• Agente Ativo: <span className="text-[#F59E0B] font-mono">{activeAgentId || 'nenhum'}</span></p>
             <p>• Total de agentes: {allAgents.length}</p>
-            <p>• Agentes padrão: {defaultAgents.length}</p>
-            <p>• Agentes customizados: {customAgents.length}</p>
-            <p>• Hook useFloatingChat carregado: ✅</p>
+            {loadingAgentId && (
+              <p className="text-[#F59E0B]">• Iniciando chat com: {loadingAgentId}</p>
+            )}
           </div>
         </div>
 
@@ -242,24 +268,22 @@ const Agents = () => {
                     {agent.description}
                   </CardDescription>
                   
-                  {/* Debug Info - mostrar prompt ativo */}
-                  {agent.prompt && (
-                    <div className="mb-3 p-2 bg-[#2A2A2A] rounded text-xs text-[#888888]">
-                      <strong>Prompt ativo:</strong> {agent.prompt.substring(0, 80)}...
-                    </div>
-                  )}
-                  
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-[#CCCCCC]">
                       {agent.tasks} tarefas completadas
                     </span>
                     <Button 
                       size="sm" 
-                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                      className={`text-white transition-all duration-200 ${
+                        loadingAgentId === agent.id 
+                          ? 'bg-[#F59E0B] hover:bg-[#D97706]' 
+                          : 'bg-[#3B82F6] hover:bg-[#2563EB]'
+                      }`}
                       onClick={() => handleStartChat(agent)}
+                      disabled={loadingAgentId === agent.id}
                     >
                       <MessageSquare className="w-4 h-4 mr-2" />
-                      Conversar
+                      {loadingAgentId === agent.id ? 'Iniciando...' : 'Conversar'}
                     </Button>
                   </div>
                 </CardContent>

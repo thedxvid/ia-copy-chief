@@ -30,26 +30,29 @@ export const useFloatingChat = () => {
   }, []);
 
   const selectAgent = useCallback((agent: Agent) => {
-    console.log('🚀 selectAgent called with:', {
+    console.log('🚀 === SELECT AGENT DEBUG === 🚀');
+    console.log('Agent recebido:', {
       id: agent.id,
       name: agent.name,
       hasPrompt: !!agent.prompt,
+      promptLength: agent.prompt?.length || 0,
       isCustom: agent.isCustom || false,
       isDefault: agent.isDefault || false
     });
 
-    // Verificar se o agente tem prompt
-    if (!agent.prompt) {
-      console.error('❌ ERRO: Agente sem prompt!', agent);
-      return;
+    // Validação crítica do prompt
+    if (!agent.prompt || agent.prompt.trim().length === 0) {
+      console.error('❌ ERRO CRÍTICO: Agente sem prompt válido!', agent);
+      throw new Error('Agente não possui instruções configuradas');
     }
+
+    console.log('✅ Prompt validado com sucesso');
 
     // Verificar se o agente já está aberto
     const existingAgent = openAgents.find(a => a.id === agent.id);
     
     if (existingAgent) {
       console.log('📋 Agente já existe, maximizando...');
-      // Se já está aberto, apenas maximizar e focar
       setOpenAgents(prev => 
         prev.map(a => 
           a.id === agent.id 
@@ -60,7 +63,6 @@ export const useFloatingChat = () => {
       setActiveAgentId(agent.id);
     } else {
       console.log('🆕 Criando novo chat para agente...');
-      // Limitar a 3 chats simultâneos
       setOpenAgents(prev => {
         const newAgent: OpenAgent = {
           ...agent,
@@ -70,19 +72,26 @@ export const useFloatingChat = () => {
         };
         
         if (prev.length >= 3) {
-          // Remover o chat mais antigo (menos ativo)
           const sortedByActivity = [...prev].sort((a, b) => a.lastActivity - b.lastActivity);
           console.log('⚠️ Limite de 3 chats atingido, removendo o mais antigo');
           return [...sortedByActivity.slice(1), newAgent];
         }
         
+        console.log('📝 Adicionando novo agente à lista');
         return [...prev, newAgent];
       });
       setActiveAgentId(agent.id);
     }
     
+    console.log('🔄 Mudando chatStep para "chatting"');
     setChatStep('chatting');
-    console.log('✅ Chat iniciado com sucesso!');
+    
+    console.log('✅ selectAgent executado com sucesso!');
+    console.log('Estado final esperado:', {
+      chatStep: 'chatting',
+      activeAgentId: agent.id,
+      shouldShowChat: true
+    });
   }, [openAgents]);
 
   const backToSelection = useCallback(() => {
