@@ -1,4 +1,5 @@
 
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -52,9 +53,9 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Estimar tokens necessários ANTES da chamada
+    // Estimar tokens necessários ANTES da chamada (aumentado para Claude 4 Sonnet)
     const estimatedTokens = estimateTokensForChat(message, chatHistory, agentPrompt);
-    console.log('Tokens estimados necessários:', estimatedTokens);
+    console.log('Tokens estimados necessários (Claude 4 Sonnet):', estimatedTokens);
 
     // Verificar se o usuário tem tokens suficientes
     console.log('=== TOKEN VERIFICATION ===');
@@ -92,29 +93,29 @@ serve(async (req) => {
     // Adicionar mensagem atual
     messages.push({ role: "user", content: message });
 
-    console.log('=== CLAUDE API CALL ===');
+    console.log('=== CLAUDE 4 SONNET API CALL ===');
     console.log('Messages count:', messages.length);
     console.log('System prompt length:', agentPrompt.length);
-    console.log('Calling Claude API...');
+    console.log('Calling Claude 4 Sonnet API...');
 
-    // Chamar Claude API com estrutura correta (system como parâmetro separado)
+    // Chamar Claude API com Claude 4 Sonnet
     let claudeResponse;
     let attempts = 0;
     const maxAttempts = 3;
 
     while (attempts < maxAttempts) {
       attempts++;
-      console.log(`Tentativa ${attempts}/${maxAttempts}`);
+      console.log(`Tentativa ${attempts}/${maxAttempts} com Claude 4 Sonnet`);
 
       try {
         const requestBody = {
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 2000,
-          system: agentPrompt, // CORREÇÃO: system prompt como parâmetro separado
+          model: 'claude-sonnet-4-20250514', // 🚀 ATUALIZADO PARA CLAUDE 4 SONNET
+          max_tokens: 3000, // Aumentado para aproveitar melhor o Claude 4
+          system: agentPrompt,
           messages: messages
         };
 
-        console.log('Request body structure:', {
+        console.log('Request body structure (Claude 4):', {
           model: requestBody.model,
           max_tokens: requestBody.max_tokens,
           system_length: requestBody.system?.length,
@@ -129,28 +130,28 @@ serve(async (req) => {
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(45000) // 45 segundos timeout
+          signal: AbortSignal.timeout(60000) // Aumentado para 60s para Claude 4
         });
 
         if (claudeResponse.ok) {
-          console.log('Claude API call successful');
+          console.log('Claude 4 Sonnet API call successful');
           break; // Sucesso, sair do loop
         } else {
           const errorText = await claudeResponse.text();
-          console.error(`Erro Claude API (tentativa ${attempts}):`, claudeResponse.status, errorText);
+          console.error(`Erro Claude 4 API (tentativa ${attempts}):`, claudeResponse.status, errorText);
           
           if (attempts === maxAttempts) {
-            throw new Error(`Falha na comunicação com Claude API após ${maxAttempts} tentativas. Status: ${claudeResponse.status}. Erro: ${errorText}`);
+            throw new Error(`Falha na comunicação com Claude 4 Sonnet após ${maxAttempts} tentativas. Status: ${claudeResponse.status}. Erro: ${errorText}`);
           }
           
           // Aguardar um pouco antes da próxima tentativa
           await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
         }
       } catch (error) {
-        console.error(`Erro na tentativa ${attempts}:`, error);
+        console.error(`Erro na tentativa ${attempts} com Claude 4:`, error);
         
         if (attempts === maxAttempts) {
-          throw new Error(`Falha na comunicação com Claude API: ${error.message}`);
+          throw new Error(`Falha na comunicação com Claude 4 Sonnet: ${error.message}`);
         }
         
         // Aguardar um pouco antes da próxima tentativa
@@ -159,7 +160,7 @@ serve(async (req) => {
     }
 
     const claudeData = await claudeResponse.json();
-    console.log('Claude API response received');
+    console.log('Claude 4 Sonnet API response received');
     console.log('Usage:', claudeData.usage);
     console.log('Response content preview:', claudeData.content?.[0]?.text?.substring(0, 100) + '...');
 
@@ -167,7 +168,7 @@ serve(async (req) => {
 
     // Calcular tokens reais usados
     const actualTokensUsed = claudeData.usage?.input_tokens + claudeData.usage?.output_tokens || estimatedTokens;
-    console.log('Tokens realmente usados:', actualTokensUsed);
+    console.log('Tokens realmente usados pelo Claude 4:', actualTokensUsed);
 
     // Consumir tokens no banco
     console.log('=== TOKEN CONSUMPTION ===');
@@ -175,7 +176,7 @@ serve(async (req) => {
       .rpc('consume_tokens', {
         p_user_id: userId,
         p_tokens_used: actualTokensUsed,
-        p_feature_used: isCustomAgent ? 'custom_agent_chat' : 'agent_chat',
+        p_feature_used: isCustomAgent ? 'custom_agent_chat_claude4' : 'agent_chat_claude4',
         p_prompt_tokens: claudeData.usage?.input_tokens || Math.floor(actualTokensUsed * 0.6),
         p_completion_tokens: claudeData.usage?.output_tokens || Math.floor(actualTokensUsed * 0.4)
       });
@@ -184,27 +185,28 @@ serve(async (req) => {
       console.error('Erro ao consumir tokens:', consumeError);
       // Continuar mesmo com erro de consumo, mas logar
     } else {
-      console.log('Tokens consumidos com sucesso');
+      console.log('Tokens consumidos com sucesso (Claude 4)');
     }
 
     // Verificar se precisa enviar notificações
     await checkAndSendNotifications(supabase, userId, userTokens.total_available - actualTokensUsed);
 
     console.log('=== SUCCESS ===');
-    console.log('Chat processado com sucesso');
+    console.log('Chat processado com sucesso usando Claude 4 Sonnet');
 
     return new Response(JSON.stringify({
       response: responseContent,
       tokensUsed: actualTokensUsed,
       tokensRemaining: userTokens.total_available - actualTokensUsed,
-      success: true
+      success: true,
+      model: 'claude-sonnet-4-20250514' // Informar qual modelo foi usado
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('=== ERROR ===');
-    console.error('Erro no chat-with-claude:', error);
+    console.error('Erro no chat-with-claude (Claude 4):', error);
     console.error('Stack trace:', error.stack);
     
     // Retornar erro específico baseado no tipo
@@ -232,15 +234,15 @@ serve(async (req) => {
 });
 
 function estimateTokensForChat(message: string, chatHistory: any[] = [], agentPrompt: string): number {
-  // Estimativa conservadora baseada em caracteres
+  // Estimativa ajustada para Claude 4 Sonnet (mais conservadora)
   const messageChars = message.length;
   const historyChars = (chatHistory || []).reduce((total, msg) => total + (msg.content?.length || 0), 0);
   const promptChars = agentPrompt.length;
   
   // ~4 caracteres por token (conservador)
   const inputTokens = Math.ceil((messageChars + historyChars + promptChars) / 4);
-  // Estimar resposta de ~500 tokens
-  const outputTokens = 500;
+  // Estimar resposta maior para Claude 4 (750-1000 tokens)
+  const outputTokens = 1000;
   
   return inputTokens + outputTokens;
 }
@@ -291,3 +293,4 @@ async function checkAndSendNotifications(supabase: any, userId: string, remainin
     // Não falhar por causa de notificações
   }
 }
+
