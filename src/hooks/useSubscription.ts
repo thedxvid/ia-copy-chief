@@ -45,8 +45,11 @@ export const useSubscription = () => {
 
     fetchSubscription();
 
-    // Create a unique channel name to avoid conflicts
-    const channelName = `subscription_changes_${user.id}`;
+    // Create a unique channel name with timestamp to avoid conflicts
+    const timestamp = Date.now();
+    const channelName = `subscription_${user.id}_${timestamp}`;
+    
+    console.log('Creating subscription channel:', channelName);
     
     // Subscription real-time
     const subscriptionChannel = supabase
@@ -60,15 +63,19 @@ export const useSubscription = () => {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
+          console.log('Subscription update received:', payload);
           setSubscription(payload.new as SubscriptionData);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription channel status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up subscription channel:', channelName);
       supabase.removeChannel(subscriptionChannel);
     };
-  }, [user]);
+  }, [user?.id]); // Only depend on user.id to prevent unnecessary re-renders
 
   const isSubscriptionActive = () => {
     if (!subscription) return false;
