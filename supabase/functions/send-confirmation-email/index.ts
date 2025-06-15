@@ -45,92 +45,139 @@ const handler = async (req: Request): Promise<Response> => {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
             color: #333333;
-            background-color: #f8f9fa;
-          }
-          
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-          }
-          
-          .header {
-            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-            padding: 40px 30px;
-            text-align: center;
-          }
-          
-          .logo {
-            width: 60px;
-            height: 60px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 16px;
-            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            padding: 20px;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
           }
           
-          .header h1 {
-            color: white;
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
+          @keyframes gradientShift {
+            0%, 100% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
           }
           
-          .header p {
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 16px;
+          .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 50px 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            animation: slideUp 0.8s ease-out;
           }
           
-          .content {
-            padding: 40px 30px;
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
           }
           
-          .greeting {
-            font-size: 18px;
+          .icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #4285f4, #1a73e8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: pulse 2s infinite;
+          }
+          
+          @keyframes pulse {
+            0%, 100% {
+              transform: scale(1);
+            }
+            50% {
+              transform: scale(1.05);
+            }
+          }
+          
+          .icon svg {
+            width: 40px;
+            height: 40px;
+            fill: white;
+          }
+          
+          h1 {
+            color: #333;
+            font-size: 2.2em;
+            margin-bottom: 15px;
             font-weight: 600;
-            margin-bottom: 20px;
-            color: #1a1a1a;
           }
           
-          .message {
-            font-size: 16px;
-            color: #666666;
-            margin-bottom: 30px;
+          .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 35px;
             line-height: 1.6;
           }
           
-          .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-            color: white;
-            text-decoration: none;
-            padding: 16px 32px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 16px;
-            margin: 20px 0;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-            transition: all 0.2s ease;
+          .email-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 35px;
+            border-left: 4px solid #4285f4;
           }
           
-          .cta-button:hover {
+          .email-info p {
+            color: #555;
+            margin-bottom: 8px;
+          }
+          
+          .email-address {
+            font-weight: 600;
+            color: #4285f4;
+            font-size: 1.1em;
+          }
+          
+          .confirm-button {
+            background: linear-gradient(135deg, #4285f4, #1a73e8);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 25px;
+            min-width: 200px;
+            text-decoration: none;
+            display: inline-block;
+          }
+          
+          .confirm-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 8px 25px rgba(66, 133, 244, 0.4);
+            background: linear-gradient(135deg, #1a73e8, #1557b0);
           }
           
           .features {
             background-color: #f8fafc;
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 24px;
             margin: 30px 0;
+            text-align: left;
           }
           
           .feature-item {
@@ -146,7 +193,7 @@ const handler = async (req: Request): Promise<Response> => {
           .feature-icon {
             width: 20px;
             height: 20px;
-            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+            background: linear-gradient(135deg, #4285f4, #1a73e8);
             border-radius: 50%;
             margin-right: 12px;
             flex-shrink: 0;
@@ -158,19 +205,14 @@ const handler = async (req: Request): Promise<Response> => {
           }
           
           .footer {
-            background-color: #1a1a1a;
-            padding: 30px;
-            text-align: center;
-            color: #888888;
-          }
-          
-          .footer p {
-            font-size: 14px;
-            margin-bottom: 8px;
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 30px;
+            line-height: 1.5;
           }
           
           .footer a {
-            color: #3B82F6;
+            color: #4285f4;
             text-decoration: none;
           }
           
@@ -190,79 +232,62 @@ const handler = async (req: Request): Promise<Response> => {
           
           @media (max-width: 600px) {
             .container {
-              margin: 0;
-              border-radius: 0;
+              padding: 40px 25px;
+              margin: 10px;
             }
             
-            .header, .content, .footer {
-              padding: 30px 20px;
+            h1 {
+              font-size: 1.8em;
             }
             
-            .header h1 {
-              font-size: 24px;
-            }
-            
-            .cta-button {
-              display: block;
-              text-align: center;
-              width: 100%;
+            .subtitle {
+              font-size: 1em;
             }
           }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header">
-            <div class="logo">CM</div>
-            <h1>CopyMaster</h1>
-            <p>Sua plataforma de copywriting com IA</p>
+          <div class="icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
           </div>
           
-          <div class="content">
-            <div class="greeting">Olá, ${name}! 👋</div>
-            
-            <div class="message">
-              Obrigado por se cadastrar na <strong>CopyMaster</strong>! Estamos muito felizes em tê-lo(a) conosco.
-              <br><br>
-              Para ativar sua conta e começar a criar copies incríveis com nossa IA, você precisa confirmar seu endereço de email clicando no botão abaixo:
+          <h1>Confirme seu cadastro</h1>
+          <p class="subtitle">Estamos quase terminando! Clique no botão abaixo para confirmar seu email e ativar sua conta CopyMaster.</p>
+          
+          <div class="email-info">
+            <p>Confirmação solicitada para:</p>
+            <p class="email-address">${email}</p>
+          </div>
+          
+          <a href="${confirmationUrl}" class="confirm-button">
+            ✨ Confirmar Email e Ativar Conta
+          </a>
+          
+          <div class="features">
+            <h3 style="margin-bottom: 16px; color: #1a1a1a; font-size: 16px; text-align: center;">O que você pode fazer na CopyMaster:</h3>
+            <div class="feature-item">
+              <div class="feature-icon"></div>
+              <div class="feature-text">Gerar copies persuasivas para vendas</div>
             </div>
-            
-            <div style="text-align: center;">
-              <a href="${confirmationUrl}" class="cta-button">
-                ✨ Confirmar Email e Ativar Conta
-              </a>
+            <div class="feature-item">
+              <div class="feature-icon"></div>
+              <div class="feature-text">Criar anúncios para redes sociais</div>
             </div>
-            
-            <div class="features">
-              <h3 style="margin-bottom: 16px; color: #1a1a1a; font-size: 16px;">O que você pode fazer na CopyMaster:</h3>
-              <div class="feature-item">
-                <div class="feature-icon"></div>
-                <div class="feature-text">Gerar copies persuasivas para vendas</div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon"></div>
-                <div class="feature-text">Criar anúncios para redes sociais</div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon"></div>
-                <div class="feature-text">Desenvolver emails de marketing</div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon"></div>
-                <div class="feature-text">Produzir conteúdo para blogs e sites</div>
-              </div>
+            <div class="feature-item">
+              <div class="feature-icon"></div>
+              <div class="feature-text">Desenvolver emails de marketing</div>
             </div>
-            
-            <div class="security-note">
-              <p><strong>⚠️ Importante:</strong> Este link de confirmação expira em 24 horas. Se você não confirmar seu email neste período, será necessário se cadastrar novamente.</p>
+            <div class="feature-item">
+              <div class="feature-icon"></div>
+              <div class="feature-text">Produzir conteúdo para blogs e sites</div>
             </div>
-            
-            <div class="message" style="margin-top: 30px; font-size: 14px; color: #888888;">
-              Se você não se cadastrou na CopyMaster, pode ignorar este email com segurança.
-              <br><br>
-              Caso o botão não funcione, copie e cole este link no seu navegador:<br>
-              <a href="${confirmationUrl}" style="color: #3B82F6; word-break: break-all;">${confirmationUrl}</a>
-            </div>
+          </div>
+          
+          <div class="security-note">
+            <p><strong>⚠️ Importante:</strong> Este link de confirmação expira em 24 horas. Se você não confirmar seu email neste período, será necessário se cadastrar novamente.</p>
           </div>
           
           <div class="footer">
@@ -273,6 +298,12 @@ const handler = async (req: Request): Promise<Response> => {
             </p>
             <p style="margin-top: 20px; font-size: 12px;">
               © 2024 CopyMaster. Todos os direitos reservados.
+            </p>
+            <p style="margin-top: 15px; font-size: 12px; color: #999;">
+              Se você não se cadastrou na CopyMaster, pode ignorar este email com segurança.
+              <br><br>
+              Caso o botão não funcione, copie e cole este link no seu navegador:<br>
+              <a href="${confirmationUrl}" style="color: #4285f4; word-break: break-all;">${confirmationUrl}</a>
             </p>
           </div>
         </div>
