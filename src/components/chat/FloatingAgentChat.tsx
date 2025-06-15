@@ -1,12 +1,14 @@
 
 import React, { useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Bot, MessageSquare, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, Trash2 } from 'lucide-react';
+import { Bot, MessageSquare, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
 import { useFloatingChat } from '@/hooks/useFloatingChat';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { AgentSelector } from './AgentSelector';
-import { ChatWindow } from './ChatWindow';
+import { FloatingChatButton } from './FloatingChatButton';
+import { MinimizedAgents } from './MinimizedAgents';
+import { ChatWindows } from './ChatWindows';
+import { ChatActions } from './ChatActions';
 
 export const FloatingAgentChat: React.FC = () => {
   const { user } = useAuth();
@@ -113,31 +115,11 @@ export const FloatingAgentChat: React.FC = () => {
   if (chatStep === 'closed') {
     console.log('🔵 Rendering: Main button only');
     return (
-      <div className="fixed bottom-6 right-6 z-50">
-        <div className="flex flex-col items-end space-y-2">
-          {window.location.hostname === 'localhost' && (
-            <Button
-              onClick={clearAllChats}
-              className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg"
-              title="Debug: Clear All Chats"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
-          
-          <Button
-            onClick={openAgentSelection}
-            className="w-14 h-14 rounded-full bg-[#3B82F6] hover:bg-[#2563EB] text-white shadow-lg hover:shadow-xl transition-all duration-200 relative"
-          >
-            <Bot className="w-6 h-6" />
-            {totalUnreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
-              </span>
-            )}
-          </Button>
-        </div>
-      </div>
+      <FloatingChatButton
+        totalUnreadCount={totalUnreadCount}
+        onOpenAgentSelection={openAgentSelection}
+        onClearAllChats={clearAllChats}
+      />
     );
   }
 
@@ -155,7 +137,7 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Estado: Chat ativo - SEMPRE renderizar quando chatStep === 'chatting' E temos agentes
+  // Estado: Chat ativo
   if (chatStep === 'chatting') {
     console.log('🟢 ATTEMPTING CHAT RENDER - openAgents:', openAgents.length);
     
@@ -178,82 +160,25 @@ export const FloatingAgentChat: React.FC = () => {
     return (
       <div className="fixed bottom-6 right-6 z-50">
         <div className="flex flex-col space-y-4">
-          {/* Agentes Minimizados */}
-          {openAgents.some(agent => agent.isMinimized) && (
-            <div className="flex space-x-2 justify-end">
-              {openAgents
-                .filter(agent => agent.isMinimized)
-                .map((agent) => (
-                  <Button
-                    key={agent.id}
-                    onClick={() => maximizeAgent(agent.id)}
-                    className="h-10 px-3 rounded-lg bg-[#2A2A2A] hover:bg-[#3B82F6] text-white shadow-lg transition-all duration-200 flex items-center space-x-2 relative"
-                  >
-                    <div className={`w-4 h-4 rounded flex items-center justify-center ${
-                      agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
-                    }`}>
-                      <agent.icon className="w-2 h-2 text-white" />
-                    </div>
-                    <span className="text-xs font-medium truncate max-w-20">
-                      {agent.name}
-                    </span>
-                    {agent.unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                        {agent.unreadCount > 9 ? '9+' : agent.unreadCount}
-                      </span>
-                    )}
-                  </Button>
-                ))}
-            </div>
-          )}
+          <MinimizedAgents 
+            agents={openAgents}
+            onMaximizeAgent={maximizeAgent}
+          />
 
-          {/* Janelas de Chat Ativas */}
-          <div className="flex flex-col space-y-4">
-            {openAgents
-              .filter(agent => !agent.isMinimized)
-              .map((agent, index) => (
-                <div
-                  key={agent.id}
-                  className={`transition-all duration-200 ${
-                    activeAgentId === agent.id ? 'z-20' : 'z-10 opacity-90'
-                  }`}
-                  style={{
-                    transform: index > 0 ? `translateX(-${index * 20}px) translateY(-${index * 20}px)` : 'none'
-                  }}
-                >
-                  <ChatWindow
-                    agent={agent}
-                    onBack={backToSelection}
-                    onMinimize={() => minimizeAgent(agent.id)}
-                    onClose={() => closeAgent(agent.id)}
-                    onNewMessage={() => incrementUnread(agent.id)}
-                    onFocus={() => focusAgent(agent.id)}
-                    isActive={activeAgentId === agent.id}
-                  />
-                </div>
-              ))}
-          </div>
+          <ChatWindows
+            agents={openAgents}
+            activeAgentId={activeAgentId}
+            onBack={backToSelection}
+            onMinimize={minimizeAgent}
+            onClose={closeAgent}
+            onNewMessage={incrementUnread}
+            onFocus={focusAgent}
+          />
 
-          {/* Botões de Ação */}
-          <div className="flex justify-end space-x-2">
-            {window.location.hostname === 'localhost' && (
-              <Button
-                onClick={clearAllChats}
-                className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg"
-                title="Debug: Clear All Chats"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-            
-            <Button
-              onClick={openAgentSelection}
-              className="w-12 h-12 rounded-full bg-[#10B981] hover:bg-[#059669] text-white shadow-lg hover:shadow-xl transition-all duration-200"
-              title="Abrir novo chat"
-            >
-              <MessageSquare className="w-5 h-5" />
-            </Button>
-          </div>
+          <ChatActions
+            onOpenAgentSelection={openAgentSelection}
+            onClearAllChats={clearAllChats}
+          />
         </div>
       </div>
     );
