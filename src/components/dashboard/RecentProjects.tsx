@@ -74,30 +74,30 @@ export const RecentProjects = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-2 sm:space-y-3 lg:space-y-4">
           {recentProjects.map((project, index) => (
-            <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-[#2A2A2A]/50 hover:bg-[#2A2A2A] transition-colors">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
-                  <project.icon className="w-5 h-5 text-[#3B82F6]" />
+            <div key={index} className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-[#2A2A2A]/50 hover:bg-[#2A2A2A] transition-colors">
+              <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4">
+                <div className="p-1.5 sm:p-2 bg-[#3B82F6]/10 rounded-lg flex-shrink-0">
+                  <project.icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#3B82F6]" />
                 </div>
-                <div>
-                  <h4 className="font-medium text-white">{project.name}</h4>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-sm text-[#CCCCCC]">{project.type}</span>
-                    <span className="text-[#4B5563]">•</span>
-                    <span className="text-sm text-[#CCCCCC]">{project.date}</span>
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-medium text-white text-sm sm:text-base truncate">{project.name}</h4>
+                  <div className="flex items-center space-x-1 sm:space-x-1.5 lg:space-x-2 mt-0.5 sm:mt-1">
+                    <span className="text-xs sm:text-sm text-[#CCCCCC] truncate">{project.type}</span>
+                    <span className="text-[#4B5563] text-xs">•</span>
+                    <span className="text-xs sm:text-sm text-[#CCCCCC]">{project.date}</span>
                   </div>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 lg:space-x-3 flex-shrink-0">
                 {project.performance && (
-                  <span className="text-sm text-green-500 font-medium">
+                  <span className="text-xs sm:text-sm text-green-500 font-medium hidden sm:block">
                     {project.performance}
                   </span>
                 )}
-                <Badge variant="secondary" className={`${project.statusColor} text-white`}>
+                <Badge variant="secondary" className={`${project.statusColor} text-white text-xs px-2 py-0.5`}>
                   {project.status}
                 </Badge>
               </div>
