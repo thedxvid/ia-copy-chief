@@ -1,18 +1,19 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles, Clock, Shield, Zap } from 'lucide-react';
 import { ModernButton } from '@/components/ui/modern-button';
-
 export function CTASection() {
-  const urgencyFeatures = [
-    { icon: Clock, text: 'Setup em menos de 5 minutos' },
-    { icon: Shield, text: '30 dias de garantia total' },
-    { icon: Zap, text: 'Suporte prioritário incluído' }
-  ];
-
-  return (
-    <section className="py-20 sm:py-32 px-3 sm:px-4 relative overflow-hidden bg-gradient-to-r from-[#3B82F6] via-[#2563EB] to-[#1E40AF]">
+  const urgencyFeatures = [{
+    icon: Clock,
+    text: 'Setup em menos de 5 minutos'
+  }, {
+    icon: Shield,
+    text: '30 dias de garantia total'
+  }, {
+    icon: Zap,
+    text: 'Suporte prioritário incluído'
+  }];
+  return <section className="py-20 sm:py-32 px-3 sm:px-4 relative overflow-hidden bg-gradient-to-r from-[#3B82F6] via-[#2563EB] to-[#1E40AF]">
       <div className="absolute inset-0 bg-[#121212]/20" />
       
       {/* Floating shapes */}
@@ -34,21 +35,14 @@ export function CTASection() {
         </p>
 
         <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-6 mb-8 sm:mb-12 animate-fade-in-up animate-stagger-2">
-          {urgencyFeatures.map((feature, index) => (
-            <div key={index} className="flex items-center justify-center gap-2 bg-[#FFFFFF]/10 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2 sm:py-3">
+          {urgencyFeatures.map((feature, index) => <div key={index} className="flex items-center justify-center gap-2 bg-[#FFFFFF]/10 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2 sm:py-3">
               <feature.icon className="w-4 sm:w-5 h-4 sm:h-5 text-[#FFFFFF] flex-shrink-0" />
               <span className="text-[#FFFFFF] font-medium text-sm sm:text-base">{feature.text}</span>
-            </div>
-          ))}
+            </div>)}
         </div>
         
         <div className="space-y-4 sm:space-y-6 animate-fade-in-up animate-stagger-3">
-          <ModernButton 
-            size="lg" 
-            variant="glass" 
-            className="text-lg sm:text-xl px-8 sm:px-12 py-4 sm:py-6 group bg-[#FFFFFF]/20 text-[#FFFFFF] border-[#FFFFFF]/30 hover:bg-[#FFFFFF]/30 rounded-2xl w-full sm:w-auto" 
-            asChild
-          >
+          <ModernButton size="lg" variant="glass" className="text-lg sm:text-xl px-8 sm:px-12 py-4 sm:py-6 group bg-[#FFFFFF]/20 text-[#FFFFFF] border-[#FFFFFF]/30 hover:bg-[#FFFFFF]/30 rounded-2xl w-full sm:w-auto" asChild>
             <Link to="/auth?mode=signup" className="flex items-center justify-center gap-3">
               <Sparkles className="w-5 sm:w-6 h-5 sm:h-6 group-hover:rotate-12 transition-transform" />
               Começar Meu Quiz Gratuito Agora
@@ -56,11 +50,8 @@ export function CTASection() {
             </Link>
           </ModernButton>
           
-          <p className="text-[#FFFFFF]/80 text-xs sm:text-sm px-2">
-            ✨ Sem cartão de crédito • ✨ Sem compromisso • ✨ Resultados garantidos
-          </p>
+          
         </div>
       </div>
-    </section>
-  );
+    </section>;
 }

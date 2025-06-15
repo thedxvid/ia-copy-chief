@@ -1,57 +1,45 @@
-
 import React from 'react';
 import { Check, Clock, Users, Award, Zap, Target, TrendingUp, Shield } from 'lucide-react';
 import { ModernCard } from '@/components/ui/modern-card';
 import { ModernButton } from '@/components/ui/modern-button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
-
 export function OfferSection() {
-  const benefits = [
-    {
-      icon: Zap,
-      title: 'Agentes IA Especializados',
-      description: 'Copy, Headlines, Scripts e VSL personalizados',
-      value: 'R$ 297/mês'
-    },
-    {
-      icon: Target,
-      title: 'Geração de Ofertas Automáticas',
-      description: 'Ofertas irresistíveis criadas em segundos',
-      value: 'R$ 197/mês'
-    },
-    {
-      icon: TrendingUp,
-      title: 'Biblioteca de Copys Vencedoras',
-      description: '+1.000 copys testidas e aprovadas',
-      value: 'R$ 147/mês'
-    },
-    {
-      icon: Award,
-      title: 'Modelos Prontos Premium',
-      description: 'Landing pages, VSLs e ordem de vendas',
-      value: 'R$ 197/mês'
-    },
-    {
-      icon: Clock,
-      title: 'Atualizações Semanais',
-      description: 'Novas estratégias toda semana',
-      value: 'R$ 97/mês'
-    },
-    {
-      icon: Shield,
-      title: 'Suporte Prioritário VIP',
-      description: 'Atendimento exclusivo e roadmap privado',
-      value: 'R$ 197/mês'
-    }
-  ];
-
+  const benefits = [{
+    icon: Zap,
+    title: 'Agentes IA Especializados',
+    description: 'Copy, Headlines, Scripts e VSL personalizados',
+    value: 'R$ 297/mês'
+  }, {
+    icon: Target,
+    title: 'Geração de Ofertas Automáticas',
+    description: 'Ofertas irresistíveis criadas em segundos',
+    value: 'R$ 197/mês'
+  }, {
+    icon: TrendingUp,
+    title: 'Biblioteca de Copys Vencedoras',
+    description: '+1.000 copys testidas e aprovadas',
+    value: 'R$ 147/mês'
+  }, {
+    icon: Award,
+    title: 'Modelos Prontos Premium',
+    description: 'Landing pages, VSLs e ordem de vendas',
+    value: 'R$ 197/mês'
+  }, {
+    icon: Clock,
+    title: 'Atualizações Semanais',
+    description: 'Novas estratégias toda semana',
+    value: 'R$ 97/mês'
+  }, {
+    icon: Shield,
+    title: 'Suporte Prioritário VIP',
+    description: 'Atendimento exclusivo e roadmap privado',
+    value: 'R$ 197/mês'
+  }];
   const totalValue = benefits.reduce((sum, benefit) => {
     return sum + parseInt(benefit.value.replace('R$ ', '').replace('/mês', ''));
   }, 0);
-
-  return (
-    <section className="relative py-16 sm:py-24 px-3 sm:px-4 bg-gradient-to-b from-[#121212] via-[#1A1A1A] to-[#121212] overflow-hidden">
+  return <section className="relative py-16 sm:py-24 px-3 sm:px-4 bg-gradient-to-b from-[#121212] via-[#1A1A1A] to-[#121212] overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-gradient-to-r from-[#3B82F6]/10 to-[#2563EB]/5 rounded-full blur-3xl animate-float" />
@@ -104,11 +92,7 @@ export function OfferSection() {
             </div>
 
             <div className="grid gap-4 sm:gap-6">
-              {benefits.map((benefit, index) => (
-                <ModernCard 
-                  key={index}
-                  className={`p-4 sm:p-6 bg-[#1E1E1E]/80 border border-[#4B5563]/30 hover:border-[#3B82F6]/50 transition-all duration-300 animate-fade-in-up animate-stagger-${index + 1}`}
-                >
+              {benefits.map((benefit, index) => <ModernCard key={index} className={`p-4 sm:p-6 bg-[#1E1E1E]/80 border border-[#4B5563]/30 hover:border-[#3B82F6]/50 transition-all duration-300 animate-fade-in-up animate-stagger-${index + 1}`}>
                   <div className="flex items-start gap-3 sm:gap-4">
                     <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] rounded-full flex items-center justify-center">
                       <benefit.icon className="w-5 sm:w-6 h-5 sm:h-6 text-white" />
@@ -124,8 +108,7 @@ export function OfferSection() {
                     </div>
                     <Check className="w-4 sm:w-5 h-4 sm:h-5 text-green-400 flex-shrink-0 mt-1" />
                   </div>
-                </ModernCard>
-              ))}
+                </ModernCard>)}
             </div>
           </div>
 
@@ -142,7 +125,7 @@ export function OfferSection() {
                   <div className="text-2xl sm:text-3xl font-bold text-[#CCCCCC] line-through opacity-60 mb-2">
                     R$ {totalValue.toLocaleString('pt-BR')}/mês
                   </div>
-                  <p className="text-xs sm:text-sm text-red-400 font-medium">Economia de {Math.round(((totalValue - 97) / totalValue) * 100)}%</p>
+                  <p className="text-xs sm:text-sm text-red-400 font-medium">Economia de {Math.round((totalValue - 97) / totalValue * 100)}%</p>
                 </div>
 
                 {/* Main Price */}
@@ -155,11 +138,7 @@ export function OfferSection() {
                 </div>
 
                 {/* CTA Button */}
-                <ModernButton 
-                  size="lg" 
-                  className="w-full bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-lg sm:text-xl font-bold py-4 sm:py-6 rounded-full hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-[#3B82F6]/30 mb-4 sm:mb-6"
-                  asChild
-                >
+                <ModernButton size="lg" className="w-full bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-lg sm:text-xl font-bold py-4 sm:py-6 rounded-full hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-[#3B82F6]/30 mb-4 sm:mb-6" asChild>
                   <Link to="/auth?mode=signup" className="flex items-center justify-center gap-3">
                     <Zap className="w-5 sm:w-6 h-5 sm:h-6" />
                     Quero Desbloquear Agora
@@ -176,10 +155,7 @@ export function OfferSection() {
                     <Check className="w-3 sm:w-4 h-3 sm:h-4 text-green-400 flex-shrink-0" />
                     <span>Acesso imediato após confirmação</span>
                   </div>
-                  <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-[#CCCCCC]">
-                    <Clock className="w-3 sm:w-4 h-3 sm:h-4 text-orange-400 flex-shrink-0" />
-                    <span>Oferta válida por mais 2 dias</span>
-                  </div>
+                  
                 </div>
               </div>
             </ModernCard>
@@ -205,6 +181,5 @@ export function OfferSection() {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 }
