@@ -45,9 +45,12 @@ export const useSubscription = () => {
 
     fetchSubscription();
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `subscription_changes_${user.id}`;
+    
     // Subscription real-time
-    const subscription = supabase
-      .channel('subscription_changes')
+    const subscriptionChannel = supabase
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -63,7 +66,7 @@ export const useSubscription = () => {
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(subscriptionChannel);
     };
   }, [user]);
 
