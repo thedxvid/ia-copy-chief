@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
-          checkout_url: checkoutUrl || "https://pay.kiwify.com.br/nzX4lAh",
+          // Remover checkout_url já que não vamos mais enviar por email
         },
       },
     });

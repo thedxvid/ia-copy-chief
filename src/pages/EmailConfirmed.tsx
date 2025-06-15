@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, ArrowRight, Sparkles, Zap } from 'lucide-react';
+import { CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FadeInSection } from '@/components/ui/fade-in-section';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,36 +58,9 @@ const EmailConfirmed = () => {
                 </p>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-5">
-                <h3 className="text-gray-800 font-semibold mb-4 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-blue-600" />
-                  O que vem a seguir:
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-white text-xs font-bold">1</span>
-                    </div>
-                    <p className="text-gray-600 text-sm">Complete o pagamento da sua assinatura</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-white text-xs font-bold">2</span>
-                    </div>
-                    <p className="text-gray-600 text-sm">Acesse o dashboard da CopyMaster</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-white text-xs font-bold">3</span>
-                    </div>
-                    <p className="text-gray-600 text-sm">Comece a criar copies incríveis com IA</p>
-                  </div>
-                </div>
-              </div>
-
               <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-4 h-4 text-amber-600" />
+                  <Sparkles className="w-4 h-4 text-amber-600" />
                   <p className="text-amber-800 font-semibold text-sm">Oferta Limitada</p>
                 </div>
                 <p className="text-amber-700 text-sm">

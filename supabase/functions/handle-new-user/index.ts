@@ -21,7 +21,7 @@ const handler = async (req: Request): Promise<Response> => {
     const webhookData = await req.json();
     console.log("Webhook received:", webhookData);
 
-    // Para usuários confirmados (após clique no email), enviar welcome email e processar checkout
+    // Para usuários confirmados (após clique no email), criar perfil
     if (webhookData.type === "user" && webhookData.record) {
       const user = webhookData.record;
       const userMetadata = user.user_metadata || user.raw_user_meta_data || {};
@@ -30,7 +30,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (user.email_confirmed_at && !user.last_sign_in_at) {
         console.log("Processing confirmed user for:", user.email);
 
-        // Criar perfil do usuário
+        // Criar perfil do usuário com status pending
         const { error: profileError } = await supabase
           .from("profiles")
           .upsert({
@@ -38,16 +38,16 @@ const handler = async (req: Request): Promise<Response> => {
             full_name: userMetadata?.full_name,
             avatar_url: userMetadata?.avatar_url,
             subscription_status: "pending",
-            checkout_url: userMetadata?.checkout_url || "https://pay.kiwify.com.br/nzX4lAh",
+            checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
           });
 
         if (profileError) {
           console.error("Error creating profile:", profileError);
+        } else {
+          console.log("Profile created successfully for user:", user.email);
         }
 
-        // Enviar email de boas-vindas com link para checkout
-        const checkoutUrl = userMetadata?.checkout_url || "https://pay.kiwify.com.br/nzX4lAh";
-        await sendWelcomeEmail(user.email, userMetadata?.full_name, checkoutUrl);
+        // Não enviar mais email de checkout - usuário será direcionado para /checkout
       }
     }
 
@@ -69,26 +69,5 @@ const handler = async (req: Request): Promise<Response> => {
     );
   }
 };
-
-async function sendWelcomeEmail(email: string, name: string, checkoutUrl: string) {
-  try {
-    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-      },
-      body: JSON.stringify({ email, name, checkoutUrl }),
-    });
-
-    if (!response.ok) {
-      console.error("Failed to send welcome email");
-    } else {
-      console.log("Welcome email sent successfully");
-    }
-  } catch (error) {
-    console.error("Error sending welcome email:", error);
-  }
-}
 
 serve(handler);
