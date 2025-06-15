@@ -264,6 +264,25 @@ export const useCopyHistory = () => {
           vsl: 'Quiz VSL'
         };
 
+        // Safely handle quiz_answers type conversion
+        let safeQuizAnswers: Record<string, string> = {};
+        if (quizCopy.quiz_answers && typeof quizCopy.quiz_answers === 'object' && !Array.isArray(quizCopy.quiz_answers)) {
+          safeQuizAnswers = quizCopy.quiz_answers as Record<string, string>;
+        }
+
+        // Safely handle generated_copy content extraction
+        let quizContent = '';
+        if (quizCopy.generated_copy) {
+          if (typeof quizCopy.generated_copy === 'string') {
+            quizContent = quizCopy.generated_copy;
+          } else if (typeof quizCopy.generated_copy === 'object' && !Array.isArray(quizCopy.generated_copy)) {
+            const copyObj = quizCopy.generated_copy as { [key: string]: any };
+            quizContent = copyObj.content || JSON.stringify(quizCopy.generated_copy);
+          } else {
+            quizContent = JSON.stringify(quizCopy.generated_copy);
+          }
+        }
+
         transformedData.push({
           id: quizCopy.id,
           title: quizCopy.title,
@@ -273,11 +292,9 @@ export const useCopyHistory = () => {
           performance: 'Em análise',
           source: 'quiz',
           quiz_type: quizCopy.quiz_type,
-          quiz_answers: quizCopy.quiz_answers,
+          quiz_answers: safeQuizAnswers,
           content: {
-            quiz_content: typeof quizCopy.generated_copy === 'object' 
-              ? quizCopy.generated_copy.content || JSON.stringify(quizCopy.generated_copy)
-              : quizCopy.generated_copy
+            quiz_content: quizContent
           }
         });
       });
