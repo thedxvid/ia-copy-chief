@@ -16,10 +16,11 @@ import { useAuth } from '@/contexts/AuthContext';
 const Dashboard = () => {
   const { user } = useAuth();
   
-  // Verificar se é admin (para mostrar o painel de monitoramento)
-  // Por enquanto, vamos mostrar para todos os usuários autenticados
-  // Depois pode ser implementado um sistema de roles
-  const isAdmin = user?.email?.includes('admin') || false;
+  // Lista de emails de admin
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  
+  // Verificar se é admin
+  const isAdmin = user?.email && adminEmails.includes(user.email);
 
   return (
     <DashboardLayout>
@@ -29,6 +30,10 @@ const Dashboard = () => {
         {/* Painel administrativo de tokens e ativador de usuários (apenas para admins) */}
         {isAdmin && (
           <div className="w-full max-w-full space-y-4">
+            <div className="bg-[#1E1E1E] border border-[#4B5563] rounded-lg p-4 mb-4">
+              <h2 className="text-white text-lg font-semibold mb-2">🔧 Painel Administrativo</h2>
+              <p className="text-[#888888] text-sm">Bem-vindo, {user.email}! Você tem acesso às funções administrativas.</p>
+            </div>
             <TokenMonitoringDashboard />
             <UserActivator />
           </div>
