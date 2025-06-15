@@ -20,8 +20,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { user_metadata, id, email } = await req.json();
 
-    // URL de checkout da Kiwify (substitua pela sua URL real)
-    const checkoutUrl = user_metadata?.checkout_url || "https://kiwify.app/checkout/sua-oferta";
+    // URL de checkout da Kiwify (sua URL específica)
+    const checkoutUrl = user_metadata?.checkout_url || "https://pay.kiwify.com.br/nzX4lAh";
 
     // Criar perfil do usuário
     const { error } = await supabase

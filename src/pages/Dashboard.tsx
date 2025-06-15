@@ -10,6 +10,7 @@ import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { GoalsProgress } from '@/components/dashboard/GoalsProgress';
 import { TokenMonitoringDashboard } from '@/components/tokens/TokenMonitoringDashboard';
+import { UserActivator } from '@/components/admin/UserActivator';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
@@ -25,10 +26,11 @@ const Dashboard = () => {
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in w-full max-w-full overflow-x-hidden">
         <DashboardHeader />
         
-        {/* Painel administrativo de tokens (apenas para admins) */}
+        {/* Painel administrativo de tokens e ativador de usuários (apenas para admins) */}
         {isAdmin && (
-          <div className="w-full max-w-full">
+          <div className="w-full max-w-full space-y-4">
             <TokenMonitoringDashboard />
+            <UserActivator />
           </div>
         )}
         
