@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import { Bot, MessageSquare, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target } from 'lucide-react';
-import { useFloatingChat } from '@/hooks/useFloatingChat';
+import { useFloatingChatContext } from '@/contexts/FloatingChatContext';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { AgentSelector } from './AgentSelector';
@@ -27,7 +26,7 @@ export const FloatingAgentChat: React.FC = () => {
     maximizeAgent,
     incrementUnread,
     focusAgent,
-  } = useFloatingChat();
+  } = useFloatingChatContext();
 
   const { agents: customAgents } = useCustomAgents();
 
@@ -79,27 +78,19 @@ export const FloatingAgentChat: React.FC = () => {
     ...customAgents.map(formatCustomAgent)
   ];
 
-  // Debug mais completo do estado atual
-  console.log('🎭 === FLOATING CHAT RENDER STATE (force:', forceRender, ') === 🎭');
+  console.log('🎭 FLOATING CHAT RENDER STATE (force:', forceRender, ')');
   console.log('chatStep:', chatStep);
   console.log('openAgents count:', openAgents.length);
   console.log('activeAgentId:', activeAgentId);
   console.log('user:', !!user);
-  
-  if (openAgents.length > 0) {
-    console.log('Open agents details:', openAgents.map(a => ({ id: a.id, name: a.name, minimized: a.isMinimized })));
-  }
 
-  // Só renderizar se o usuário estiver logado
   if (!user) {
     console.log('❌ User not logged in, not rendering chat');
     return null;
   }
 
-  // Calcular total de notificações
   const totalUnreadCount = openAgents.reduce((sum, agent) => sum + agent.unreadCount, 0);
 
-  // Debug função para limpar chats
   const clearAllChats = () => {
     if (window.confirm('⚠️ Isso irá limpar TODOS os históricos de chat. Tem certeza?')) {
       allAgents.forEach(agent => {
@@ -109,10 +100,8 @@ export const FloatingAgentChat: React.FC = () => {
     }
   };
 
-  // LÓGICA DE RENDERIZAÇÃO SIMPLIFICADA
   console.log('🎨 RENDER DECISION:', { chatStep, openAgentsCount: openAgents.length });
 
-  // Estado: Apenas botão principal (quando não há chats ativos)
   if (chatStep === 'closed' || (chatStep === 'chatting' && openAgents.length === 0)) {
     console.log('🔵 Rendering: Main button only');
     return (
@@ -124,7 +113,6 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Estado: Seleção de agentes
   if (chatStep === 'agent-selection') {
     console.log('🟡 Rendering: Agent selection modal');
     return (
@@ -138,7 +126,6 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Estado: Chat ativo (tem agentes abertos)
   if (chatStep === 'chatting' && openAgents.length > 0) {
     console.log('🟢 RENDERING CHAT INTERFACE with', openAgents.length, 'agents');
     
@@ -169,7 +156,6 @@ export const FloatingAgentChat: React.FC = () => {
     );
   }
 
-  // Fallback - não deveria acontecer
   console.log('🔴 Rendering: Fallback (unexpected state)', { chatStep, openAgentsLength: openAgents.length });
   return (
     <div className="fixed bottom-6 right-6 z-50">

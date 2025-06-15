@@ -3,7 +3,6 @@ import React from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { TokenWidget } from '@/components/tokens/TokenWidget';
-import { FloatingAgentChat } from '@/components/chat/FloatingAgentChat';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialOverlay } from '@/components/tutorial/TutorialOverlay';
 import { Bot } from 'lucide-react';
@@ -66,9 +65,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </main>
           </SidebarInset>
           
-          {/* Floating Agent Chat */}
-          <div data-tutorial="floating-chat">
-            <FloatingAgentChat />
+          {/* Apenas o indicador tutorial para o chat */}
+          <div data-tutorial="floating-chat" className="fixed bottom-6 right-6 z-50 pointer-events-none opacity-0">
+            {/* Div vazia apenas para o tutorial */}
           </div>
         </div>
         

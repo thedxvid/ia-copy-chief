@@ -24,6 +24,7 @@ import Admin from './pages/Admin';
 import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import { TutorialProvider } from './contexts/TutorialContext';
+import { FloatingChatProvider } from './contexts/FloatingChatContext';
 import { FloatingAgentChat } from './components/chat/FloatingAgentChat';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Ads from './pages/Ads';
@@ -39,112 +40,114 @@ function App() {
       <AuthProvider>
         <AppProvider>
           <TutorialProvider>
-            <Router>
-              <div className="min-h-screen bg-[#0A0A0A] font-inter">
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/email-confirmation" element={<EmailConfirmation />} />
-                  <Route path="/email-confirmed" element={<EmailConfirmed />} />
-                  <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/contact" element={<Contact />} />
-                  <Route path="/terms" element={<Terms />} />
-                  <Route path="/privacy" element={<Privacy />} />
-                  <Route 
-                    path="/dashboard" 
-                    element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/admin" 
-                    element={
-                      <ProtectedRoute>
-                        <Admin />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/products" 
-                    element={
-                      <ProtectedRoute>
-                        <Products />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/quiz" 
-                    element={
-                      <ProtectedRoute>
-                        <Quiz />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/tools" 
-                    element={
-                      <ProtectedRoute>
-                        <Tools />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/history" 
-                    element={
-                      <ProtectedRoute>
-                        <History />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/agents" 
-                    element={
-                      <ProtectedRoute>
-                        <Agents />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/ads" 
-                    element={
-                      <ProtectedRoute>
-                        <Ads />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/sales-videos" 
-                    element={
-                      <ProtectedRoute>
-                        <SalesVideos />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/pages" 
-                    element={
-                      <ProtectedRoute>
-                        <Pages />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/content" 
-                    element={
-                      <ProtectedRoute>
-                        <Content />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-                <Toaster />
-                <FloatingAgentChat />
-              </div>
-            </Router>
+            <FloatingChatProvider>
+              <Router>
+                <div className="min-h-screen bg-[#0A0A0A] font-inter">
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/email-confirmation" element={<EmailConfirmation />} />
+                    <Route path="/email-confirmed" element={<EmailConfirmed />} />
+                    <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/about" element={<About />} />
+                    <Route path="/contact" element={<Contact />} />
+                    <Route path="/terms" element={<Terms />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                    <Route 
+                      path="/dashboard" 
+                      element={
+                        <ProtectedRoute>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/admin" 
+                      element={
+                        <ProtectedRoute>
+                          <Admin />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/products" 
+                      element={
+                        <ProtectedRoute>
+                          <Products />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/quiz" 
+                      element={
+                        <ProtectedRoute>
+                          <Quiz />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/tools" 
+                      element={
+                        <ProtectedRoute>
+                          <Tools />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/history" 
+                      element={
+                        <ProtectedRoute>
+                          <History />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/agents" 
+                      element={
+                        <ProtectedRoute>
+                          <Agents />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/ads" 
+                      element={
+                        <ProtectedRoute>
+                          <Ads />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/sales-videos" 
+                      element={
+                        <ProtectedRoute>
+                          <SalesVideos />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/pages" 
+                      element={
+                        <ProtectedRoute>
+                          <Pages />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/content" 
+                      element={
+                        <ProtectedRoute>
+                          <Content />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                  <Toaster />
+                  <FloatingAgentChat />
+                </div>
+              </Router>
+            </FloatingChatProvider>
           </TutorialProvider>
         </AppProvider>
       </AuthProvider>

@@ -7,7 +7,7 @@ import { CreateAgentModal } from '@/components/agents/CreateAgentModal';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useFloatingChat } from '@/hooks/useFloatingChat';
+import { useFloatingChatContext } from '@/contexts/FloatingChatContext';
 
 const Agents = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -16,7 +16,7 @@ const Agents = () => {
   const { agents: customAgents, loading, deleteAgent } = useCustomAgents();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { selectAgent, chatStep, openAgents, activeAgentId } = useFloatingChat();
+  const { selectAgent, chatStep, openAgents, activeAgentId } = useFloatingChatContext();
 
   const iconMap: Record<string, React.ComponentType<any>> = {
     Bot, Zap, PenTool, Megaphone, TrendingUp, Brain, Lightbulb, Target, MessageSquare
@@ -66,7 +66,6 @@ const Agents = () => {
     
     setLoadingAgentId(agent.id);
     
-    // Verificar se o agente tem prompt
     if (!agent.prompt) {
       console.error('❌ ERRO: Agente sem prompt definido!');
       toast({
@@ -79,22 +78,18 @@ const Agents = () => {
     }
 
     try {
-      console.log('📞 Chamando selectAgent...');
+      console.log('📞 Chamando selectAgent do contexto global...');
       
-      // Chamar selectAgent
       selectAgent(agent);
       
       console.log('✅ selectAgent executado com sucesso');
-      console.log('Novo chatStep esperado: chatting');
       
-      // Toast de sucesso
       toast({
         title: "Chat Iniciado!",
         description: `Conversa com ${agent.name} foi iniciada`,
         duration: 3000,
       });
       
-      // Pequeno delay para permitir que o estado seja atualizado
       setTimeout(() => {
         console.log('🔍 Estado após selectAgent:');
         console.log('- chatStep atual:', chatStep);
@@ -176,9 +171,9 @@ const Agents = () => {
           </Button>
         </div>
 
-        {/* Debug Estado do Chat */}
+        {/* Debug Estado do Chat - Agora usando contexto global */}
         <div className="bg-[#2A2A2A] border border-[#4B5563]/20 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-white mb-2">🔧 Estado do Chat Flutuante</h3>
+          <h3 className="text-sm font-medium text-white mb-2">🔧 Estado do Chat Flutuante (Contexto Global)</h3>
           <div className="text-xs text-[#CCCCCC] space-y-1">
             <p>• Chat Step: <span className="text-[#3B82F6] font-mono">{chatStep}</span></p>
             <p>• Agentes Abertos: <span className="text-[#10B981] font-mono">{openAgents.length}</span></p>
@@ -187,6 +182,7 @@ const Agents = () => {
             {loadingAgentId && (
               <p className="text-[#F59E0B]">• Iniciando chat com: {loadingAgentId}</p>
             )}
+            <p className="text-green-400">✅ Usando contexto global centralizado</p>
           </div>
         </div>
 
