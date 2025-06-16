@@ -1,144 +1,82 @@
 
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { Toaster } from 'sonner';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Suspense, lazy } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./contexts/AuthContext";
+import { AppProvider } from "./contexts/AppContext";
+import { TutorialProvider } from "./contexts/TutorialContext";
+import { TutorialOverlay } from "./components/tutorial/TutorialOverlay";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
-import Index from './pages/Index';
-import Auth from './pages/Auth';
-import EmailConfirmation from './pages/EmailConfirmation';
-import EmailConfirmed from './pages/EmailConfirmed';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Quiz from './pages/Quiz';
-import Tools from './pages/Tools';
-import History from './pages/History';
-import NotFound from './pages/NotFound';
-import Checkout from './pages/Checkout';
-import About from './pages/About';
-import Contact from './pages/Contact';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import Admin from './pages/Admin';
-import { useAuth, AuthProvider } from './contexts/AuthContext';
-import { AppProvider } from './contexts/AppContext';
-import { TutorialProvider } from './contexts/TutorialContext';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import Ads from './pages/Ads';
-import SalesVideos from './pages/SalesVideos';
-import Pages from './pages/Pages';
-import Content from './pages/Content';
+// Lazy load pages
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Quiz = lazy(() => import("./pages/Quiz"));
+const History = lazy(() => import("./pages/History"));
+const Products = lazy(() => import("./pages/Products"));
+const Tools = lazy(() => import("./pages/Tools"));
+const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const EmailConfirmation = lazy(() => import("./pages/EmailConfirmation"));
+const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
+const Admin = lazy(() => import("./pages/Admin"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Ads = lazy(() => import("./pages/Ads"));
+const Content = lazy(() => import("./pages/Content"));
+const Pages = lazy(() => import("./pages/Pages"));
+const SalesVideos = lazy(() => import("./pages/SalesVideos"));
+const Chat = lazy(() => import("./pages/Chat"));
 
 const queryClient = new QueryClient();
 
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppProvider>
-          <TutorialProvider>
-            <Router>
-              <div className="min-h-screen bg-[#0A0A0A] font-inter">
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <AppProvider>
+        <TutorialProvider>
+          <BrowserRouter>
+            <div className="min-h-screen bg-background font-inter">
+              <Suspense fallback={<div>Loading...</div>}>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
-                  <Route path="/email-confirmation" element={<EmailConfirmation />} />
-                  <Route path="/email-confirmed" element={<EmailConfirmed />} />
-                  <Route path="/checkout" element={<Checkout />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<Contact />} />
-                  <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
-                  <Route 
-                    path="/dashboard" 
-                    element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/admin" 
-                    element={
-                      <ProtectedRoute>
-                        <Admin />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/products" 
-                    element={
-                      <ProtectedRoute>
-                        <Products />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/quiz" 
-                    element={
-                      <ProtectedRoute>
-                        <Quiz />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/tools" 
-                    element={
-                      <ProtectedRoute>
-                        <Tools />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/history" 
-                    element={
-                      <ProtectedRoute>
-                        <History />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/ads" 
-                    element={
-                      <ProtectedRoute>
-                        <Ads />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/sales-videos" 
-                    element={
-                      <ProtectedRoute>
-                        <SalesVideos />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/pages" 
-                    element={
-                      <ProtectedRoute>
-                        <Pages />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/content" 
-                    element={
-                      <ProtectedRoute>
-                        <Content />
-                      </ProtectedRoute>
-                    } 
-                  />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/email-confirmation" element={<EmailConfirmation />} />
+                  <Route path="/email-confirmed" element={<EmailConfirmed />} />
+                  
+                  {/* Protected Routes */}
+                  <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
+                  <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+                  <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                  <Route path="/tools" element={<ProtectedRoute><Tools /></ProtectedRoute>} />
+                  <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                  <Route path="/ads" element={<ProtectedRoute><Ads /></ProtectedRoute>} />
+                  <Route path="/content" element={<ProtectedRoute><Content /></ProtectedRoute>} />
+                  <Route path="/pages" element={<ProtectedRoute><Pages /></ProtectedRoute>} />
+                  <Route path="/sales-videos" element={<ProtectedRoute><SalesVideos /></ProtectedRoute>} />
+                  <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+                  
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-                <Toaster />
-              </div>
-            </Router>
-          </TutorialProvider>
-        </AppProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-}
+              </Suspense>
+              <TutorialOverlay />
+              <Toaster />
+            </div>
+          </BrowserRouter>
+        </TutorialProvider>
+      </AppProvider>
+    </AuthProvider>
+  </QueryClientProvider>
+);
 
 export default App;
