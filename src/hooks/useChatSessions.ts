@@ -32,6 +32,80 @@ export const useChatSessions = (agentId: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
+  // Função para encontrar ou criar uma sessão para o agente
+  const findOrCreateSessionForAgent = useCallback(async (agentName: string) => {
+    if (!user?.id) return null;
+    setIsLoading(true);
+
+    try {
+      // 1. Tenta encontrar uma sessão existente na memória
+      let session = sessions.find(s => s.agent_id === agentId) || null;
+      
+      // 2. Se não encontrar na memória, busca no banco
+      if (!session) {
+        const { data: existingSessions, error: fetchError } = await supabase
+          .from('chat_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('agent_id', agentId)
+          .order('created_at', { ascending: false });
+
+        if (fetchError) {
+          console.error('Erro ao buscar sessões:', fetchError);
+          toast.error('Erro ao buscar sessões de chat.');
+          setIsLoading(false);
+          return null;
+        }
+
+        if (existingSessions && existingSessions.length > 0) {
+          session = existingSessions[0] as ChatSession;
+          setSessions(prev => {
+            const exists = prev.find(s => s.id === session!.id);
+            if (!exists) {
+              return [session!, ...prev];
+            }
+            return prev;
+          });
+        }
+      }
+
+      // 3. Se ainda não houver sessão, cria uma nova
+      if (!session) {
+        const { data: newSession, error: createError } = await supabase
+          .from('chat_sessions')
+          .insert({
+            user_id: user.id,
+            agent_id: agentId,
+            agent_name: agentName,
+            title: null,
+            is_active: true
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('Erro ao criar sessão:', createError);
+          toast.error('Não foi possível iniciar um novo chat.');
+          setIsLoading(false);
+          return null;
+        }
+
+        session = newSession as ChatSession;
+        setSessions(prev => [session!, ...prev]);
+      }
+      
+      setCurrentSession(session);
+      setMessages([]);
+      setIsLoading(false);
+      return session;
+    } catch (error) {
+      console.error('Erro na findOrCreateSessionForAgent:', error);
+      toast.error('Erro ao inicializar chat.');
+      setIsLoading(false);
+      return null;
+    }
+  }, [user?.id, agentId, sessions]);
+
   // Carregar sessões do agente
   const loadSessions = useCallback(async () => {
     if (!user?.id || !agentId) return;
@@ -62,7 +136,6 @@ export const useChatSessions = (agentId: string) => {
 
       if (error) throw error;
       
-      // Type assertion para garantir compatibilidade
       const typedMessages = (data || []).map(msg => ({
         ...msg,
         role: msg.role as 'user' | 'assistant'
@@ -77,34 +150,8 @@ export const useChatSessions = (agentId: string) => {
 
   // Criar nova sessão
   const createNewSession = useCallback(async (agentName: string) => {
-    if (!user?.id) return null;
-
-    try {
-      const { data, error } = await supabase
-        .from('chat_sessions')
-        .insert({
-          user_id: user.id,
-          agent_id: agentId,
-          agent_name: agentName,
-          title: null // Será gerado automaticamente
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newSession = data as ChatSession;
-      setSessions(prev => [newSession, ...prev]);
-      setCurrentSession(newSession);
-      setMessages([]);
-      
-      return newSession;
-    } catch (error) {
-      console.error('Erro ao criar sessão:', error);
-      toast.error('Erro ao criar nova conversa');
-      return null;
-    }
-  }, [user?.id, agentId]);
+    return await findOrCreateSessionForAgent(agentName);
+  }, [findOrCreateSessionForAgent]);
 
   // Selecionar sessão
   const selectSession = useCallback(async (session: ChatSession) => {
@@ -127,7 +174,7 @@ export const useChatSessions = (agentId: string) => {
           role,
           content,
           tokens_used: tokensUsed,
-          streaming_complete: role === 'user' // User messages são sempre completas
+          streaming_complete: role === 'user'
         })
         .select()
         .single();
@@ -140,8 +187,6 @@ export const useChatSessions = (agentId: string) => {
       } as ChatMessage;
       
       setMessages(prev => [...prev, newMessage]);
-      
-      // Recarregar sessões para atualizar contador
       await loadSessions();
       
       return newMessage;
@@ -212,6 +257,7 @@ export const useChatSessions = (agentId: string) => {
     currentSession,
     messages,
     isLoading,
+    findOrCreateSessionForAgent,
     createNewSession,
     selectSession,
     addMessage,
