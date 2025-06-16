@@ -31,17 +31,17 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
           if (agent) onSelectAgent(agent);
         }}
       >
-        <SelectTrigger className="bg-[#1E1E1E] border-[#4B5563] text-white">
+        <SelectTrigger className="bg-[#1E1E1E] border-[#4B5563] text-white w-full">
           <SelectValue placeholder="Selecione um agente..." />
         </SelectTrigger>
-        <SelectContent className="bg-[#1E1E1E] border-[#4B5563]">
+        <SelectContent className="bg-[#1E1E1E] border-[#4B5563] z-50">
           {chatAgents.map((agent) => (
-            <SelectItem key={agent.id} value={agent.id} className="text-white hover:bg-[#2A2A2A]">
-              <div className="flex items-center space-x-3">
-                <span className="text-xl">{agent.icon}</span>
-                <div>
-                  <div className="font-medium">{agent.name}</div>
-                  <div className="text-sm text-[#CCCCCC]">{agent.description}</div>
+            <SelectItem key={agent.id} value={agent.id} className="text-white hover:bg-[#2A2A2A] cursor-pointer">
+              <div className="flex items-center space-x-3 w-full">
+                <span className="text-lg flex-shrink-0">{agent.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{agent.name}</div>
+                  <div className="text-xs text-[#CCCCCC] truncate">{agent.description}</div>
                 </div>
               </div>
             </SelectItem>
