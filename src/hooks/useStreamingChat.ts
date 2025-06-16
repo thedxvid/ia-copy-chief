@@ -179,11 +179,11 @@ export const useStreamingChat = (agentId: string) => {
 
     return new Promise<void>((resolve, reject) => {
       debounceRef.current = setTimeout(async () => {
+        // Definir messageId no escopo correto
+        const messageId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
         try {
           setIsSending(true);
-          
-          // Gerar ID único para a mensagem
-          const messageId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           
           // Verificar se não é duplicata
           if (lastMessageIdRef.current === messageId) {
@@ -242,7 +242,7 @@ export const useStreamingChat = (agentId: string) => {
 
           console.error('❌ Error sending message:', error);
           
-          // Remover mensagem do usuário em caso de erro
+          // Remover mensagem do usuário em caso de erro (messageId agora está disponível)
           setState(prev => ({
             ...prev,
             messages: prev.messages.filter(msg => msg.id !== messageId)
