@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChatSessions } from '@/hooks/useChatSessions';
@@ -84,28 +85,34 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     isSidebarOpen
   });
 
-  // Converter mensagens da sessão para o formato Message
-  const allMessages: Message[] = sessionMessages.map(msg => ({
-    id: msg.id,
-    role: msg.role,
-    content: msg.content,
-    timestamp: new Date(msg.created_at)
-  }));
+  // FASE 6: Memoização das mensagens convertidas para melhor performance
+  const allMessages: Message[] = useMemo(() => {
+    return sessionMessages.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      timestamp: new Date(msg.created_at)
+    }));
+  }, [sessionMessages]);
 
-  // Função de renderização limpa do chat
+  // FASE 6: Renderização otimizada com memoização
   const renderChatInterface = useCallback(() => {
     modalLogger.log('RENDERING_CHAT_INTERFACE', {
       currentSessionId: currentSession?.id,
       messagesCount: allMessages.length
     });
 
-    // Auto-scroll apenas se houver novas mensagens
+    // Auto-scroll otimizado apenas se houver novas mensagens
     if (allMessages.length > lastMessageCountRef.current && scrollAreaRef.current) {
       const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollElement) {
-        setTimeout(() => {
-          scrollElement.scrollTop = scrollElement.scrollHeight;
-        }, 100);
+        // FASE 6: Scroll suave e otimizado
+        requestAnimationFrame(() => {
+          scrollElement.scrollTo({
+            top: scrollElement.scrollHeight,
+            behavior: 'smooth'
+          });
+        });
       }
       lastMessageCountRef.current = allMessages.length;
     }
@@ -124,12 +131,17 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     renderChatInterface();
   }, [renderChatInterface]);
 
-  // Focus automático no textarea
+  // Focus automático no textarea com delay otimizado
   useEffect(() => {
     if (isOpen && textareaRef.current && !isMobile && currentSession) {
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 300);
+      // FASE 6: Timeout otimizado para melhor UX
+      const timeoutId = setTimeout(() => {
+        if (mountedRef.current && textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 200);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [isOpen, isMobile, currentSession]);
 
@@ -138,7 +150,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     if (isOpen && agent.id && user?.id) {
       modalLogger.log('INITIALIZING_SESSION', { agentName: agent.name });
       
-      // Validar estado antes de inicializar
       if (!validateState()) {
         modalLogger.error('INVALID_STATE_DETECTED', 'Recuperando...');
         recoverFromError();
@@ -172,7 +183,8 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     };
   }, []);
 
-  const handleNewChat = async () => {
+  // FASE 6: Otimização da criação de nova conversa
+  const handleNewChat = useCallback(async () => {
     if (!mountedRef.current) return;
     
     modalLogger.log('NEW_CHAT_REQUESTED');
@@ -200,9 +212,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         setIsCreatingSession(false);
       }
     }
-  };
+  }, [agent.name, createNewSession, clearChatInterface]);
 
-  const sendMessageToAI = async (userMessage: string) => {
+  // FASE 6: Otimização do envio de mensagens para AI
+  const sendMessageToAI = useCallback(async (userMessage: string) => {
     if (!user?.id || !currentSession || !mountedRef.current) {
       modalLogger.error('SEND_MESSAGE_INVALID_STATE', {
         hasUser: !!user?.id,
@@ -219,14 +232,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     });
 
     try {
-      // Preparar histórico de mensagens
-      const recentMessages = sessionMessages.slice(-15);
+      // FASE 6: Preparar histórico otimizado (últimas 10 mensagens para melhor performance)
+      const recentMessages = sessionMessages.slice(-10);
       const conversationHistory = recentMessages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Chamar a edge function
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: userMessage,
@@ -255,7 +267,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         tokensUsed: data.tokensUsed || 0
       });
 
-      // Adicionar resposta da IA
       if (mountedRef.current) {
         await addMessage(currentSession.id, 'assistant', data.response, data.tokensUsed || 0);
       }
@@ -275,9 +286,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       }
       throw error;
     }
-  };
+  }, [user?.id, currentSession, sessionMessages, agent.prompt, agent.name, agent.isCustom, addMessage]);
 
-  const handleSend = async () => {
+  // FASE 6: Handlere de envio otimizado
+  const handleSend = useCallback(async () => {
     if (!message.trim() || isLoading || !currentSession || !mountedRef.current) {
       modalLogger.log('SEND_BLOCKED', { 
         hasMessage: !!message.trim(), 
@@ -295,17 +307,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     modalLogger.log('SENDING_MESSAGE', { messagePreview: messageToSend.substring(0, 50) + '...' });
     
     try {
-      // Adicionar mensagem do usuário
       await addMessage(currentSession.id, 'user', messageToSend);
-      
-      // Enviar para IA
       await sendMessageToAI(messageToSend);
-      
       modalLogger.log('MESSAGE_FLOW_COMPLETED');
-
     } catch (error) {
       modalLogger.error('SEND_MESSAGE_FLOW_ERROR', error);
-      // Restaurar mensagem no campo se houver erro
       if (mountedRef.current) {
         setMessage(messageToSend);
       }
@@ -314,16 +320,17 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         setIsLoading(false);
       }
     }
-  };
+  }, [message, isLoading, currentSession, addMessage, sendMessageToAI]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
-  const exportChat = () => {
+  // FASE 6: Exportação otimizada do chat
+  const exportChat = useCallback(() => {
     if (allMessages.length === 0 || !currentSession) return;
 
     const chatContent = allMessages.map(msg => {
@@ -344,9 +351,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }, [allMessages, currentSession, agent.name]);
 
-  const handleToggleSidebar = (e: React.MouseEvent) => {
+  const handleToggleSidebar = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -357,19 +364,19 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     });
     
     setIsSidebarOpen(prev => !prev);
-  };
+  }, [isSidebarOpen, isMobile]);
 
-  const handleCloseSidebar = () => {
+  const handleCloseSidebar = useCallback(() => {
     modalLogger.log('CLOSE_SIDEBAR');
     setIsSidebarOpen(false);
-  };
+  }, []);
 
-  // CORREÇÃO: selectSession espera apenas um argumento do tipo ChatSession
-  const handleSelectSession = async (session: any) => {
+  // CORREÇÃO: selectSession corrigido para receber apenas um argumento
+  const handleSelectSession = useCallback(async (session: any) => {
     modalLogger.log('SESSION_SELECTED', { sessionId: session.id });
     clearChatInterface();
-    await selectSession(session); // Corrigido: chamada com apenas um argumento
-  };
+    await selectSession(session);
+  }, [selectSession, clearChatInterface]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
