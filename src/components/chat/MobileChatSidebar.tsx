@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, MessageSquare, Trash2, Calendar, X } from 'lucide-react';
@@ -87,10 +86,15 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
     console.log('🎯 Sidebar clicked - preventing close');
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     console.log('🎯 New chat clicked');
-    onNewChat();
-    onClose();
+    setIsLoading(true);
+    try {
+      await onNewChat();
+      onClose();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSessionSelect = (session: ChatSession) => {
@@ -103,35 +107,22 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
     return null;
   }
 
-  const sidebarContent = (
+  return (
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/70 z-[9998] transition-opacity duration-300"
+        className={`fixed inset-0 bg-black/70 z-[60] transition-opacity duration-300 ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
         onClick={handleBackdropClick}
-        style={{ 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 9998
-        }}
       />
       
       {/* Sidebar */}
       <div 
-        className="fixed left-0 top-0 h-full w-80 bg-[#1A1A1A] border-r border-[#4B5563]/20 flex flex-col z-[9999] transform transition-transform duration-300 ease-out"
+        className={`fixed left-0 top-0 h-full w-80 bg-[#1A1A1A] border-r border-[#4B5563]/20 flex flex-col z-[70] transition-transform duration-300 ease-out ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
         onClick={handleSidebarClick}
-        style={{ 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100vh',
-          width: '320px',
-          zIndex: 9999,
-          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)'
-        }}
       >
         {/* Header */}
         <div className="p-4 border-b border-[#4B5563]/20">
@@ -159,10 +150,10 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
           <Button
             onClick={handleNewChat}
             disabled={isLoading}
-            className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white min-h-[44px] touch-manipulation"
+            className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white min-h-[44px] touch-manipulation disabled:opacity-50"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Nova Conversa
+            {isLoading ? 'Criando...' : 'Nova Conversa'}
           </Button>
         </div>
 
@@ -234,6 +225,4 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
       </div>
     </>
   );
-
-  return createPortal(sidebarContent, document.body);
 };

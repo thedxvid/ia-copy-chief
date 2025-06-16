@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -110,6 +111,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
@@ -133,7 +135,8 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     messagesCount: sessionMessages.length,
     isLoading,
     isMobile,
-    isSidebarOpen
+    isSidebarOpen,
+    isCreatingSession
   });
 
   // Converter mensagens da sessão para o formato Message
@@ -180,12 +183,22 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
 
   const handleNewChat = async () => {
     console.log('🔄 Iniciando nova conversa');
+    setIsCreatingSession(true);
     try {
-      await createNewSession(agent.name);
-      toast.success('Nova conversa iniciada!');
+      const newSession = await createNewSession(agent.name);
+      if (newSession) {
+        toast.success('✨ Nova conversa iniciada!', {
+          description: 'Uma nova conversa foi criada com sucesso.'
+        });
+        console.log('✅ Nova sessão criada:', newSession.id);
+      }
     } catch (error) {
       console.error('❌ Erro ao criar nova conversa:', error);
-      toast.error('Erro ao iniciar nova conversa');
+      toast.error('❌ Erro ao criar nova conversa', {
+        description: 'Tente novamente em alguns instantes.'
+      });
+    } finally {
+      setIsCreatingSession(false);
     }
   };
 
@@ -333,7 +346,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       agent: agent.name 
     });
     
-    setIsSidebarOpen(prev => !prev);
+    setIsSidebarOpen(prev => {
+      const newState = !prev;
+      console.log('🎯 SIDEBAR STATE CHANGED:', { from: prev, to: newState });
+      return newState;
+    });
   };
 
   const handleCloseSidebar = () => {
@@ -349,7 +366,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
             isMobile 
               ? 'max-w-full w-full h-full max-h-screen m-0 rounded-none' 
               : 'max-w-7xl w-full h-[90vh]'
-          } flex p-0 z-50`}
+          } flex p-0 z-50 relative overflow-hidden`}
           hideCloseButton={true}
         >
           <DialogHeader className="sr-only">
@@ -366,6 +383,23 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               onNewChat={handleNewChat}
               onSelectSession={selectSession}
               onDeleteSession={deleteSession}
+              isLoading={isCreatingSession}
+            />
+          )}
+
+          {/* Mobile Sidebar - Renderizada dentro do Dialog */}
+          {isMobile && (
+            <MobileChatSidebar
+              sessions={sessions}
+              currentSession={currentSession}
+              agentName={agent.name}
+              agentIcon={agent.icon}
+              onNewChat={handleNewChat}
+              onSelectSession={selectSession}
+              onDeleteSession={deleteSession}
+              isLoading={isCreatingSession}
+              isOpen={isSidebarOpen}
+              onClose={handleCloseSidebar}
             />
           )}
 
@@ -379,7 +413,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                     variant="ghost"
                     size="icon"
                     onClick={handleToggleSidebar}
-                    className="text-[#CCCCCC] hover:text-white hover:bg-[#3B82F6]/20 flex-shrink-0 w-10 h-10 min-h-[44px] min-w-[44px] touch-manipulation border border-[#4B5563]/20"
+                    className="text-[#CCCCCC] hover:text-white hover:bg-[#3B82F6]/20 flex-shrink-0 w-10 h-10 min-h-[44px] min-w-[44px] touch-manipulation border border-[#4B5563]/20 transition-all duration-200"
                     aria-label="Abrir histórico de conversas"
                   >
                     <Menu className="w-5 h-5" />
@@ -395,7 +429,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-white text-sm sm:text-base truncate">{agent.name}</h3>
                   <p className="text-xs sm:text-sm text-[#888888]">
-                    {isLoading ? 'Processando...' : 'Online'}
+                    {isLoading ? 'Processando...' : isCreatingSession ? 'Criando nova conversa...' : 'Online'}
                   </p>
                 </div>
               </div>
@@ -474,31 +508,31 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                   className={`flex-1 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none text-sm sm:text-base ${
                     isMobile ? 'min-h-[60px] max-h-32' : 'min-h-[44px] max-h-32'
                   }`}
-                  disabled={isLoading || !currentSession}
+                  disabled={isLoading || !currentSession || isCreatingSession}
                 />
                 <Button
                   onClick={handleSend}
-                  disabled={!message.trim() || isLoading || !currentSession}
+                  disabled={!message.trim() || isLoading || !currentSession || isCreatingSession}
                   size={isMobile ? "default" : "lg"}
                   className={`transition-all duration-200 flex-shrink-0 ${
                     isMobile ? 'px-4 min-h-[60px] min-w-[60px]' : 'px-6'
                   } ${
                     isLoading 
                       ? 'bg-orange-500 hover:bg-orange-600' 
-                      : (message.trim() && currentSession)
+                      : (message.trim() && currentSession && !isCreatingSession)
                       ? 'bg-[#3B82F6] hover:bg-[#2563EB]'
                       : 'bg-gray-500'
-                  } text-white`}
+                  } text-white disabled:opacity-50`}
                 >
                   <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
               </div>
               
-              {isLoading && (
+              {(isLoading || isCreatingSession) && (
                 <div className="mt-3 text-sm text-center">
                   <div className="text-[#3B82F6] flex items-center justify-center">
                     <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
-                    {agent.name} está pensando...
+                    {isCreatingSession ? 'Criando nova conversa...' : `${agent.name} está pensando...`}
                   </div>
                 </div>
               )}
@@ -506,22 +540,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Sidebar Mobile */}
-      {isMobile && (
-        <MobileChatSidebar
-          sessions={sessions}
-          currentSession={currentSession}
-          agentName={agent.name}
-          agentIcon={agent.icon}
-          onNewChat={handleNewChat}
-          onSelectSession={selectSession}
-          onDeleteSession={deleteSession}
-          isLoading={isLoading}
-          isOpen={isSidebarOpen}
-          onClose={handleCloseSidebar}
-        />
-      )}
     </>
   );
 };

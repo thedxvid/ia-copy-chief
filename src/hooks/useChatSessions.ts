@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,61 +37,77 @@ export const useChatSessions = (agentId: string) => {
   const { user } = useAuth();
 
   // Função para encontrar ou criar uma sessão para o agente
-  const findOrCreateSessionForAgent = useCallback(async (agentName: string) => {
+  const findOrCreateSessionForAgent = useCallback(async (agentName: string, forceNew = false) => {
     if (!user?.id) {
       debugLog('CREATE_SKIP', 'Usuário não autenticado');
       return null;
     }
     
     setIsLoading(true);
-    debugLog('CREATE_START', 'Iniciando busca/criação de sessão', { agentId, agentName });
+    debugLog('CREATE_START', `Iniciando busca/criação de sessão (forceNew: ${forceNew})`, { agentId, agentName });
 
     try {
-      // 1. Tenta encontrar uma sessão existente na memória primeiro
-      let session = sessions.find(s => s.agent_id === agentId) || null;
+      let session = null;
       
-      if (session) {
-        debugLog('SESSION_FOUND_MEMORY', 'Sessão encontrada na memória', { sessionId: session.id });
-        setCurrentSession(session);
-        await loadMessages(session.id);
-        setIsLoading(false);
-        return session;
-      }
-      
-      // 2. Se não encontrar na memória, busca no banco
-      debugLog('SEARCH_DATABASE', 'Buscando sessões no banco de dados', { agentId });
-      const { data: existingSessions, error: fetchError } = await supabase
-        .from('chat_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('agent_id', agentId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (fetchError) {
-        debugLog('SEARCH_ERROR', 'Erro ao buscar sessões', fetchError);
-        toast.error('Erro ao buscar sessões de chat.');
-        setIsLoading(false);
-        return null;
-      }
-
-      if (existingSessions && existingSessions.length > 0) {
-        session = existingSessions[0] as ChatSession;
-        debugLog('SESSION_FOUND_DB', 'Sessão encontrada no banco', { sessionId: session.id });
+      // Se forceNew for true, sempre cria uma nova sessão
+      if (!forceNew) {
+        // 1. Tenta encontrar uma sessão existente na memória primeiro
+        session = sessions.find(s => s.agent_id === agentId) || null;
         
-        // Adicionar à memória
-        setSessions(prev => {
-          const exists = prev.find(s => s.id === session!.id);
-          if (!exists) {
-            return [session!, ...prev];
-          }
-          return prev;
-        });
+        if (session) {
+          debugLog('SESSION_FOUND_MEMORY', 'Sessão encontrada na memória', { sessionId: session.id });
+          setCurrentSession(session);
+          await loadMessages(session.id);
+          setIsLoading(false);
+          return session;
+        }
+        
+        // 2. Se não encontrar na memória, busca no banco
+        debugLog('SEARCH_DATABASE', 'Buscando sessões no banco de dados', { agentId });
+        const { data: existingSessions, error: fetchError } = await supabase
+          .from('chat_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('agent_id', agentId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (fetchError) {
+          debugLog('SEARCH_ERROR', 'Erro ao buscar sessões', fetchError);
+          toast.error('Erro ao buscar sessões de chat.');
+          setIsLoading(false);
+          return null;
+        }
+
+        if (existingSessions && existingSessions.length > 0) {
+          session = existingSessions[0] as ChatSession;
+          debugLog('SESSION_FOUND_DB', 'Sessão encontrada no banco', { sessionId: session.id });
+          
+          // Adicionar à memória
+          setSessions(prev => {
+            const exists = prev.find(s => s.id === session!.id);
+            if (!exists) {
+              return [session!, ...prev];
+            }
+            return prev;
+          });
+        }
       }
 
-      // 3. Se ainda não houver sessão, cria uma nova
-      if (!session) {
-        debugLog('CREATE_NEW', 'Criando nova sessão', { agentId, agentName });
+      // 3. Se ainda não houver sessão ou forceNew for true, cria uma nova
+      if (!session || forceNew) {
+        debugLog('CREATE_NEW', `Criando nova sessão (forced: ${forceNew})`, { agentId, agentName });
+        
+        // Desativar sessão atual se existir
+        if (currentSession) {
+          await supabase
+            .from('chat_sessions')
+            .update({ is_active: false })
+            .eq('id', currentSession.id);
+          
+          debugLog('DEACTIVATE_CURRENT', 'Sessão atual desativada', { sessionId: currentSession.id });
+        }
+        
         const { data: newSession, error: createError } = await supabase
           .from('chat_sessions')
           .insert({
@@ -114,17 +129,23 @@ export const useChatSessions = (agentId: string) => {
 
         session = newSession as ChatSession;
         debugLog('SESSION_CREATED', 'Nova sessão criada', { sessionId: session.id });
-        setSessions(prev => [session!, ...prev]);
+        
+        // Adicionar nova sessão no início da lista
+        setSessions(prev => [session!, ...prev.filter(s => s.id !== session!.id)]);
+        
+        // Limpar mensagens para nova sessão
+        setMessages([]);
       }
       
       setCurrentSession(session);
       
-      // Carregar mensagens se existirem
-      if (session) {
+      // Carregar mensagens se existirem e não for nova sessão
+      if (session && !forceNew) {
         await loadMessages(session.id);
       }
       
       setIsLoading(false);
+      debugLog('SESSION_READY', 'Sessão pronta para uso', { sessionId: session.id, isNew: forceNew });
       return session;
       
     } catch (error) {
@@ -134,7 +155,7 @@ export const useChatSessions = (agentId: string) => {
       setIsLoading(false);
       return null;
     }
-  }, [user?.id, agentId, sessions]);
+  }, [user?.id, agentId, sessions, currentSession]);
 
   // Carregar sessões do agente
   const loadSessions = useCallback(async () => {
@@ -194,17 +215,33 @@ export const useChatSessions = (agentId: string) => {
     }
   }, []);
 
-  // Criar nova sessão
+  // Criar nova sessão - FORÇAR NOVA CRIAÇÃO
   const createNewSession = useCallback(async (agentName: string) => {
-    return await findOrCreateSessionForAgent(agentName);
+    debugLog('FORCE_NEW_SESSION', 'Forçando criação de nova sessão', { agentName });
+    return await findOrCreateSessionForAgent(agentName, true);
   }, [findOrCreateSessionForAgent]);
 
   // Selecionar sessão
   const selectSession = useCallback(async (session: ChatSession) => {
     debugLog('SELECT_SESSION', 'Selecionando sessão', { sessionId: session.id });
+    
+    // Desativar sessão atual
+    if (currentSession && currentSession.id !== session.id) {
+      await supabase
+        .from('chat_sessions')
+        .update({ is_active: false })
+        .eq('id', currentSession.id);
+    }
+    
+    // Ativar nova sessão
+    await supabase
+      .from('chat_sessions')
+      .update({ is_active: true })
+      .eq('id', session.id);
+    
     setCurrentSession(session);
     await loadMessages(session.id);
-  }, [loadMessages]);
+  }, [loadMessages, currentSession]);
 
   // Adicionar mensagem
   const addMessage = useCallback(async (
