@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -15,6 +14,7 @@ const streamPool = new Map<string, {
   encoder: TextEncoder;
   keepAlive: number;
   lastActivity: number;
+  isReady: boolean; // Novo: indica se pode receber mensagens
 }>();
 
 serve(async (req) => {
@@ -83,7 +83,6 @@ async function handleStreamingConnection(req: Request, url: URL) {
     });
   }
 
-  // CORRIGIDO: Usar sempre userId-agentId como padrão
   const streamKey = `${userId}-${agentId}`;
   
   // Verificar se já existe stream ativa
@@ -92,7 +91,6 @@ async function handleStreamingConnection(req: Request, url: URL) {
     const existingStream = streamPool.get(streamKey)!;
     existingStream.lastActivity = Date.now();
     
-    // Retornar stream existente (nota: em produção, você pode querer uma abordagem diferente)
     return new Response('Stream already exists', { 
       status: 409, 
       headers: corsHeaders 
@@ -105,20 +103,40 @@ async function handleStreamingConnection(req: Request, url: URL) {
     start(controller) {
       const encoder = new TextEncoder();
       
-      const data = JSON.stringify({
-        type: 'connection_established',
-        userId,
-        agentId,
-        streamKey,
-        timestamp: new Date().toISOString()
-      });
-      
-      controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+      // Primeiro, estabelecer o stream no pool mas ainda NÃO pronto
+      const streamData = {
+        controller,
+        encoder,
+        keepAlive: 0, // Será definido depois
+        lastActivity: Date.now(),
+        isReady: false // Inicialmente não está pronto
+      };
+
+      // AGUARDAR um pequeno delay para garantir que tudo está configurado
+      setTimeout(() => {
+        // Agora marcar como pronto e enviar confirmação
+        streamData.isReady = true;
+        
+        const data = JSON.stringify({
+          type: 'connection_established',
+          userId,
+          agentId,
+          streamKey,
+          timestamp: new Date().toISOString()
+        });
+        
+        try {
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          console.log(`✅ Conexão confirmada e marcada como PRONTA para ${streamKey}`);
+        } catch (error) {
+          console.error('Erro ao enviar confirmação:', error);
+        }
+      }, 200); // 200ms de delay para garantir sincronização
 
       const keepAlive = setInterval(() => {
         try {
-          const streamData = streamPool.get(streamKey);
-          if (!streamData) {
+          const currentStreamData = streamPool.get(streamKey);
+          if (!currentStreamData || !currentStreamData.isReady) {
             clearInterval(keepAlive);
             return;
           }
@@ -131,7 +149,7 @@ async function handleStreamingConnection(req: Request, url: URL) {
           controller.enqueue(encoder.encode(`data: ${pingData}\n\n`));
           
           // Verificar timeout (5 minutos sem atividade)
-          if (Date.now() - streamData.lastActivity > 300000) {
+          if (Date.now() - currentStreamData.lastActivity > 300000) {
             console.log(`⏰ Timeout para stream ${streamKey}`);
             streamPool.delete(streamKey);
             clearInterval(keepAlive);
@@ -153,13 +171,11 @@ async function handleStreamingConnection(req: Request, url: URL) {
         }
       }, 30000);
 
+      // Atualizar o keepAlive no streamData
+      streamData.keepAlive = keepAlive;
+      
       // Armazenar no pool
-      streamPool.set(streamKey, {
-        controller,
-        encoder,
-        keepAlive,
-        lastActivity: Date.now()
-      });
+      streamPool.set(streamKey, streamData);
     },
 
     cancel() {
@@ -241,16 +257,27 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    // CORRIGIDO: Usar streamKey fornecido ou construir padronizado
     const finalStreamKey = streamKey || `${userId}-${agentName.replace(/\s+/g, '_')}`;
     const streamData = streamPool.get(finalStreamKey);
 
+    // CORRIGIDO: Verificar se existe E se está pronto
     if (!streamData) {
-      console.warn(`⚠️ No active stream found for ${finalStreamKey}. Available streams:`, Array.from(streamPool.keys()));
+      console.warn(`⚠️ No stream found for ${finalStreamKey}. Available:`, Array.from(streamPool.keys()));
       return new Response(JSON.stringify({
         error: 'No active stream connection',
         streamKey: finalStreamKey,
         availableStreams: Array.from(streamPool.keys())
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!streamData.isReady) {
+      console.warn(`⚠️ Stream ${finalStreamKey} exists but is not ready yet`);
+      return new Response(JSON.stringify({
+        error: 'Stream connection not ready yet',
+        streamKey: finalStreamKey
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -15,6 +15,7 @@ interface StreamingState {
 const connectionPool = new Map<string, {
   eventSource: EventSource;
   callbacks: Map<string, (data: any) => void>;
+  isReady: boolean; // Novo: indica se o stream está pronto para receber mensagens
 }>();
 
 export const useOptimizedStreaming = (
@@ -46,7 +47,6 @@ export const useOptimizedStreaming = (
   const connectToStream = useCallback(async () => {
     if (!user?.id || connectingRef.current) return;
 
-    // CORRIGIDO: Usar sempre userId-agentId como padrão
     const streamKey = `${user.id}-${agentId}`;
     
     // Verificar se já existe conexão ativa
@@ -58,10 +58,15 @@ export const useOptimizedStreaming = (
         handleSSEMessage(data);
       });
       
-      updateConnectionStatus('connected');
-      setState(prev => ({ ...prev, isConnected: true }));
-      reconnectAttemptsRef.current = 0;
-      console.log('🔗 Reutilizando conexão SSE existente para agente:', agentId, 'StreamKey:', streamKey);
+      // CORRIGIDO: Só marcar como conectado se o stream estiver realmente pronto
+      if (existingConnection.isReady) {
+        updateConnectionStatus('connected');
+        setState(prev => ({ ...prev, isConnected: true }));
+        reconnectAttemptsRef.current = 0;
+        console.log('🔗 Reutilizando conexão SSE existente e PRONTA para agente:', agentId, 'StreamKey:', streamKey);
+      } else {
+        console.log('🔗 Reutilizando conexão SSE existente (aguardando ready) para agente:', agentId);
+      }
       return;
     }
 
@@ -87,20 +92,32 @@ export const useOptimizedStreaming = (
         handleSSEMessage(data);
       });
 
-      // Adicionar ao pool com streamKey consistente
-      connectionPool.set(streamKey, { eventSource, callbacks });
+      // Adicionar ao pool - inicialmente NÃO está pronto
+      const connectionData = { 
+        eventSource, 
+        callbacks, 
+        isReady: false 
+      };
+      connectionPool.set(streamKey, connectionData);
 
       eventSource.onopen = () => {
-        updateConnectionStatus('connected');
-        setState(prev => ({ ...prev, isConnected: true }));
-        reconnectAttemptsRef.current = 0;
+        console.log('🔗 EventSource aberto para agente:', agentId, 'StreamKey:', streamKey);
         connectingRef.current = false;
-        console.log('🔗 Nova conexão SSE estabelecida para agente:', agentId, 'StreamKey:', streamKey);
+        // NÃO marcar como conectado ainda - aguardar confirmação do backend
       };
 
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          
+          // NOVO: Aguardar confirmação do backend antes de marcar como pronto
+          if (data.type === 'connection_established') {
+            connectionData.isReady = true;
+            updateConnectionStatus('connected');
+            setState(prev => ({ ...prev, isConnected: true }));
+            reconnectAttemptsRef.current = 0;
+            console.log('✅ Conexão CONFIRMADA e PRONTA pelo backend para agente:', agentId);
+          }
           
           // Executar todos os callbacks registrados
           callbacks.forEach(callback => callback(data));
@@ -240,22 +257,32 @@ export const useOptimizedStreaming = (
       return;
     }
 
-    // CORRIGIDO: Verificar se há conexão ativa antes de enviar
     const streamKey = `${user.id}-${agentId}`;
     const streamData = connectionPool.get(streamKey);
 
-    if (!streamData) {
-      console.warn(`⚠️ Tentando reconectar para ${streamKey}...`);
-      toast.error('Conexão perdida. Reconectando...');
-      await connectToStream();
+    // CORRIGIDO: Verificar se o stream existe E está pronto
+    if (!streamData || !streamData.isReady) {
+      console.warn(`⚠️ Stream não está pronto para ${streamKey}. Existe: ${!!streamData}, Pronto: ${streamData?.isReady}`);
+      toast.error('Aguarde, conectando...');
       
-      // Aguardar um pouco para a conexão se estabelecer
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const retryStreamData = connectionPool.get(streamKey);
-      if (!retryStreamData) {
-        toast.error('Falha ao reconectar. Tente novamente.');
-        return;
+      // Tentar conectar se não existe
+      if (!streamData) {
+        await connectToStream();
+        // Aguardar um pouco para a conexão se estabelecer
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const retryStreamData = connectionPool.get(streamKey);
+        if (!retryStreamData || !retryStreamData.isReady) {
+          toast.error('Falha ao conectar. Tente novamente em alguns segundos.');
+          return;
+        }
+      } else {
+        // Stream existe mas não está pronto - aguardar mais
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!streamData.isReady) {
+          toast.error('Conexão ainda não está pronta. Aguarde mais um momento.');
+          return;
+        }
       }
     }
 
@@ -268,6 +295,8 @@ export const useOptimizedStreaming = (
       }
 
       abortControllerRef.current = new AbortController();
+
+      console.log('📤 Enviando mensagem para agente:', agentId, 'StreamKey:', streamKey);
 
       const response = await fetch('https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/streaming-chat', {
         method: 'POST',
@@ -282,7 +311,7 @@ export const useOptimizedStreaming = (
           isCustomAgent,
           userId: user.id,
           sessionId,
-          streamKey // Usar streamKey consistente
+          streamKey
         }),
         signal: abortControllerRef.current.signal
       });
@@ -292,7 +321,7 @@ export const useOptimizedStreaming = (
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log('✅ Mensagem enviada com sucesso para agente:', agentId, 'StreamKey:', streamKey);
+      console.log('✅ Mensagem enviada com sucesso para agente:', agentId);
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -322,7 +351,7 @@ export const useOptimizedStreaming = (
   useEffect(() => {
     const timer = setTimeout(() => {
       connectToStream();
-    }, 500); // Debounce de 500ms
+    }, 500);
 
     return () => {
       clearTimeout(timer);
