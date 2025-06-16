@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Wifi, WifiOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Wifi, WifiOff, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
 interface ConnectionStatusProps {
   status: 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -21,7 +21,8 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           text: 'Conectando...',
           color: 'text-yellow-400',
           bgColor: 'bg-yellow-400/10',
-          pulse: true
+          pulse: true,
+          showReconnect: false
         };
       case 'connected':
         return {
@@ -29,7 +30,8 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           text: isTyping ? 'IA digitando...' : 'Online',
           color: 'text-green-400',
           bgColor: 'bg-green-400/10',
-          pulse: isTyping
+          pulse: isTyping,
+          showReconnect: false
         };
       case 'error':
         return {
@@ -37,7 +39,8 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           text: 'Erro na conexão',
           color: 'text-red-400',
           bgColor: 'bg-red-400/10',
-          pulse: false
+          pulse: false,
+          showReconnect: true
         };
       default:
         return {
@@ -45,7 +48,8 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           text: 'Offline',
           color: 'text-gray-400',
           bgColor: 'bg-gray-400/10',
-          pulse: false
+          pulse: false,
+          showReconnect: true
         };
     }
   };
@@ -56,11 +60,13 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     <div className={`flex items-center gap-2 px-2 py-1 rounded-full ${config.bgColor} ${config.color} text-xs transition-all duration-200 ${config.pulse ? 'animate-pulse' : ''}`}>
       {config.icon}
       <span className="font-medium">{config.text}</span>
-      {status === 'error' && onReconnect && (
+      {config.showReconnect && onReconnect && (
         <button
           onClick={onReconnect}
-          className="ml-1 underline hover:no-underline transition-all text-blue-400 hover:text-blue-300"
+          className="ml-1 flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all"
+          title="Tentar reconectar"
         >
+          <RefreshCw className="w-3 h-3" />
           Reconectar
         </button>
       )}
