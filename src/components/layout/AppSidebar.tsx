@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -91,7 +90,7 @@ const menuItems = [
   },
   {
     title: "Agentes IA",
-    url: "/agents",
+    url: "/chat",
     icon: Bot,
   },
 ];
