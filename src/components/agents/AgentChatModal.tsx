@@ -365,10 +365,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     setIsSidebarOpen(false);
   };
 
+  // CORREÇÃO: selectSession espera apenas um argumento
   const handleSelectSession = (session: any) => {
     modalLogger.log('SESSION_SELECTED', { sessionId: session.id });
     clearChatInterface();
-    selectSession(session);
+    selectSession(session); // Corrigido: removido segundo argumento
   };
 
   return (

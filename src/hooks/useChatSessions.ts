@@ -25,7 +25,7 @@ interface ChatMessage {
   streaming_complete: boolean;
 }
 
-// Sistema de logs detalhado
+// Sistema de logs otimizado
 const chatLogger = {
   log: (action: string, data?: any) => {
     console.log(`[CHAT] ${new Date().toISOString()} - ${action}:`, data || '');
@@ -34,15 +34,6 @@ const chatLogger = {
     console.error(`[CHAT ERROR] ${new Date().toISOString()} - ${action}:`, error);
   }
 };
-
-// Estado global do chat para validação
-interface ChatState {
-  activeSessionId: string | null;
-  sessions: Map<string, ChatSession>;
-  messages: Map<string, ChatMessage[]>;
-  isLoading: boolean;
-  error: string | null;
-}
 
 export const useChatSessions = (agentId: string) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -53,13 +44,7 @@ export const useChatSessions = (agentId: string) => {
   
   // Refs para controle de estado
   const mountedRef = useRef(true);
-  const stateRef = useRef<ChatState>({
-    activeSessionId: null,
-    sessions: new Map(),
-    messages: new Map(),
-    isLoading: false,
-    error: null
-  });
+  const currentSessionRef = useRef<ChatSession | null>(null);
 
   // Função de validação completa do estado
   const validateChatState = useCallback(() => {
@@ -105,19 +90,12 @@ export const useChatSessions = (agentId: string) => {
     setCurrentSession(null);
     setMessages([]);
     setIsLoading(false);
-    stateRef.current = {
-      activeSessionId: null,
-      sessions: new Map(),
-      messages: new Map(),
-      isLoading: false,
-      error: null
-    };
+    currentSessionRef.current = null;
   }, []);
 
   // Recuperação automática de erros
   const recoverFromError = useCallback(() => {
     chatLogger.log('STARTING_ERROR_RECOVERY');
-    
     clearCorruptedState();
     
     // Recarregar dados
@@ -155,9 +133,6 @@ export const useChatSessions = (agentId: string) => {
 
       const typedSessions = (data || []) as ChatSession[];
       setSessions(typedSessions);
-      
-      // Atualizar ref de estado
-      stateRef.current.sessions = new Map(typedSessions.map(s => [s.id, s]));
       
       chatLogger.log('SESSIONS_LOADED', { count: typedSessions.length });
       
@@ -203,9 +178,6 @@ export const useChatSessions = (agentId: string) => {
 
       setMessages(typedMessages);
       
-      // Atualizar ref de estado
-      stateRef.current.messages.set(sessionId, typedMessages);
-      
       chatLogger.log('MESSAGES_LOADED', { sessionId, count: typedMessages.length });
       
     } catch (error) {
@@ -216,6 +188,23 @@ export const useChatSessions = (agentId: string) => {
       }
     }
   }, []);
+
+  // Função para desativar todas as sessões ativas antes de ativar uma nova
+  const deactivateAllSessions = useCallback(async () => {
+    if (!user?.id || !agentId) return;
+
+    try {
+      await supabase
+        .from('chat_sessions')
+        .update({ is_active: false })
+        .eq('user_id', user.id)
+        .eq('agent_id', agentId);
+      
+      chatLogger.log('ALL_SESSIONS_DEACTIVATED');
+    } catch (error) {
+      chatLogger.error('DEACTIVATE_SESSIONS_ERROR', error);
+    }
+  }, [user?.id, agentId]);
 
   // Encontrar ou criar sessão com estado limpo
   const findOrCreateSessionForAgent = useCallback(async (agentName: string, forceNew = false) => {
@@ -231,54 +220,32 @@ export const useChatSessions = (agentId: string) => {
       let session = null;
       
       if (!forceNew) {
-        // Buscar sessão existente
-        session = sessions.find(s => s.agent_id === agentId) || null;
-        
-        if (session) {
-          chatLogger.log('SESSION_FOUND_IN_MEMORY', { sessionId: session.id });
-          
-          // Validar se sessão ainda existe no banco
-          const { data: dbSession } = await supabase
-            .from('chat_sessions')
-            .select('*')
-            .eq('id', session.id)
-            .single();
-            
-          if (dbSession) {
-            setCurrentSession(session);
-            stateRef.current.activeSessionId = session.id;
-            await loadMessages(session.id);
-            setIsLoading(false);
-            return session;
-          } else {
-            // Sessão não existe mais no banco, remover da memória
-            setSessions(prev => prev.filter(s => s.id !== session!.id));
-            session = null;
-          }
-        }
-        
-        if (!session) {
-          // Buscar no banco
-          const { data: existingSessions } = await supabase
+        // Buscar sessão ativa existente
+        const { data: activeSessions } = await supabase
+          .from('chat_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('agent_id', agentId)
+          .eq('is_active', true)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+
+        if (activeSessions && activeSessions.length > 0) {
+          session = activeSessions[0] as ChatSession;
+          chatLogger.log('ACTIVE_SESSION_FOUND', { sessionId: session.id });
+        } else {
+          // Buscar sessão mais recente se não houver ativa
+          const { data: recentSessions } = await supabase
             .from('chat_sessions')
             .select('*')
             .eq('user_id', user.id)
             .eq('agent_id', agentId)
-            .order('created_at', { ascending: false })
+            .order('updated_at', { ascending: false })
             .limit(1);
 
-          if (existingSessions && existingSessions.length > 0) {
-            session = existingSessions[0] as ChatSession;
-            chatLogger.log('SESSION_FOUND_IN_DB', { sessionId: session.id });
-            
-            // Adicionar à memória
-            setSessions(prev => {
-              const exists = prev.find(s => s.id === session!.id);
-              if (!exists) {
-                return [session!, ...prev];
-              }
-              return prev;
-            });
+          if (recentSessions && recentSessions.length > 0) {
+            session = recentSessions[0] as ChatSession;
+            chatLogger.log('RECENT_SESSION_FOUND', { sessionId: session.id });
           }
         }
       }
@@ -287,13 +254,8 @@ export const useChatSessions = (agentId: string) => {
       if (!session || forceNew) {
         chatLogger.log('CREATING_NEW_SESSION', { agentName, forceNew });
         
-        // Desativar sessão atual
-        if (currentSession) {
-          await supabase
-            .from('chat_sessions')
-            .update({ is_active: false })
-            .eq('id', currentSession.id);
-        }
+        // Desativar todas as sessões existentes
+        await deactivateAllSessions();
         
         const { data: newSession, error: createError } = await supabase
           .from('chat_sessions')
@@ -315,23 +277,31 @@ export const useChatSessions = (agentId: string) => {
         session = newSession as ChatSession;
         chatLogger.log('SESSION_CREATED', { sessionId: session.id });
         
-        // Atualizar estado
-        setSessions(prev => [session!, ...prev.filter(s => s.id !== session!.id)]);
+        // Recarregar lista de sessões
+        await loadSessions();
         setMessages([]);
-        stateRef.current.messages.set(session.id, []);
+      } else {
+        // Ativar sessão existente
+        await deactivateAllSessions();
+        await supabase
+          .from('chat_sessions')
+          .update({ is_active: true })
+          .eq('id', session.id);
+        
+        session.is_active = true;
+        chatLogger.log('SESSION_ACTIVATED', { sessionId: session.id });
       }
       
-      // Ativar sessão
+      // Definir como sessão atual
       setCurrentSession(session);
-      stateRef.current.activeSessionId = session.id;
+      currentSessionRef.current = session;
       
-      // Carregar mensagens se não for nova
-      if (!forceNew && session) {
+      // Carregar mensagens se existir sessão
+      if (session && !forceNew) {
         await loadMessages(session.id);
       }
       
       setIsLoading(false);
-      chatLogger.log('SESSION_ACTIVATED', { sessionId: session.id });
       return session;
       
     } catch (error) {
@@ -342,7 +312,7 @@ export const useChatSessions = (agentId: string) => {
       }
       return null;
     }
-  }, [user?.id, agentId, sessions, currentSession, loadMessages]);
+  }, [user?.id, agentId, deactivateAllSessions, loadSessions, loadMessages]);
 
   // Criar nova sessão forçada
   const createNewSession = useCallback(async (agentName: string) => {
@@ -350,7 +320,7 @@ export const useChatSessions = (agentId: string) => {
     return await findOrCreateSessionForAgent(agentName, true);
   }, [findOrCreateSessionForAgent]);
 
-  // Selecionar sessão com limpeza de estado
+  // Selecionar sessão com limpeza de estado - CORRIGIDO
   const selectSession = useCallback(async (session: ChatSession) => {
     if (!mountedRef.current) return;
     
@@ -360,13 +330,8 @@ export const useChatSessions = (agentId: string) => {
     });
     
     try {
-      // Desativar sessão atual
-      if (currentSession && currentSession.id !== session.id) {
-        await supabase
-          .from('chat_sessions')
-          .update({ is_active: false })
-          .eq('id', currentSession.id);
-      }
+      // Desativar todas as sessões primeiro
+      await deactivateAllSessions();
       
       // Ativar nova sessão
       await supabase
@@ -374,21 +339,28 @@ export const useChatSessions = (agentId: string) => {
         .update({ is_active: true })
         .eq('id', session.id);
       
-      // Limpar estado anterior
-      setMessages([]);
-      setCurrentSession(session);
-      stateRef.current.activeSessionId = session.id;
+      // Atualizar estado local
+      const updatedSession = { ...session, is_active: true };
+      setCurrentSession(updatedSession);
+      currentSessionRef.current = updatedSession;
       
-      // Carregar mensagens da nova sessão
+      // Limpar mensagens e carregar as da nova sessão
+      setMessages([]);
       await loadMessages(session.id);
       
-      chatLogger.log('SESSION_SELECTED', { sessionId: session.id });
+      // Atualizar lista de sessões
+      setSessions(prev => prev.map(s => ({
+        ...s,
+        is_active: s.id === session.id
+      })));
+      
+      chatLogger.log('SESSION_SELECTED_SUCCESSFULLY', { sessionId: session.id });
       
     } catch (error) {
       chatLogger.error('SELECT_SESSION_ERROR', error);
       toast.error('Erro ao selecionar conversa');
     }
-  }, [currentSession, loadMessages]);
+  }, [currentSession, deactivateAllSessions, loadMessages]);
 
   // Adicionar mensagem com validação
   const addMessage = useCallback(async (
@@ -428,12 +400,8 @@ export const useChatSessions = (agentId: string) => {
       } as ChatMessage;
       
       // Atualizar estado apenas se for da sessão ativa
-      if (currentSession?.id === sessionId) {
-        setMessages(prev => {
-          const updated = [...prev, newMessage];
-          stateRef.current.messages.set(sessionId, updated);
-          return updated;
-        });
+      if (currentSessionRef.current?.id === sessionId) {
+        setMessages(prev => [...prev, newMessage]);
       }
       
       // Atualizar timestamp da sessão
@@ -453,7 +421,7 @@ export const useChatSessions = (agentId: string) => {
       toast.error('Erro ao enviar mensagem');
       throw error;
     }
-  }, [currentSession, loadSessions]);
+  }, [loadSessions]);
 
   // Deletar sessão com limpeza
   const deleteSession = useCallback(async (sessionId: string) => {
@@ -474,14 +442,12 @@ export const useChatSessions = (agentId: string) => {
 
       // Atualizar estado
       setSessions(prev => prev.filter(s => s.id !== sessionId));
-      stateRef.current.sessions.delete(sessionId);
-      stateRef.current.messages.delete(sessionId);
       
       // Limpar sessão ativa se for a deletada
       if (currentSession?.id === sessionId) {
         setCurrentSession(null);
         setMessages([]);
-        stateRef.current.activeSessionId = null;
+        currentSessionRef.current = null;
       }
 
       chatLogger.log('SESSION_DELETED', { sessionId });
@@ -493,17 +459,10 @@ export const useChatSessions = (agentId: string) => {
     }
   }, [currentSession]);
 
-  // Monitoramento contínuo do estado
+  // Sincronizar ref quando currentSession mudar
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (mountedRef.current && !validateChatState()) {
-        chatLogger.error('STATE_CORRUPTION_DETECTED', 'Iniciando recuperação automática');
-        recoverFromError();
-      }
-    }, 10000); // Verificar a cada 10 segundos
-
-    return () => clearInterval(interval);
-  }, [validateChatState, recoverFromError]);
+    currentSessionRef.current = currentSession;
+  }, [currentSession]);
 
   // Inicialização
   useEffect(() => {
