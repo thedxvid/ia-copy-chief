@@ -39,6 +39,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const [message, setMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sessionCreationRef = useRef(false); // Prevent duplicate session creation
   
   debugLog('MODAL_RENDER', `Modal renderizado para agente: ${agent.name}`, { 
     agentId: agent.id, 
@@ -109,8 +110,19 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   }, [isOpen, currentSession]);
 
   const handleNewChat = async () => {
+    if (sessionCreationRef.current) {
+      debugLog('NEW_CHAT_BLOCKED', 'Criação de sessão já em progresso');
+      return;
+    }
+    
+    sessionCreationRef.current = true;
     debugLog('NEW_CHAT', 'Criando nova sessão', { agentName: agent.name, agentId: agent.id });
-    await createNewSession(agent.name);
+    
+    try {
+      await createNewSession(agent.name);
+    } finally {
+      sessionCreationRef.current = false;
+    }
   };
 
   const handleSend = async () => {
@@ -227,9 +239,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Automaticamente criar nova sessão se não existir nenhuma
+  // Automatically create new session only if none exists and not already creating
   useEffect(() => {
-    if (isOpen && sessions.length === 0 && !currentSession) {
+    if (isOpen && sessions.length === 0 && !currentSession && !sessionCreationRef.current) {
       debugLog('AUTO_SESSION', 'Criando sessão automaticamente');
       handleNewChat();
     }
@@ -389,7 +401,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               </Button>
             </div>
             
-            {/* ✅ Status mais claro e específico */}
+            {/* Status */}
             {!canSendMessage && (
               <div className="mt-3 text-sm flex items-center justify-center">
                 {isSending ? (

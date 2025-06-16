@@ -31,6 +31,8 @@ export const useOptimizedStreaming = (
   const { user } = useAuth();
   const eventSourceRef = useRef<EventSource | null>(null);
   const mountedRef = useRef(true);
+  const connectionAttemptRef = useRef(0);
+  const maxConnectionAttempts = 3;
 
   const updateState = useCallback((updates: Partial<StreamingState>) => {
     if (mountedRef.current) {
@@ -48,12 +50,27 @@ export const useOptimizedStreaming = (
   }, [agentId, updateState]);
 
   const connect = useCallback(() => {
-    if (!user?.id || !agentId || eventSourceRef.current) {
-      debugLog('CONNECT_SKIP', 'Skipping connection', { hasUser: !!user?.id, hasAgent: !!agentId, hasEventSource: !!eventSourceRef.current });
+    if (!user?.id || !agentId) {
+      debugLog('CONNECT_SKIP', 'Skipping connection - missing user or agent', { 
+        hasUser: !!user?.id, 
+        hasAgent: !!agentId 
+      });
       return;
     }
-    
-    debugLog('CONNECT', `Iniciando nova conexão para Agente ID: ${agentId}`);
+
+    if (eventSourceRef.current) {
+      debugLog('CONNECT_SKIP', 'Connection already exists');
+      return;
+    }
+
+    if (connectionAttemptRef.current >= maxConnectionAttempts) {
+      debugLog('CONNECT_SKIP', 'Max connection attempts reached');
+      updateState({ connectionStatus: 'error' });
+      return;
+    }
+
+    connectionAttemptRef.current++;
+    debugLog('CONNECT', `Iniciando conexão para Agente ID: ${agentId} (tentativa ${connectionAttemptRef.current})`);
     updateState({ connectionStatus: 'connecting' });
 
     const url = new URL(`https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/streaming-chat`);
@@ -63,9 +80,18 @@ export const useOptimizedStreaming = (
     const newEventSource = new EventSource(url.toString());
     eventSourceRef.current = newEventSource;
 
+    // Timeout de conexão
+    const connectionTimeout = setTimeout(() => {
+      if (eventSourceRef.current && state.connectionStatus === 'connecting') {
+        debugLog('CONNECTION_TIMEOUT', 'Timeout na conexão');
+        disconnect();
+        updateState({ connectionStatus: 'error' });
+      }
+    }, 10000);
+
     newEventSource.onopen = () => {
-      debugLog('SSE_OPEN', '✅ Conexão EventSource ABERTA com sucesso.', { agentId });
-      // A confirmação real vem da mensagem 'connection_established'
+      debugLog('SSE_OPEN', '✅ Conexão EventSource ABERTA', { agentId });
+      clearTimeout(connectionTimeout);
     };
 
     newEventSource.onmessage = (event) => {
@@ -75,8 +101,10 @@ export const useOptimizedStreaming = (
 
         switch (data.type) {
           case 'connection_established':
-            debugLog('CONNECTION_ESTABLISHED', '✅ Conexão CONFIRMADA pelo servidor.', data);
+            debugLog('CONNECTION_ESTABLISHED', '✅ Conexão CONFIRMADA pelo servidor', data);
             updateState({ isConnected: true, connectionStatus: 'connected' });
+            connectionAttemptRef.current = 0; // Reset counter on success
+            clearTimeout(connectionTimeout);
             break;
 
           case 'ping':
@@ -114,13 +142,14 @@ export const useOptimizedStreaming = (
     };
 
     newEventSource.onerror = (error) => {
-      debugLog('SSE_ERROR', '❌ Ocorreu um ERRO na conexão EventSource.', { agentId, error });
+      debugLog('SSE_ERROR', '❌ Erro na conexão EventSource', { agentId, error });
+      clearTimeout(connectionTimeout);
       updateState({ isConnected: false, connectionStatus: 'error', isTyping: false });
       newEventSource.close();
       eventSourceRef.current = null;
     };
 
-  }, [user?.id, agentId, updateState, onMessageComplete, state.currentMessageId]);
+  }, [user?.id, agentId, updateState, onMessageComplete, state.currentMessageId, state.connectionStatus]);
 
   const sendMessage = useCallback(async (
     sessionId: string,
@@ -178,6 +207,7 @@ export const useOptimizedStreaming = (
 
   const reconnect = useCallback(() => {
     debugLog('MANUAL_RECONNECT', `Reconexão manual para Agente ID: ${agentId}`);
+    connectionAttemptRef.current = 0; // Reset attempts for manual reconnect
     disconnect();
     setTimeout(() => {
       if (mountedRef.current) {
