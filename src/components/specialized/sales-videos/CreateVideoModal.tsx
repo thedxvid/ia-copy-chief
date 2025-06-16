@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -32,7 +31,8 @@ export const CreateVideoModal = ({ open, onOpenChange }: CreateVideoModalProps) 
     video_duration: '',
     offer_details: '',
     price_strategy: '',
-    additional_info: ''
+    additional_info: '',
+    copy_type: 'sales_video'
   });
 
   const [manualData, setManualData] = useState({
@@ -88,7 +88,8 @@ export const CreateVideoModal = ({ open, onOpenChange }: CreateVideoModalProps) 
         video_duration: '',
         offer_details: '',
         price_strategy: '',
-        additional_info: ''
+        additional_info: '',
+        copy_type: 'sales_video'
       });
       setManualData({
         title: '',
@@ -279,7 +280,6 @@ export const CreateVideoModal = ({ open, onOpenChange }: CreateVideoModalProps) 
           </TabsContent>
 
           <TabsContent value="manual" className="space-y-6">
-            {/* Conteúdo manual igual ao original */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Título do Script</Label>

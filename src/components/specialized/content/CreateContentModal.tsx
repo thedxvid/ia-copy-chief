@@ -30,7 +30,8 @@ export const CreateContentModal = ({ open, onOpenChange }: CreateContentModalPro
     content_type: 'post',
     content_length: 'medium',
     call_to_action: '',
-    additional_info: ''
+    additional_info: '',
+    copy_type: 'content'
   });
 
   // Manual form state
@@ -108,7 +109,8 @@ export const CreateContentModal = ({ open, onOpenChange }: CreateContentModalPro
       content_type: 'post',
       content_length: 'medium',
       call_to_action: '',
-      additional_info: ''
+      additional_info: '',
+      copy_type: 'content'
     });
     setFormData({
       title: '',

@@ -30,7 +30,8 @@ export const CreatePageModal = ({ open, onOpenChange }: CreatePageModalProps) =>
     page_type: 'landing',
     conversion_goal: '',
     main_offer: '',
-    additional_info: ''
+    additional_info: '',
+    copy_type: 'page'
   });
 
   // Manual form state
@@ -111,7 +112,8 @@ export const CreatePageModal = ({ open, onOpenChange }: CreatePageModalProps) =>
       page_type: 'landing',
       conversion_goal: '',
       main_offer: '',
-      additional_info: ''
+      additional_info: '',
+      copy_type: 'page'
     });
     setFormData({
       title: '',
