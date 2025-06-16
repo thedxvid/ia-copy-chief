@@ -11,12 +11,27 @@ interface StreamingState {
   currentMessageId: string | null;
 }
 
-// Pool global de conexões SSE para evitar múltiplas conexões
+// Pool global de conexões SSE otimizado com cleanup automático
 const connectionPool = new Map<string, {
   eventSource: EventSource;
   callbacks: Map<string, (data: any) => void>;
-  isReady: boolean; // Novo: indica se o stream está pronto para receber mensagens
+  isReady: boolean;
+  createdAt: number;
+  lastActivity: number;
 }>();
+
+// Cleanup automático de conexões órfãs
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, connection] of connectionPool.entries()) {
+    // Remove conexões inativas por mais de 5 minutos
+    if (now - connection.lastActivity > 300000) {
+      console.log(`🧹 Limpando conexão inativa: ${key}`);
+      connection.eventSource.close();
+      connectionPool.delete(key);
+    }
+  }
+}, 60000);
 
 export const useOptimizedStreaming = (
   agentId: string,
@@ -43,31 +58,41 @@ export const useOptimizedStreaming = (
     setState(prev => ({ ...prev, connectionStatus: status }));
   }, []);
 
-  // Função para conectar ao SSE com pool de conexões
+  // CORRIGIDO: Usar sempre userId-agentId como streamKey
+  const getStreamKey = useCallback(() => {
+    if (!user?.id) return null;
+    return `${user.id}-${agentId}`;
+  }, [user?.id, agentId]);
+
+  // Função para conectar ao SSE com validação robusta
   const connectToStream = useCallback(async () => {
     if (!user?.id || connectingRef.current) return;
 
-    const streamKey = `${user.id}-${agentId}`;
+    const streamKey = getStreamKey();
+    if (!streamKey) return;
     
-    // Verificar se já existe conexão ativa
+    // Verificar se já existe conexão ativa e válida
     if (connectionPool.has(streamKey)) {
       const existingConnection = connectionPool.get(streamKey)!;
       
-      // Registrar callback para esta instância
-      existingConnection.callbacks.set(callbackIdRef.current, (data) => {
-        handleSSEMessage(data);
-      });
-      
-      // CORRIGIDO: Só marcar como conectado se o stream estiver realmente pronto
-      if (existingConnection.isReady) {
-        updateConnectionStatus('connected');
-        setState(prev => ({ ...prev, isConnected: true }));
-        reconnectAttemptsRef.current = 0;
-        console.log('🔗 Reutilizando conexão SSE existente e PRONTA para agente:', agentId, 'StreamKey:', streamKey);
+      // Verificar se a conexão ainda está viva
+      if (existingConnection.eventSource.readyState === EventSource.OPEN) {
+        // Registrar callback para esta instância
+        existingConnection.callbacks.set(callbackIdRef.current, handleSSEMessage);
+        existingConnection.lastActivity = Date.now();
+        
+        if (existingConnection.isReady) {
+          updateConnectionStatus('connected');
+          setState(prev => ({ ...prev, isConnected: true }));
+          reconnectAttemptsRef.current = 0;
+          console.log('🔗 Reutilizando conexão SSE PRONTA para agente:', agentId);
+          return;
+        }
       } else {
-        console.log('🔗 Reutilizando conexão SSE existente (aguardando ready) para agente:', agentId);
+        // Remover conexão morta
+        console.log('🗑️ Removendo conexão morta:', streamKey);
+        connectionPool.delete(streamKey);
       }
-      return;
     }
 
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
@@ -82,41 +107,43 @@ export const useOptimizedStreaming = (
     try {
       const url = new URL(`https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/streaming-chat`);
       url.searchParams.set('userId', user.id);
-      url.searchParams.set('agentId', agentId);
+      url.searchParams.set('agentId', agentId); // ✅ Usar agentId, não agentName
 
       const eventSource = new EventSource(url.toString());
       const callbacks = new Map<string, (data: any) => void>();
+      const now = Date.now();
       
       // Registrar este callback
-      callbacks.set(callbackIdRef.current, (data) => {
-        handleSSEMessage(data);
-      });
+      callbacks.set(callbackIdRef.current, handleSSEMessage);
 
       // Adicionar ao pool - inicialmente NÃO está pronto
       const connectionData = { 
         eventSource, 
         callbacks, 
-        isReady: false 
+        isReady: false,
+        createdAt: now,
+        lastActivity: now
       };
       connectionPool.set(streamKey, connectionData);
 
       eventSource.onopen = () => {
         console.log('🔗 EventSource aberto para agente:', agentId, 'StreamKey:', streamKey);
         connectingRef.current = false;
-        // NÃO marcar como conectado ainda - aguardar confirmação do backend
+        connectionData.lastActivity = Date.now();
       };
 
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          connectionData.lastActivity = Date.now();
           
-          // NOVO: Aguardar confirmação do backend antes de marcar como pronto
+          // ✅ Confirmação IMEDIATA do backend
           if (data.type === 'connection_established') {
             connectionData.isReady = true;
             updateConnectionStatus('connected');
             setState(prev => ({ ...prev, isConnected: true }));
             reconnectAttemptsRef.current = 0;
-            console.log('✅ Conexão CONFIRMADA e PRONTA pelo backend para agente:', agentId);
+            console.log('✅ Conexão IMEDIATAMENTE pronta para agente:', agentId);
           }
           
           // Executar todos os callbacks registrados
@@ -166,7 +193,7 @@ export const useOptimizedStreaming = (
       reconnectAttemptsRef.current++;
       toast.error('Falha ao conectar com o streaming');
     }
-  }, [user?.id, agentId, updateConnectionStatus]);
+  }, [user?.id, agentId, updateConnectionStatus, getStreamKey]);
 
   // Handler para mensagens SSE
   const handleSSEMessage = useCallback((data: any) => {
@@ -213,7 +240,9 @@ export const useOptimizedStreaming = (
   }, [agentId, onMessageComplete]);
 
   const disconnectStream = useCallback(() => {
-    const streamKey = `${user?.id}-${agentId}`;
+    const streamKey = getStreamKey();
+    if (!streamKey) return;
+
     const connection = connectionPool.get(streamKey);
     
     if (connection) {
@@ -244,7 +273,7 @@ export const useOptimizedStreaming = (
       currentStreamingMessage: '',
       currentMessageId: null
     }));
-  }, [user?.id, agentId]);
+  }, [getStreamKey, agentId]);
 
   const sendMessage = useCallback(async (
     sessionId: string,
@@ -257,33 +286,34 @@ export const useOptimizedStreaming = (
       return;
     }
 
-    const streamKey = `${user.id}-${agentId}`;
+    const streamKey = getStreamKey();
+    if (!streamKey) {
+      toast.error('Erro: usuário não autenticado');
+      return;
+    }
+
     const streamData = connectionPool.get(streamKey);
 
-    // CORRIGIDO: Verificar se o stream existe E está pronto
-    if (!streamData || !streamData.isReady) {
-      console.warn(`⚠️ Stream não está pronto para ${streamKey}. Existe: ${!!streamData}, Pronto: ${streamData?.isReady}`);
-      toast.error('Aguarde, conectando...');
-      
-      // Tentar conectar se não existe
-      if (!streamData) {
-        await connectToStream();
-        // Aguardar um pouco para a conexão se estabelecer
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const retryStreamData = connectionPool.get(streamKey);
-        if (!retryStreamData || !retryStreamData.isReady) {
-          toast.error('Falha ao conectar. Tente novamente em alguns segundos.');
-          return;
-        }
-      } else {
-        // Stream existe mas não está pronto - aguardar mais
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        if (!streamData.isReady) {
-          toast.error('Conexão ainda não está pronta. Aguarde mais um momento.');
-          return;
-        }
-      }
+    // ✅ Verificação robusta e clara
+    if (!streamData) {
+      console.warn(`⚠️ Stream não existe para ${streamKey}`);
+      toast.error('Conexão não estabelecida. Reconectando...');
+      await connectToStream();
+      return;
+    }
+
+    if (!streamData.isReady) {
+      console.warn(`⚠️ Stream ${streamKey} não está pronto. Ready: ${streamData.isReady}`);
+      toast.error('Conexão ainda não está pronta. Aguarde...');
+      return;
+    }
+
+    if (streamData.eventSource.readyState !== EventSource.OPEN) {
+      console.warn(`⚠️ EventSource não está aberto. Estado: ${streamData.eventSource.readyState}`);
+      toast.error('Conexão perdida. Reconectando...');
+      connectionPool.delete(streamKey);
+      await connectToStream();
+      return;
     }
 
     setIsSending(true);
@@ -311,7 +341,7 @@ export const useOptimizedStreaming = (
           isCustomAgent,
           userId: user.id,
           sessionId,
-          streamKey
+          agentId // ✅ Incluir agentId no payload
         }),
         signal: abortControllerRef.current.signal
       });
@@ -322,6 +352,9 @@ export const useOptimizedStreaming = (
       }
 
       console.log('✅ Mensagem enviada com sucesso para agente:', agentId);
+
+      // Atualizar atividade do stream
+      streamData.lastActivity = Date.now();
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -339,7 +372,7 @@ export const useOptimizedStreaming = (
       setIsSending(false);
       abortControllerRef.current = null;
     }
-  }, [user?.id, isSending, agentId, connectToStream]);
+  }, [user?.id, isSending, agentId, getStreamKey, connectToStream]);
 
   const reconnect = useCallback(() => {
     reconnectAttemptsRef.current = 0;
@@ -347,7 +380,7 @@ export const useOptimizedStreaming = (
     setTimeout(() => connectToStream(), 1000);
   }, [connectToStream, disconnectStream]);
 
-  // Auto-conectar com debounce
+  // Auto-conectar com retry inteligente
   useEffect(() => {
     const timer = setTimeout(() => {
       connectToStream();
@@ -359,9 +392,16 @@ export const useOptimizedStreaming = (
     };
   }, [connectToStream, disconnectStream]);
 
+  // ✅ Status mais rigoroso para permitir envio
+  const canSendMessage = state.isConnected && 
+                        state.connectionStatus === 'connected' && 
+                        !isSending && 
+                        !state.isTyping;
+
   return {
     ...state,
     isSending,
+    canSendMessage, // ✅ Novo campo para validação
     sendMessage,
     reconnect,
     disconnect: disconnectStream

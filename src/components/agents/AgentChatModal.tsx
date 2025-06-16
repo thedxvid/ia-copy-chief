@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -59,6 +58,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     isSending,
     currentStreamingMessage,
     currentMessageId,
+    canSendMessage,
     sendMessage,
     reconnect
   } = useOptimizedStreaming(agent.id, handleMessageComplete);
@@ -87,12 +87,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   };
 
   const handleSend = async () => {
-    if (!message.trim() || isSending || isTyping || !currentSession) return;
-    
-    // NOVO: Verificar se está realmente conectado E pronto
-    if (!isConnected || connectionStatus !== 'connected') {
-      console.warn('⚠️ Não é possível enviar: conexão não está pronta');
-      console.log('Estado da conexão:', { isConnected, connectionStatus });
+    // ✅ Usar validação robusta
+    if (!message.trim() || !canSendMessage || !currentSession) {
+      if (!canSendMessage) {
+        console.warn('⚠️ Não é possível enviar: conexão não está pronta');
+        console.log('Estado da conexão:', { isConnected, connectionStatus, isSending, isTyping });
+      }
       return;
     }
     
@@ -157,14 +157,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       handleNewChat();
     }
   }, [isOpen, sessions.length, currentSession]);
-
-  // NOVO: Critério mais rigoroso para envio
-  const canSendMessage = message.trim() && 
-                        !isSending && 
-                        !isTyping && 
-                        isConnected && 
-                        connectionStatus === 'connected' && 
-                        currentSession;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -302,16 +294,16 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder={`Mensagem para ${agent.name}...`}
                 className="flex-1 min-h-[44px] max-h-32 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none"
-                disabled={isSending || isTyping || !isConnected || !currentSession}
+                disabled={!canSendMessage || !currentSession} // ✅ Usar validação robusta
               />
               <Button
                 onClick={handleSend}
-                disabled={!canSendMessage}
+                disabled={!message.trim() || !canSendMessage || !currentSession} // ✅ Usar validação robusta
                 size="lg"
                 className={`px-6 transition-all duration-200 ${
                   isSending 
                     ? 'bg-orange-500 hover:bg-orange-600' 
-                    : canSendMessage
+                    : (canSendMessage && message.trim())
                     ? 'bg-[#3B82F6] hover:bg-[#2563EB]'
                     : 'bg-gray-500'
                 } text-white`}
@@ -319,8 +311,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 <Send className="w-4 h-4" />
               </Button>
             </div>
-            {/* Status mais detalhado */}
-            {(!isConnected || isSending || connectionStatus !== 'connected') && (
+            
+            {/* ✅ Status mais claro e específico */}
+            {!canSendMessage && (
               <div className="mt-3 text-sm flex items-center justify-center">
                 {isSending ? (
                   <div className="text-[#3B82F6] flex items-center">
@@ -335,7 +328,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 ) : !isConnected ? (
                   <div className="text-red-500 flex items-center">
                     <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mr-2"></div>
-                    Sem conexão - aguarde...
+                    Sem conexão - aguarde ou reconecte
+                  </div>
+                ) : isTyping ? (
+                  <div className="text-blue-500 flex items-center">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-2"></div>
+                    Assistente está respondendo...
                   </div>
                 ) : null}
               </div>

@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -8,14 +9,33 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-// Pool global de streams para evitar múltiplas conexões
+// Pool global de streams com cleanup automático
 const streamPool = new Map<string, {
   controller: ReadableStreamDefaultController;
   encoder: TextEncoder;
   keepAlive: number;
   lastActivity: number;
-  isReady: boolean; // Novo: indica se pode receber mensagens
+  isReady: boolean;
+  createdAt: number;
 }>();
+
+// Cleanup automático de streams órfãos a cada 30 segundos
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, stream] of streamPool.entries()) {
+    // Remove streams inativos por mais de 5 minutos
+    if (now - stream.lastActivity > 300000) {
+      console.log(`🧹 Limpando stream inativo: ${key}`);
+      clearInterval(stream.keepAlive);
+      streamPool.delete(key);
+      try {
+        stream.controller.close();
+      } catch (e) {
+        console.warn('Controller already closed for:', key);
+      }
+    }
+  }
+}, 30000);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -83,6 +103,7 @@ async function handleStreamingConnection(req: Request, url: URL) {
     });
   }
 
+  // CORRIGIDO: Usar sempre userId-agentId como streamKey
   const streamKey = `${userId}-${agentId}`;
   
   // Verificar se já existe stream ativa
@@ -102,36 +123,33 @@ async function handleStreamingConnection(req: Request, url: URL) {
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
+      const now = Date.now();
       
-      // Primeiro, estabelecer o stream no pool mas ainda NÃO pronto
+      // CORRIGIDO: Marcar como pronto IMEDIATAMENTE sem delay
       const streamData = {
         controller,
         encoder,
-        keepAlive: 0, // Será definido depois
-        lastActivity: Date.now(),
-        isReady: false // Inicialmente não está pronto
+        keepAlive: 0,
+        lastActivity: now,
+        isReady: true, // ✅ Pronto imediatamente
+        createdAt: now
       };
 
-      // AGUARDAR um pequeno delay para garantir que tudo está configurado
-      setTimeout(() => {
-        // Agora marcar como pronto e enviar confirmação
-        streamData.isReady = true;
-        
-        const data = JSON.stringify({
-          type: 'connection_established',
-          userId,
-          agentId,
-          streamKey,
-          timestamp: new Date().toISOString()
-        });
-        
-        try {
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-          console.log(`✅ Conexão confirmada e marcada como PRONTA para ${streamKey}`);
-        } catch (error) {
-          console.error('Erro ao enviar confirmação:', error);
-        }
-      }, 200); // 200ms de delay para garantir sincronização
+      // Enviar confirmação IMEDIATAMENTE
+      const data = JSON.stringify({
+        type: 'connection_established',
+        userId,
+        agentId,
+        streamKey,
+        timestamp: new Date().toISOString()
+      });
+      
+      try {
+        controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        console.log(`✅ Conexão IMEDIATAMENTE pronta para ${streamKey}`);
+      } catch (error) {
+        console.error('Erro ao enviar confirmação:', error);
+      }
 
       const keepAlive = setInterval(() => {
         try {
@@ -210,17 +228,17 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    const { message, agentPrompt, agentName, isCustomAgent, userId, sessionId, streamKey } = await req.json();
+    const { message, agentPrompt, agentName, isCustomAgent, userId, sessionId, agentId } = await req.json();
 
     console.log('📨 Processing message send:', {
       userId,
       sessionId,
       agentName,
-      streamKey,
+      agentId,
       messageLength: message?.length || 0
     });
 
-    if (!message || !agentPrompt || !agentName || !userId || !sessionId) {
+    if (!message || !agentPrompt || !agentName || !userId || !sessionId || !agentId) {
       return new Response(JSON.stringify({
         error: 'Missing required parameters'
       }), {
@@ -257,16 +275,18 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    const finalStreamKey = streamKey || `${userId}-${agentName.replace(/\s+/g, '_')}`;
-    const streamData = streamPool.get(finalStreamKey);
+    // CORRIGIDO: Usar sempre userId-agentId como streamKey
+    const streamKey = `${userId}-${agentId}`;
+    const streamData = streamPool.get(streamKey);
 
-    // CORRIGIDO: Verificar se existe E se está pronto
+    // CORRIGIDO: Verificação robusta de stream
     if (!streamData) {
-      console.warn(`⚠️ No stream found for ${finalStreamKey}. Available:`, Array.from(streamPool.keys()));
+      console.warn(`⚠️ No stream found for ${streamKey}. Available:`, Array.from(streamPool.keys()));
       return new Response(JSON.stringify({
         error: 'No active stream connection',
-        streamKey: finalStreamKey,
-        availableStreams: Array.from(streamPool.keys())
+        streamKey: streamKey,
+        availableStreams: Array.from(streamPool.keys()),
+        suggestion: 'Please refresh the page and try again'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -274,10 +294,10 @@ async function handleMessageSend(req: Request) {
     }
 
     if (!streamData.isReady) {
-      console.warn(`⚠️ Stream ${finalStreamKey} exists but is not ready yet`);
+      console.warn(`⚠️ Stream ${streamKey} exists but is not ready yet`);
       return new Response(JSON.stringify({
         error: 'Stream connection not ready yet',
-        streamKey: finalStreamKey
+        streamKey: streamKey
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -295,7 +315,7 @@ async function handleMessageSend(req: Request) {
       messageId: assistantMessageId,
       agentName,
       sessionId,
-      streamKey: finalStreamKey
+      streamKey
     });
     streamData.controller.enqueue(streamData.encoder.encode(`data: ${startData}\n\n`));
 
@@ -374,7 +394,7 @@ async function handleMessageSend(req: Request) {
                   messageId: assistantMessageId,
                   content: fullResponse,
                   sessionId,
-                  streamKey: finalStreamKey
+                  streamKey
                 });
                 streamData.controller.enqueue(streamData.encoder.encode(`data: ${deltaData}\n\n`));
                 
@@ -394,7 +414,7 @@ async function handleMessageSend(req: Request) {
         messageId: assistantMessageId,
         content: fullResponse,
         sessionId,
-        streamKey: finalStreamKey
+        streamKey
       });
       streamData.controller.enqueue(streamData.encoder.encode(`data: ${completeData}\n\n`));
     }
@@ -433,14 +453,14 @@ async function handleMessageSend(req: Request) {
       p_completion_tokens: Math.floor(tokensUsed * 0.3)
     });
 
-    console.log('✅ Streaming message completed successfully for', finalStreamKey);
+    console.log('✅ Streaming message completed successfully for', streamKey);
 
     return new Response(JSON.stringify({
       success: true,
       messageId: assistantMessageId,
       tokensUsed,
       sessionId,
-      streamKey: finalStreamKey
+      streamKey
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
