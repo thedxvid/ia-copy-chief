@@ -83,6 +83,7 @@ async function handleStreamingConnection(req: Request, url: URL) {
     });
   }
 
+  // CORRIGIDO: Usar sempre userId-agentId como padrão
   const streamKey = `${userId}-${agentId}`;
   
   // Verificar se já existe stream ativa
@@ -108,6 +109,7 @@ async function handleStreamingConnection(req: Request, url: URL) {
         type: 'connection_established',
         userId,
         agentId,
+        streamKey,
         timestamp: new Date().toISOString()
       });
       
@@ -123,6 +125,7 @@ async function handleStreamingConnection(req: Request, url: URL) {
           
           const pingData = JSON.stringify({
             type: 'ping',
+            streamKey,
             timestamp: new Date().toISOString()
           });
           controller.enqueue(encoder.encode(`data: ${pingData}\n\n`));
@@ -132,13 +135,21 @@ async function handleStreamingConnection(req: Request, url: URL) {
             console.log(`⏰ Timeout para stream ${streamKey}`);
             streamPool.delete(streamKey);
             clearInterval(keepAlive);
-            controller.close();
+            try {
+              controller.close();
+            } catch (e) {
+              console.warn('Controller already closed');
+            }
           }
         } catch (error) {
           console.error('Error sending ping:', error);
           streamPool.delete(streamKey);
           clearInterval(keepAlive);
-          controller.close();
+          try {
+            controller.close();
+          } catch (e) {
+            console.warn('Controller already closed');
+          }
         }
       }, 30000);
 
@@ -230,14 +241,16 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    // Usar streamKey fornecido ou fallback
+    // CORRIGIDO: Usar streamKey fornecido ou construir padronizado
     const finalStreamKey = streamKey || `${userId}-${agentName.replace(/\s+/g, '_')}`;
     const streamData = streamPool.get(finalStreamKey);
 
     if (!streamData) {
-      console.warn(`⚠️ No active stream found for ${finalStreamKey}`);
+      console.warn(`⚠️ No active stream found for ${finalStreamKey}. Available streams:`, Array.from(streamPool.keys()));
       return new Response(JSON.stringify({
-        error: 'No active stream connection'
+        error: 'No active stream connection',
+        streamKey: finalStreamKey,
+        availableStreams: Array.from(streamPool.keys())
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -254,7 +267,8 @@ async function handleMessageSend(req: Request) {
       type: 'message_start',
       messageId: assistantMessageId,
       agentName,
-      sessionId
+      sessionId,
+      streamKey: finalStreamKey
     });
     streamData.controller.enqueue(streamData.encoder.encode(`data: ${startData}\n\n`));
 
@@ -332,7 +346,8 @@ async function handleMessageSend(req: Request) {
                   type: 'content_delta',
                   messageId: assistantMessageId,
                   content: fullResponse,
-                  sessionId
+                  sessionId,
+                  streamKey: finalStreamKey
                 });
                 streamData.controller.enqueue(streamData.encoder.encode(`data: ${deltaData}\n\n`));
                 
@@ -351,7 +366,8 @@ async function handleMessageSend(req: Request) {
         type: 'message_complete',
         messageId: assistantMessageId,
         content: fullResponse,
-        sessionId
+        sessionId,
+        streamKey: finalStreamKey
       });
       streamData.controller.enqueue(streamData.encoder.encode(`data: ${completeData}\n\n`));
     }
@@ -390,13 +406,14 @@ async function handleMessageSend(req: Request) {
       p_completion_tokens: Math.floor(tokensUsed * 0.3)
     });
 
-    console.log('✅ Streaming message completed successfully');
+    console.log('✅ Streaming message completed successfully for', finalStreamKey);
 
     return new Response(JSON.stringify({
       success: true,
       messageId: assistantMessageId,
       tokensUsed,
-      sessionId
+      sessionId,
+      streamKey: finalStreamKey
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

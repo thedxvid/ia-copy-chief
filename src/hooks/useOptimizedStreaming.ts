@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -45,11 +46,12 @@ export const useOptimizedStreaming = (
   const connectToStream = useCallback(async () => {
     if (!user?.id || connectingRef.current) return;
 
-    const poolKey = `${user.id}-${agentId}`;
+    // CORRIGIDO: Usar sempre userId-agentId como padrão
+    const streamKey = `${user.id}-${agentId}`;
     
     // Verificar se já existe conexão ativa
-    if (connectionPool.has(poolKey)) {
-      const existingConnection = connectionPool.get(poolKey)!;
+    if (connectionPool.has(streamKey)) {
+      const existingConnection = connectionPool.get(streamKey)!;
       
       // Registrar callback para esta instância
       existingConnection.callbacks.set(callbackIdRef.current, (data) => {
@@ -59,7 +61,7 @@ export const useOptimizedStreaming = (
       updateConnectionStatus('connected');
       setState(prev => ({ ...prev, isConnected: true }));
       reconnectAttemptsRef.current = 0;
-      console.log('🔗 Reutilizando conexão SSE existente para agente:', agentId);
+      console.log('🔗 Reutilizando conexão SSE existente para agente:', agentId, 'StreamKey:', streamKey);
       return;
     }
 
@@ -85,15 +87,15 @@ export const useOptimizedStreaming = (
         handleSSEMessage(data);
       });
 
-      // Adicionar ao pool
-      connectionPool.set(poolKey, { eventSource, callbacks });
+      // Adicionar ao pool com streamKey consistente
+      connectionPool.set(streamKey, { eventSource, callbacks });
 
       eventSource.onopen = () => {
         updateConnectionStatus('connected');
         setState(prev => ({ ...prev, isConnected: true }));
         reconnectAttemptsRef.current = 0;
         connectingRef.current = false;
-        console.log('🔗 Nova conexão SSE estabelecida para agente:', agentId);
+        console.log('🔗 Nova conexão SSE estabelecida para agente:', agentId, 'StreamKey:', streamKey);
       };
 
       eventSource.onmessage = (event) => {
@@ -112,7 +114,7 @@ export const useOptimizedStreaming = (
         connectingRef.current = false;
         
         // Remover do pool
-        connectionPool.delete(poolKey);
+        connectionPool.delete(streamKey);
         
         // Notificar todos os callbacks sobre o erro
         callbacks.forEach(callback => {
@@ -194,8 +196,8 @@ export const useOptimizedStreaming = (
   }, [agentId, onMessageComplete]);
 
   const disconnectStream = useCallback(() => {
-    const poolKey = `${user?.id}-${agentId}`;
-    const connection = connectionPool.get(poolKey);
+    const streamKey = `${user?.id}-${agentId}`;
+    const connection = connectionPool.get(streamKey);
     
     if (connection) {
       // Remover apenas este callback
@@ -204,8 +206,8 @@ export const useOptimizedStreaming = (
       // Se não há mais callbacks, fechar a conexão
       if (connection.callbacks.size === 0) {
         connection.eventSource.close();
-        connectionPool.delete(poolKey);
-        console.log('🔌 Conexão SSE fechada para agente:', agentId);
+        connectionPool.delete(streamKey);
+        console.log('🔌 Conexão SSE fechada para agente:', agentId, 'StreamKey:', streamKey);
       }
     }
     
@@ -238,6 +240,25 @@ export const useOptimizedStreaming = (
       return;
     }
 
+    // CORRIGIDO: Verificar se há conexão ativa antes de enviar
+    const streamKey = `${user.id}-${agentId}`;
+    const streamData = connectionPool.get(streamKey);
+
+    if (!streamData) {
+      console.warn(`⚠️ Tentando reconectar para ${streamKey}...`);
+      toast.error('Conexão perdida. Reconectando...');
+      await connectToStream();
+      
+      // Aguardar um pouco para a conexão se estabelecer
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const retryStreamData = connectionPool.get(streamKey);
+      if (!retryStreamData) {
+        toast.error('Falha ao reconectar. Tente novamente.');
+        return;
+      }
+    }
+
     setIsSending(true);
 
     try {
@@ -261,7 +282,7 @@ export const useOptimizedStreaming = (
           isCustomAgent,
           userId: user.id,
           sessionId,
-          streamKey: `${user.id}-${agentId}` // Usar chave consistente com o pool
+          streamKey // Usar streamKey consistente
         }),
         signal: abortControllerRef.current.signal
       });
@@ -271,7 +292,7 @@ export const useOptimizedStreaming = (
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log('✅ Mensagem enviada com sucesso para agente:', agentId);
+      console.log('✅ Mensagem enviada com sucesso para agente:', agentId, 'StreamKey:', streamKey);
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -289,7 +310,7 @@ export const useOptimizedStreaming = (
       setIsSending(false);
       abortControllerRef.current = null;
     }
-  }, [user?.id, isSending, agentId]);
+  }, [user?.id, isSending, agentId, connectToStream]);
 
   const reconnect = useCallback(() => {
     reconnectAttemptsRef.current = 0;

@@ -89,6 +89,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const handleSend = async () => {
     if (!message.trim() || isSending || isTyping || !currentSession) return;
     
+    // MELHORADO: Verificar se está conectado antes de enviar
+    if (!isConnected) {
+      console.warn('⚠️ Tentando enviar sem conexão ativa, aguardando...');
+      return;
+    }
+    
     const messageToSend = message;
     setMessage(''); // Limpar input imediatamente
     
@@ -150,6 +156,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       handleNewChat();
     }
   }, [isOpen, sessions.length, currentSession]);
+
+  // Determinar se pode enviar mensagem
+  const canSendMessage = message.trim() && !isSending && !isTyping && isConnected && currentSession;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -291,7 +300,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               />
               <Button
                 onClick={handleSend}
-                disabled={!message.trim() || isSending || isTyping || !isConnected || !currentSession}
+                disabled={!canSendMessage}
                 size="lg"
                 className={`px-6 transition-all duration-200 ${
                   isSending 
@@ -304,19 +313,20 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 <Send className="w-4 h-4" />
               </Button>
             </div>
-            {(isSending || !isConnected) && (
+            {/* Status mais detalhado */}
+            {(!isConnected || isSending) && (
               <div className="mt-3 text-sm flex items-center justify-center">
                 {isSending ? (
                   <div className="text-[#3B82F6] flex items-center">
                     <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
                     Enviando mensagem...
                   </div>
-                ) : (
+                ) : !isConnected ? (
                   <div className="text-yellow-500 flex items-center">
                     <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse mr-2"></div>
-                    Conectando...
+                    {connectionStatus === 'connecting' ? 'Conectando...' : 'Aguardando conexão...'}
                   </div>
-                )}
+                ) : null}
               </div>
             )}
           </div>
