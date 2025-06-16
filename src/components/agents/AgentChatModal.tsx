@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { useOptimizedStreaming } from '@/hooks/useOptimizedStreaming';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { StreamingMessage } from '@/components/chat/StreamingMessage';
 import { ConnectionStatus } from '@/components/chat/ConnectionStatus';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 interface Agent {
   id: string;
