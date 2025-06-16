@@ -1,5 +1,6 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,10 +43,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionInitializedRef = useRef(false);
   
-  debugLog('MODAL_RENDER', `Modal renderizado para agente: ${agent.name}`, { 
+  debugLog('MODAL_RENDER', `🎯 Modal renderizado para agente: ${agent.name}`, { 
     agentId: agent.id, 
     isOpen 
   });
+  
+  // Memoizar o agentId para evitar recriações do hook
+  const stableAgentId = useMemo(() => agent.id, [agent.id]);
   
   const {
     sessions,
@@ -56,7 +60,21 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     addMessage,
     updateMessage,
     deleteSession
-  } = useChatSessions(agent.id);
+  } = useChatSessions(stableAgentId);
+
+  // Memoizar o callback para evitar recriações
+  const handleMessageComplete = useMemo(() => {
+    return async (messageId: string, content: string) => {
+      debugLog('MESSAGE_COMPLETE', '✅ Mensagem streaming completa recebida pelo modal', { 
+        messageId, 
+        contentLength: content.length,
+        sessionId: currentSession?.id 
+      });
+      if (currentSession) {
+        await updateMessage(messageId, content, true);
+      }
+    };
+  }, [currentSession, updateMessage]);
 
   const {
     isConnected,
@@ -68,22 +86,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     canSendMessage,
     sendMessage,
     reconnect
-  } = useOptimizedStreaming(agent.id, async (messageId: string, content: string) => {
-      debugLog('MESSAGE_COMPLETE', 'Mensagem streaming completa recebida pelo modal', { 
-        messageId, 
-        contentLength: content.length,
-        sessionId: currentSession?.id 
-      });
-      if (currentSession) {
-        await updateMessage(messageId, content, true);
-      }
-    });
+  } = useOptimizedStreaming(stableAgentId, handleMessageComplete);
 
   // Efeito para inicializar sessão APENAS uma vez quando o modal abrir
   useEffect(() => {
     if (isOpen && agent.id && !sessionInitializedRef.current) {
       sessionInitializedRef.current = true;
-      debugLog('SESSION_INIT', 'Inicializando sessão para agente', { agentId: agent.id, agentName: agent.name });
+      debugLog('SESSION_INIT', '🎯 Inicializando sessão para agente', { agentId: agent.id, agentName: agent.name });
       findOrCreateSessionForAgent(agent.name);
     }
     
@@ -112,13 +121,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     }
   }, [isOpen, currentSession]);
 
-  const handleNewChat = async () => {
-    debugLog('NEW_CHAT', 'Criando nova sessão', { agentName: agent.name, agentId: agent.id });
+  const handleNewChat = useCallback(async () => {
+    debugLog('NEW_CHAT', '🔄 Criando nova sessão', { agentName: agent.name, agentId: agent.id });
     await findOrCreateSessionForAgent(agent.name);
-  };
+  }, [agent.name, agent.id, findOrCreateSessionForAgent]);
 
-  const handleSend = async () => {
-    debugLog('SEND_ATTEMPT', 'Tentativa de envio', {
+  const handleSend = useCallback(async () => {
+    debugLog('SEND_ATTEMPT', '📤 Tentativa de envio', {
       hasMessage: !!message.trim(),
       canSendMessage,
       hasCurrentSession: !!currentSession,
@@ -157,7 +166,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     const messageToSend = message;
     setMessage('');
     
-    debugLog('SEND_START', 'Iniciando envio de mensagem', {
+    debugLog('SEND_START', '🚀 Iniciando envio de mensagem', {
       messageLength: messageToSend.length,
       sessionId: currentSession.id,
       agentId: agent.id,
@@ -165,13 +174,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     });
     
     try {
-      debugLog('USER_MESSAGE', 'Adicionando mensagem do usuário');
+      debugLog('USER_MESSAGE', '👤 Adicionando mensagem do usuário');
       await addMessage(currentSession.id, 'user', messageToSend);
 
-      debugLog('ASSISTANT_MESSAGE', 'Criando mensagem placeholder do assistente');
+      debugLog('ASSISTANT_MESSAGE', '🤖 Criando mensagem placeholder do assistente');
       const assistantMessage = await addMessage(currentSession.id, 'assistant', '', 0);
 
-      debugLog('STREAMING_SEND', 'Enviando para streaming', {
+      debugLog('STREAMING_SEND', '📡 Enviando para streaming', {
         sessionId: currentSession.id,
         agentPrompt: agent.prompt,
         agentName: agent.name,
@@ -207,20 +216,35 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         }
       }
     }
-  };
+  }, [
+    message,
+    canSendMessage,
+    currentSession,
+    agent.id,
+    agent.name,
+    agent.prompt,
+    agent.isCustom,
+    connectionStatus,
+    isConnected,
+    isSending,
+    isTyping,
+    addMessage,
+    sendMessage,
+    reconnect
+  ]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      debugLog('KEYBOARD_SEND', 'Enviando via Enter');
+      debugLog('KEYBOARD_SEND', '⌨️ Enviando via Enter');
       handleSend();
     }
-  };
+  }, [handleSend]);
 
-  const exportChat = () => {
+  const exportChat = useCallback(() => {
     if (messages.length === 0 || !currentSession) return;
 
-    debugLog('EXPORT_CHAT', 'Exportando chat', {
+    debugLog('EXPORT_CHAT', '📁 Exportando chat', {
       messageCount: messages.length,
       sessionTitle: currentSession.title
     });
@@ -243,7 +267,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }, [messages, currentSession, agent.name]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

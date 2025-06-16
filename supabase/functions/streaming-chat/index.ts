@@ -52,55 +52,100 @@ async function handleStreamingConnection(req: Request) {
   }
 
   const streamKey = `${userId}-${agentId}`;
-  debugLog('INFO', `Nova conexão SSE solicitada para a chave: ${streamKey}`);
+  debugLog('INFO', `🔄 Nova conexão SSE solicitada para: ${streamKey}`);
 
   const stream = new ReadableStream({
     start(controller) {
       // Fechar stream antigo se existir
       if (clientStreams.has(streamKey)) {
-        debugLog('WARN', `Fechando stream antigo para a chave: ${streamKey}`);
+        debugLog('WARN', `🔄 Fechando stream antigo para: ${streamKey}`);
         try { 
           clientStreams.get(streamKey)?.close(); 
         } catch (e) { 
-          debugLog('WARN', 'Erro ao fechar stream antigo', { error: e.message });
+          debugLog('WARN', '⚠️ Erro ao fechar stream antigo', { error: e.message });
         }
       }
       
+      // Registrar novo stream
       clientStreams.set(streamKey, controller);
-      debugLog('INFO', `Stream aberto e registrado para: ${streamKey}. Streams ativos: ${clientStreams.size}`);
+      debugLog('INFO', `✅ Stream registrado para: ${streamKey}. Total ativo: ${clientStreams.size}`);
       
-      // Enviar confirmação de conexão
-      const connectionData = JSON.stringify({ type: 'connection_established' });
-      controller.enqueue(`data: ${connectionData}\n\n`);
-      debugLog('INFO', `Mensagem 'connection_established' enviada para ${streamKey}`);
+      // CRÍTICO: Enviar confirmação imediatamente e com retry
+      const sendConnectionEstablished = () => {
+        try {
+          const connectionData = JSON.stringify({ 
+            type: 'connection_established',
+            timestamp: new Date().toISOString(),
+            streamKey
+          });
+          controller.enqueue(`data: ${connectionData}\n\n`);
+          debugLog('INFO', `🎯 SUCESSO: connection_established enviado para ${streamKey}`);
+          return true;
+        } catch (error) {
+          debugLog('ERROR', `❌ FALHA ao enviar connection_established para ${streamKey}`, { error: error.message });
+          return false;
+        }
+      };
 
-      // Configurar ping periódico para manter conexão viva
+      // Enviar connection_established com retry
+      let attempts = 0;
+      const maxAttempts = 3;
+      const sendWithRetry = () => {
+        attempts++;
+        const success = sendConnectionEstablished();
+        
+        if (!success && attempts < maxAttempts) {
+          debugLog('WARN', `🔄 Tentativa ${attempts}/${maxAttempts} falhou, tentando novamente em 100ms`);
+          setTimeout(sendWithRetry, 100);
+        } else if (!success) {
+          debugLog('ERROR', `❌ FALHA CRÍTICA: Não foi possível enviar connection_established após ${maxAttempts} tentativas`);
+          try {
+            controller.close();
+          } catch (e) {
+            debugLog('ERROR', 'Erro ao fechar controller após falha', { error: e.message });
+          }
+          clientStreams.delete(streamKey);
+        }
+      };
+
+      // Iniciar envio imediato
+      sendWithRetry();
+
+      // Sistema de ping melhorado para manter conexão viva
       const pingInterval = setInterval(() => {
         try {
           if (clientStreams.has(streamKey)) {
-            const pingData = JSON.stringify({ type: 'ping', timestamp: Date.now() });
+            const pingData = JSON.stringify({ 
+              type: 'ping', 
+              timestamp: Date.now(),
+              streamKey,
+              activeStreams: clientStreams.size
+            });
             controller.enqueue(`data: ${pingData}\n\n`);
-            debugLog('INFO', `Ping enviado para ${streamKey}`);
+            debugLog('INFO', `💓 Ping enviado para ${streamKey} (${clientStreams.size} streams ativos)`);
           } else {
+            debugLog('WARN', `🚫 Stream ${streamKey} não existe mais, parando ping`);
             clearInterval(pingInterval);
           }
         } catch (error) {
-          debugLog('ERROR', 'Erro ao enviar ping', { streamKey, error: error.message });
+          debugLog('ERROR', `❌ Erro no ping para ${streamKey}`, { error: error.message });
           clearInterval(pingInterval);
           clientStreams.delete(streamKey);
         }
-      }, 30000); // Ping a cada 30 segundos
+      }, 15000); // Ping a cada 15 segundos (mais frequente)
 
-      // Limpar ping quando stream for cancelado
+      // Cleanup quando stream for cancelado
       const originalCancel = controller.cancel;
       controller.cancel = function(reason) {
+        debugLog('INFO', `🔄 Stream cancelado para ${streamKey}`, { reason });
         clearInterval(pingInterval);
+        clientStreams.delete(streamKey);
         return originalCancel.call(this, reason);
       };
     },
     cancel(reason) {
       clientStreams.delete(streamKey);
-      debugLog('INFO', `Conexão SSE fechada para: ${streamKey}. Streams ativos: ${clientStreams.size}`, { reason });
+      debugLog('INFO', `🔚 Conexão SSE fechada para: ${streamKey}. Streams ativos: ${clientStreams.size}`, { reason });
     }
   });
 
@@ -110,7 +155,8 @@ async function handleStreamingConnection(req: Request) {
       'Content-Type': 'text/event-stream', 
       'Cache-Control': 'no-cache', 
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Nginx optimization
+      'X-Accel-Buffering': 'no',
+      'Access-Control-Expose-Headers': 'Content-Type'
     },
   });
 }
@@ -141,7 +187,7 @@ async function handleMessageSend(req: Request) {
     const finalUserId = validatedUserId || userId;
     const streamKey = `${finalUserId}-${agentId}`;
     
-    debugLog('INFO', `Mensagem recebida para ${streamKey}`, { 
+    debugLog('INFO', `📨 Mensagem recebida para ${streamKey}`, { 
       agentName, 
       messageLength: message?.length,
       hasPrompt: !!agentPrompt
@@ -149,10 +195,11 @@ async function handleMessageSend(req: Request) {
     
     const controller = clientStreams.get(streamKey);
     if (!controller) {
-      debugLog('ERROR', `Nenhum stream ativo para ${streamKey}`);
+      debugLog('ERROR', `❌ CRÍTICO: Nenhum stream ativo para ${streamKey}. Streams disponíveis: ${Array.from(clientStreams.keys()).join(', ')}`);
       return new Response(JSON.stringify({ 
         error: `Nenhuma conexão de streaming ativa para o agente ${agentName}.`,
-        code: 'NO_ACTIVE_STREAM'
+        code: 'NO_ACTIVE_STREAM',
+        availableStreams: Array.from(clientStreams.keys())
       }), { 
         status: 404, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -165,13 +212,13 @@ async function handleMessageSend(req: Request) {
     );
     
     // Verificar tokens disponíveis
-    debugLog('INFO', 'Verificando tokens disponíveis', { userId: finalUserId });
+    debugLog('INFO', '🪙 Verificando tokens disponíveis', { userId: finalUserId });
     const { data: tokensData, error: tokensError } = await supabase.rpc('get_available_tokens', { 
       p_user_id: finalUserId 
     });
 
     if (tokensError) {
-      debugLog('ERROR', 'Erro ao verificar tokens', { error: tokensError });
+      debugLog('ERROR', '❌ Erro ao verificar tokens', { error: tokensError });
       return new Response(JSON.stringify({ 
         error: 'Erro ao verificar tokens disponíveis',
         code: 'TOKEN_CHECK_ERROR'
@@ -182,7 +229,7 @@ async function handleMessageSend(req: Request) {
     }
 
     if (!tokensData?.[0] || tokensData[0].total_available < 1000) {
-      debugLog('ERROR', 'Tokens insuficientes', { 
+      debugLog('ERROR', '💸 Tokens insuficientes', { 
         userId: finalUserId, 
         tokens: tokensData?.[0]?.total_available 
       });
@@ -198,16 +245,25 @@ async function handleMessageSend(req: Request) {
     
     const messageId = `asst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Notificar início da mensagem
-    try {
-      controller.enqueue(`data: ${JSON.stringify({ 
-        type: 'message_start', 
-        messageId, 
-        sessionId 
-      })}\n\n`);
-      debugLog('INFO', `Enviado message_start para ${streamKey}`, { messageId });
-    } catch (error) {
-      debugLog('ERROR', 'Erro ao enviar message_start', { error: error.message });
+    // Notificar início da mensagem com retry
+    const sendMessageStart = () => {
+      try {
+        const startData = JSON.stringify({ 
+          type: 'message_start', 
+          messageId, 
+          sessionId,
+          timestamp: new Date().toISOString()
+        });
+        controller.enqueue(`data: ${startData}\n\n`);
+        debugLog('INFO', `🚀 message_start enviado para ${streamKey}`, { messageId });
+        return true;
+      } catch (error) {
+        debugLog('ERROR', '❌ Erro ao enviar message_start', { error: error.message });
+        return false;
+      }
+    };
+
+    if (!sendMessageStart()) {
       return new Response(JSON.stringify({ 
         error: 'Erro na comunicação de streaming',
         code: 'STREAM_ERROR'
@@ -218,7 +274,7 @@ async function handleMessageSend(req: Request) {
     }
     
     // Fazer request para Claude API
-    debugLog('INFO', 'Fazendo request para Claude API', { messageId });
+    debugLog('INFO', '🤖 Fazendo request para Claude API', { messageId });
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -237,7 +293,7 @@ async function handleMessageSend(req: Request) {
 
     if (!claudeResponse.ok) {
       const errorText = await claudeResponse.text();
-      debugLog('ERROR', `Claude API error: ${claudeResponse.status}`, { errorText });
+      debugLog('ERROR', `❌ Claude API error: ${claudeResponse.status}`, { errorText });
       throw new Error(`Claude API error: ${claudeResponse.status} ${claudeResponse.statusText}`);
     }
 
@@ -275,17 +331,18 @@ async function handleMessageSend(req: Request) {
                   const deltaData = JSON.stringify({ 
                     type: 'content_delta', 
                     messageId, 
-                    content: fullContent
+                    content: fullContent,
+                    timestamp: new Date().toISOString()
                   });
                   controller.enqueue(`data: ${deltaData}\n\n`);
                 }
               } else if (parsed.type === 'message_start') {
-                debugLog('INFO', 'Claude message started', { messageId });
+                debugLog('INFO', '🤖 Claude message started', { messageId });
               } else if (parsed.type === 'content_block_start') {
-                debugLog('INFO', 'Claude content block started', { messageId });
+                debugLog('INFO', '📝 Claude content block started', { messageId });
               }
             } catch (e) {
-              debugLog('WARN', 'Erro ao parsear chunk JSON', { error: e.message, jsonStr });
+              debugLog('WARN', '⚠️ Erro ao parsear chunk JSON', { error: e.message, jsonStr });
             }
           }
         }
@@ -294,20 +351,32 @@ async function handleMessageSend(req: Request) {
       reader.releaseLock();
     }
     
-    // Enviar mensagem completa
-    if (clientStreams.has(streamKey)) {
-      const completeData = JSON.stringify({ 
-        type: 'message_complete', 
-        messageId, 
-        content: fullContent
-      });
-      controller.enqueue(`data: ${completeData}\n\n`);
-      debugLog('INFO', `Enviado message_complete para ${streamKey}`, { 
-        messageId, 
-        contentLength: fullContent.length,
-        tokensUsed
-      });
-    }
+    // Enviar mensagem completa com retry
+    const sendMessageComplete = () => {
+      try {
+        if (clientStreams.has(streamKey)) {
+          const completeData = JSON.stringify({ 
+            type: 'message_complete', 
+            messageId, 
+            content: fullContent,
+            timestamp: new Date().toISOString()
+          });
+          controller.enqueue(`data: ${completeData}\n\n`);
+          debugLog('INFO', `✅ message_complete enviado para ${streamKey}`, { 
+            messageId, 
+            contentLength: fullContent.length,
+            tokensUsed
+          });
+          return true;
+        }
+        return false;
+      } catch (error) {
+        debugLog('ERROR', '❌ Erro ao enviar message_complete', { error: error.message });
+        return false;
+      }
+    };
+
+    sendMessageComplete();
 
     // Consumir tokens
     const finalTokensUsed = Math.max(tokensUsed, Math.ceil(fullContent.length * 1.3));
@@ -317,29 +386,31 @@ async function handleMessageSend(req: Request) {
         p_tokens_used: finalTokensUsed, 
         p_feature_used: 'streaming_chat' 
       });
-      debugLog('INFO', 'Tokens consumidos com sucesso', { 
+      debugLog('INFO', '🪙 Tokens consumidos com sucesso', { 
         userId: finalUserId, 
         tokensUsed: finalTokensUsed 
       });
     } catch (error) {
-      debugLog('ERROR', 'Erro ao consumir tokens', { error: error.message });
+      debugLog('ERROR', '❌ Erro ao consumir tokens', { error: error.message });
     }
 
     return new Response(JSON.stringify({ 
       success: true, 
       messageId,
-      tokensUsed: finalTokensUsed
+      tokensUsed: finalTokensUsed,
+      timestamp: new Date().toISOString()
     }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
     
   } catch (e) {
-    debugLog('ERROR', 'Erro no handleMessageSend', { error: e.message, stack: e.stack });
+    debugLog('ERROR', '❌ Erro no handleMessageSend', { error: e.message, stack: e.stack });
     
     const errorResponse = {
       error: 'Erro interno do servidor ao enviar mensagem.',
       code: 'INTERNAL_ERROR',
-      details: e.message
+      details: e.message,
+      timestamp: new Date().toISOString()
     };
     
     return new Response(JSON.stringify(errorResponse), { 
@@ -372,10 +443,11 @@ serve(async (req) => {
     });
     
   } catch (e) {
-    debugLog('ERROR', 'Erro fatal na Edge Function', { error: e.message, stack: e.stack });
+    debugLog('ERROR', '💥 Erro fatal na Edge Function', { error: e.message, stack: e.stack });
     return new Response(JSON.stringify({ 
       error: 'Erro interno fatal no servidor.',
-      code: 'FATAL_ERROR'
+      code: 'FATAL_ERROR',
+      timestamp: new Date().toISOString()
     }), { 
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
