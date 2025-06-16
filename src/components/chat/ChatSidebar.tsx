@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -42,6 +41,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onToggle,
   isMobile = false
 }) => {
+  console.log('🎯 ChatSidebar render:', { isMobile, isOpen, sessionsCount: sessions.length });
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -73,22 +74,55 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return `Conversa ${session.id.slice(0, 8)}...`;
   };
 
-  // Em mobile, renderizar como overlay quando aberto
+  const handleBackdropClick = () => {
+    console.log('🎯 Backdrop clicked - closing sidebar');
+    if (onToggle) {
+      onToggle();
+    }
+  };
+
+  const handleSidebarClick = (e: React.MouseEvent) => {
+    // Impede que cliques dentro da sidebar fechem ela
+    e.stopPropagation();
+  };
+
+  // Em mobile, renderizar como portal fixo na tela
   if (isMobile) {
+    console.log('🎯 Rendering mobile sidebar:', { isOpen });
+    
+    if (!isOpen) {
+      return null;
+    }
+
     return (
       <>
-        {/* Backdrop */}
-        {isOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={onToggle}
-          />
-        )}
+        {/* Backdrop com z-index muito alto */}
+        <div 
+          className="fixed inset-0 bg-black/60 z-[9998] animate-in fade-in-0 duration-300"
+          onClick={handleBackdropClick}
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9998
+          }}
+        />
         
-        {/* Sidebar como drawer */}
-        <div className={`fixed left-0 top-0 h-full w-80 bg-[#1A1A1A] border-r border-[#4B5563]/20 flex flex-col z-50 transform transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
+        {/* Sidebar como elemento fixo na tela */}
+        <div 
+          className="fixed left-0 top-0 h-full w-80 bg-[#1A1A1A] border-r border-[#4B5563]/20 flex flex-col z-[9999] animate-in slide-in-from-left-0 duration-300"
+          onClick={handleSidebarClick}
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            height: '100vh',
+            width: '320px',
+            zIndex: 9999
+          }}
+        >
           {/* Header com botão de fechar */}
           <div className="p-4 border-b border-[#4B5563]/20">
             <div className="flex items-center justify-between mb-4">
@@ -106,16 +140,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 variant="ghost"
                 size="icon"
                 onClick={onToggle}
-                className="text-[#CCCCCC] hover:text-white"
+                className="text-[#CCCCCC] hover:text-white min-h-[44px] min-w-[44px] touch-manipulation"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
             
             <Button
               onClick={onNewChat}
               disabled={isLoading}
-              className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+              className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white min-h-[44px] touch-manipulation"
             >
               <Plus className="w-4 h-4 mr-2" />
               Nova Conversa
@@ -136,7 +170,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   {sessions.map((session) => (
                     <div
                       key={session.id}
-                      className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                      className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 min-h-[44px] touch-manipulation ${
                         currentSession?.id === session.id
                           ? 'bg-[#3B82F6]/20 border border-[#3B82F6]/30'
                           : 'hover:bg-[#2A2A2A] border border-transparent'
@@ -170,7 +204,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                           e.stopPropagation();
                           onDeleteSession(session.id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 w-6 h-6 text-[#888888] hover:text-red-400 transition-all min-h-[44px] min-w-[44px]"
+                        className="opacity-0 group-hover:opacity-100 w-8 h-8 text-[#888888] hover:text-red-400 transition-all min-h-[44px] min-w-[44px] touch-manipulation"
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
@@ -192,7 +226,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     );
   }
 
-  // Layout desktop padrão
+  // Layout desktop padrão (sem mudanças)
   return (
     <div className="w-80 bg-[#1A1A1A] border-r border-[#4B5563]/20 flex flex-col h-full">
       {/* Header */}

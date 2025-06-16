@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -315,8 +314,18 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   };
 
   const handleToggleSidebar = () => {
-    console.log('🔄 Toggling sidebar:', { current: isSidebarOpen, new: !isSidebarOpen });
-    setIsSidebarOpen(!isSidebarOpen);
+    console.log('🎯 TOGGLE SIDEBAR CHAMADO:', { 
+      current: isSidebarOpen, 
+      new: !isSidebarOpen, 
+      isMobile,
+      agent: agent.name 
+    });
+    
+    setIsSidebarOpen(prev => {
+      const newState = !prev;
+      console.log('🎯 ESTADO ATUALIZADO:', { prev, newState });
+      return newState;
+    });
   };
 
   return (
@@ -326,26 +335,28 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           isMobile 
             ? 'max-w-full w-full h-full max-h-screen m-0 rounded-none' 
             : 'max-w-7xl w-full h-[90vh]'
-        } flex p-0`}
+        } flex p-0 z-50`}
         hideCloseButton={true}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>Chat com {agent.name}</DialogTitle>
         </DialogHeader>
 
-        {/* Sidebar */}
-        <ChatSidebar
-          sessions={sessions}
-          currentSession={currentSession}
-          agentName={agent.name}
-          agentIcon={agent.icon}
-          onNewChat={handleNewChat}
-          onSelectSession={selectSession}
-          onDeleteSession={deleteSession}
-          isOpen={isSidebarOpen}
-          onToggle={handleToggleSidebar}
-          isMobile={isMobile}
-        />
+        {/* Sidebar renderizada FORA do flex principal em mobile */}
+        {!isMobile && (
+          <ChatSidebar
+            sessions={sessions}
+            currentSession={currentSession}
+            agentName={agent.name}
+            agentIcon={agent.icon}
+            onNewChat={handleNewChat}
+            onSelectSession={selectSession}
+            onDeleteSession={deleteSession}
+            isOpen={isSidebarOpen}
+            onToggle={handleToggleSidebar}
+            isMobile={isMobile}
+          />
+        )}
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
@@ -357,8 +368,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                   variant="ghost"
                   size="icon"
                   onClick={handleToggleSidebar}
-                  className="text-[#CCCCCC] hover:text-white flex-shrink-0 w-10 h-10 min-h-[44px] min-w-[44px] touch-manipulation"
+                  className="text-[#CCCCCC] hover:text-white hover:bg-[#3B82F6]/20 flex-shrink-0 w-10 h-10 min-h-[44px] min-w-[44px] touch-manipulation border border-[#4B5563]/20"
                   aria-label="Abrir histórico de conversas"
+                  style={{ zIndex: 10 }}
                 >
                   <Menu className="w-5 h-5" />
                 </Button>
@@ -483,6 +495,22 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           </div>
         </div>
       </DialogContent>
+
+      {/* Sidebar mobile renderizada FORA do Dialog */}
+      {isMobile && (
+        <ChatSidebar
+          sessions={sessions}
+          currentSession={currentSession}
+          agentName={agent.name}
+          agentIcon={agent.icon}
+          onNewChat={handleNewChat}
+          onSelectSession={selectSession}
+          onDeleteSession={deleteSession}
+          isOpen={isSidebarOpen}
+          onToggle={handleToggleSidebar}
+          isMobile={isMobile}
+        />
+      )}
     </Dialog>
   );
 };
