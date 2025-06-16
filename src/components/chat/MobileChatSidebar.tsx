@@ -88,12 +88,11 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
 
   const handleNewChat = async () => {
     console.log('🎯 New chat clicked');
-    setIsLoading(true);
     try {
       await onNewChat();
       onClose();
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('❌ Erro ao criar nova conversa:', error);
     }
   };
 
@@ -108,20 +107,16 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
   }
 
   return (
-    <>
+    <div className="fixed inset-0 z-[100] flex">
       {/* Backdrop */}
       <div 
-        className={`fixed inset-0 bg-black/70 z-[60] transition-opacity duration-300 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
         onClick={handleBackdropClick}
       />
       
       {/* Sidebar */}
       <div 
-        className={`fixed left-0 top-0 h-full w-80 bg-[#1A1A1A] border-r border-[#4B5563]/20 flex flex-col z-[70] transition-transform duration-300 ease-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className="relative w-80 h-full bg-[#1A1A1A] border-r border-[#4B5563]/20 flex flex-col animate-slide-in-from-left"
         onClick={handleSidebarClick}
       >
         {/* Header */}
@@ -150,7 +145,7 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
           <Button
             onClick={handleNewChat}
             disabled={isLoading}
-            className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white min-h-[44px] touch-manipulation disabled:opacity-50"
+            className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white min-h-[44px] touch-manipulation disabled:opacity-50 transition-all duration-200"
           >
             <Plus className="w-4 h-4 mr-2" />
             {isLoading ? 'Criando...' : 'Nova Conversa'}
@@ -161,22 +156,23 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
         <ScrollArea className="flex-1">
           <div className="p-2">
             {sessions.length === 0 ? (
-              <div className="text-center py-8 text-[#888888]">
+              <div className="text-center py-8 text-[#888888] animate-fade-in">
                 <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p className="text-sm">Nenhuma conversa ainda</p>
                 <p className="text-xs mt-1">Clique em "Nova Conversa" para começar</p>
               </div>
             ) : (
               <div className="space-y-1">
-                {sessions.map((session) => (
+                {sessions.map((session, index) => (
                   <div
                     key={session.id}
-                    className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 min-h-[44px] touch-manipulation ${
+                    className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 min-h-[44px] touch-manipulation animate-fade-in ${
                       currentSession?.id === session.id
                         ? 'bg-[#3B82F6]/20 border border-[#3B82F6]/30'
                         : 'hover:bg-[#2A2A2A] border border-transparent'
                     }`}
                     onClick={() => handleSessionSelect(session)}
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
@@ -218,11 +214,11 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
 
         {/* Footer */}
         <div className="p-4 border-t border-[#4B5563]/20">
-          <div className="text-xs text-[#888888] text-center">
+          <div className="text-xs text-[#888888] text-center animate-fade-in">
             {sessions.length} conversa{sessions.length !== 1 ? 's' : ''} salva{sessions.length !== 1 ? 's' : ''}
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
