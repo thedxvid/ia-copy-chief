@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -44,7 +45,6 @@ async function handleStreamingConnection(req: Request, url: URL) {
 
   console.log(`🔗 SSE connection established for user ${userId}, agent ${agentId}`);
 
-  // Create SSE response
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
@@ -72,19 +72,21 @@ async function handleStreamingConnection(req: Request, url: URL) {
           clearInterval(keepAlive);
           controller.close();
         }
-      }, 30000); // Ping every 30 seconds
+      }, 30000);
 
-      // Store controller for later use (in production, use Redis or similar)
-      globalThis[`stream_${userId}_${agentId}`] = { controller, encoder, keepAlive };
+      // Store controller globally (in production, use Redis)
+      const streamKey = `stream_${userId}_${agentId}`;
+      globalThis[streamKey] = { controller, encoder, keepAlive };
     },
 
     cancel() {
       console.log(`🔌 SSE connection closed for user ${userId}, agent ${agentId}`);
-      const streamData = globalThis[`stream_${userId}_${agentId}`];
+      const streamKey = `stream_${userId}_${agentId}`;
+      const streamData = globalThis[streamKey];
       if (streamData?.keepAlive) {
         clearInterval(streamData.keepAlive);
       }
-      delete globalThis[`stream_${userId}_${agentId}`];
+      delete globalThis[streamKey];
     }
   });
 
@@ -154,11 +156,13 @@ async function handleMessageSend(req: Request) {
       console.warn(`⚠️ No active stream found for ${streamKey}`);
     }
 
+    const assistantMessageId = `assistant-${Date.now()}`;
+
     // Send message start event
     if (streamData) {
       const startData = JSON.stringify({
         type: 'message_start',
-        messageId: `assistant-${Date.now()}`,
+        messageId: assistantMessageId,
         agentName
       });
       streamData.controller.enqueue(streamData.encoder.encode(`data: ${startData}\n\n`));
@@ -189,7 +193,6 @@ async function handleMessageSend(req: Request) {
     const reader = claudeResponse.body?.getReader();
     const decoder = new TextDecoder();
     let fullResponse = '';
-    const assistantMessageId = `assistant-${Date.now()}`;
 
     if (reader && streamData) {
       while (true) {
