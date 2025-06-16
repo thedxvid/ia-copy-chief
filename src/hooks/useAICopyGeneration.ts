@@ -18,24 +18,28 @@ export interface SalesVideoBriefing extends AIBriefing {
   video_duration: string;
   offer_details: string;
   price_strategy: string;
+  copy_type: 'sales_video';
 }
 
 export interface AdsBriefing extends AIBriefing {
   platform: string;
   campaign_objective: 'sales' | 'leads' | 'traffic' | 'awareness';
   budget_range: string;
+  copy_type: 'ads';
 }
 
 export interface PagesBriefing extends AIBriefing {
   page_type: 'landing' | 'sales' | 'squeeze' | 'thank-you' | 'webinar';
   conversion_goal: string;
   main_offer: string;
+  copy_type: 'page';
 }
 
 export interface ContentBriefing extends AIBriefing {
   content_type: 'post' | 'email' | 'newsletter' | 'blog' | 'caption' | 'story';
   content_length: 'short' | 'medium' | 'long';
   call_to_action: string;
+  copy_type: 'content';
 }
 
 export const useAICopyGeneration = () => {
@@ -60,24 +64,25 @@ export const useAICopyGeneration = () => {
     setIsGenerating(true);
     
     try {
-      const prompt = buildSalesVideoPrompt(briefing);
+      console.log('🎬 Generating sales video copy with briefing:', briefing);
       
+      // Estrutura corrigida para compatibilidade com a edge function
       const result = await triggerN8nWorkflow({
         type: 'copy_generation',
         user_id: user.id,
         data: {
           copy_type: 'sales_video',
-          prompt,
-          briefing
+          briefing: briefing
         },
         workflow_id: 'specialized-copy-generation'
       });
 
       const content = {
         hook: extractSection(result.generatedCopy, 'HOOK'),
-        script: extractSection(result.generatedCopy, 'SCRIPT'),
+        script: extractSection(result.generatedCopy, 'SCRIPT') || extractSection(result.generatedCopy, 'DESENVOLVIMENTO'),
         cta: extractSection(result.generatedCopy, 'CTA'),
-        duration: briefing.video_duration
+        duration: briefing.video_duration,
+        fullContent: result.generatedCopy
       };
 
       setGeneratedContent(content);
@@ -86,7 +91,17 @@ export const useAICopyGeneration = () => {
       
     } catch (error) {
       console.error('Erro ao gerar copy de vídeo:', error);
-      toast.error('Erro ao gerar copy. Tente novamente.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar copy. Tente novamente.';
+      
+      if (errorMessage.includes('Tokens insuficientes')) {
+        toast.error('❌ Tokens Insuficientes!', {
+          description: 'Você não tem tokens suficientes para esta operação.',
+        });
+      } else {
+        toast.error('❌ Erro ao gerar copy', {
+          description: errorMessage,
+        });
+      }
       return null;
     } finally {
       setIsGenerating(false);
@@ -107,23 +122,26 @@ export const useAICopyGeneration = () => {
     setIsGenerating(true);
     
     try {
-      const prompt = buildAdsPrompt(briefing);
+      console.log('📢 Generating ads copy with briefing:', briefing);
       
+      // Estrutura corrigida para compatibilidade com a edge function
       const result = await triggerN8nWorkflow({
         type: 'copy_generation',
         user_id: user.id,
         data: {
           copy_type: 'ads',
-          prompt,
-          briefing
+          briefing: briefing
         },
         workflow_id: 'specialized-copy-generation'
       });
 
       const content = {
-        headline: extractSection(result.generatedCopy, 'HEADLINE'),
-        content: extractSection(result.generatedCopy, 'BODY'),
-        cta: extractSection(result.generatedCopy, 'CTA')
+        headline: extractSection(result.generatedCopy, 'HEADLINE') || extractSection(result.generatedCopy, 'VARIAÇÃO 1'),
+        content: extractSection(result.generatedCopy, 'BODY') || extractSection(result.generatedCopy, 'VARIAÇÃO 2'),
+        cta: extractSection(result.generatedCopy, 'CTA') || extractSection(result.generatedCopy, 'VARIAÇÃO 3'),
+        variations: extractVariations(result.generatedCopy),
+        platform: briefing.platform,
+        fullContent: result.generatedCopy
       };
 
       setGeneratedContent(content);
@@ -132,7 +150,17 @@ export const useAICopyGeneration = () => {
       
     } catch (error) {
       console.error('Erro ao gerar copy de anúncio:', error);
-      toast.error('Erro ao gerar copy. Tente novamente.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar copy. Tente novamente.';
+      
+      if (errorMessage.includes('Tokens insuficientes')) {
+        toast.error('❌ Tokens Insuficientes!', {
+          description: 'Você não tem tokens suficientes para esta operação.',
+        });
+      } else {
+        toast.error('❌ Erro ao gerar copy', {
+          description: errorMessage,
+        });
+      }
       return null;
     } finally {
       setIsGenerating(false);
@@ -153,15 +181,15 @@ export const useAICopyGeneration = () => {
     setIsGenerating(true);
     
     try {
-      const prompt = buildPagePrompt(briefing);
+      console.log('📄 Generating page copy with briefing:', briefing);
       
+      // Estrutura corrigida para compatibilidade com a edge function
       const result = await triggerN8nWorkflow({
         type: 'copy_generation',
         user_id: user.id,
         data: {
           copy_type: 'page',
-          prompt,
-          briefing
+          briefing: briefing
         },
         workflow_id: 'specialized-copy-generation'
       });
@@ -170,8 +198,10 @@ export const useAICopyGeneration = () => {
         page_type: briefing.page_type,
         headline: extractSection(result.generatedCopy, 'HEADLINE'),
         subheadline: extractSection(result.generatedCopy, 'SUBHEADLINE'),
-        content: extractSection(result.generatedCopy, 'CONTENT'),
-        cta: extractSection(result.generatedCopy, 'CTA')
+        content: extractSection(result.generatedCopy, 'CONTENT') || extractSection(result.generatedCopy, 'BENEFÍCIOS'),
+        cta: extractSection(result.generatedCopy, 'CTA'),
+        benefits: extractSection(result.generatedCopy, 'BENEFÍCIOS'),
+        fullContent: result.generatedCopy
       };
 
       setGeneratedContent(content);
@@ -180,7 +210,17 @@ export const useAICopyGeneration = () => {
       
     } catch (error) {
       console.error('Erro ao gerar copy de página:', error);
-      toast.error('Erro ao gerar copy. Tente novamente.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar copy. Tente novamente.';
+      
+      if (errorMessage.includes('Tokens insuficientes')) {
+        toast.error('❌ Tokens Insuficientes!', {
+          description: 'Você não tem tokens suficientes para esta operação.',
+        });
+      } else {
+        toast.error('❌ Erro ao gerar copy', {
+          description: errorMessage,
+        });
+      }
       return null;
     } finally {
       setIsGenerating(false);
@@ -201,24 +241,26 @@ export const useAICopyGeneration = () => {
     setIsGenerating(true);
     
     try {
-      const prompt = buildContentPrompt(briefing);
+      console.log('📝 Generating content copy with briefing:', briefing);
       
+      // Estrutura corrigida para compatibilidade com a edge function
       const result = await triggerN8nWorkflow({
         type: 'copy_generation',
         user_id: user.id,
         data: {
           copy_type: 'content',
-          prompt,
-          briefing
+          briefing: briefing
         },
         workflow_id: 'specialized-copy-generation'
       });
 
       const content = {
         content_type: briefing.content_type,
-        title: extractSection(result.generatedCopy, 'TITLE'),
-        content: extractSection(result.generatedCopy, 'CONTENT'),
-        hashtags: extractSection(result.generatedCopy, 'HASHTAGS')
+        title: extractSection(result.generatedCopy, 'TITLE') || extractSection(result.generatedCopy, 'TÍTULO'),
+        content: extractSection(result.generatedCopy, 'CONTENT') || extractSection(result.generatedCopy, 'DESENVOLVIMENTO'),
+        hashtags: extractSection(result.generatedCopy, 'HASHTAGS'),
+        cta: extractSection(result.generatedCopy, 'CTA'),
+        fullContent: result.generatedCopy
       };
 
       setGeneratedContent(content);
@@ -227,7 +269,17 @@ export const useAICopyGeneration = () => {
       
     } catch (error) {
       console.error('Erro ao gerar conteúdo:', error);
-      toast.error('Erro ao gerar conteúdo. Tente novamente.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar conteúdo. Tente novamente.';
+      
+      if (errorMessage.includes('Tokens insuficientes')) {
+        toast.error('❌ Tokens Insuficientes!', {
+          description: 'Você não tem tokens suficientes para esta operação.',
+        });
+      } else {
+        toast.error('❌ Erro ao gerar conteúdo', {
+          description: errorMessage,
+        });
+      }
       return null;
     } finally {
       setIsGenerating(false);
@@ -245,128 +297,33 @@ export const useAICopyGeneration = () => {
   };
 };
 
-// Funções auxiliares para construir prompts
-function buildSalesVideoPrompt(briefing: SalesVideoBriefing): string {
-  return `
-Crie um script completo de VSL (Video Sales Letter) para:
-
-PRODUTO: ${briefing.product_name}
-BENEFÍCIOS: ${briefing.product_benefits}
-PÚBLICO-ALVO: ${briefing.target_audience}
-DURAÇÃO: ${briefing.video_duration} minutos
-TOM: ${briefing.tone}
-OFERTA: ${briefing.offer_details}
-ESTRATÉGIA DE PREÇO: ${briefing.price_strategy}
-OBJETIVO: ${briefing.objective}
-${briefing.additional_info ? `INFORMAÇÕES EXTRAS: ${briefing.additional_info}` : ''}
-
-Estruture a resposta em:
-
-HOOK:
-[Hook inicial de 30-60 segundos que prende a atenção]
-
-SCRIPT:
-[Script completo dividido em seções: problema, agitação, solução, benefícios, prova social, oferta, urgência]
-
-CTA:
-[Call to action final persuasivo e direto]
-
-Seja persuasivo, use gatilhos mentais e foque na conversão.
-  `;
-}
-
-function buildAdsPrompt(briefing: AdsBriefing): string {
-  return `
-Crie uma copy completa de anúncio para:
-
-PRODUTO: ${briefing.product_name}
-BENEFÍCIOS: ${briefing.product_benefits}
-PÚBLICO-ALVO: ${briefing.target_audience}
-PLATAFORMA: ${briefing.platform}
-OBJETIVO: ${briefing.campaign_objective}
-ORÇAMENTO: ${briefing.budget_range}
-TOM: ${briefing.tone}
-OBJETIVO ESPECÍFICO: ${briefing.objective}
-${briefing.additional_info ? `INFORMAÇÕES EXTRAS: ${briefing.additional_info}` : ''}
-
-Estruture a resposta em:
-
-HEADLINE:
-[Headline principal que chama atenção]
-
-BODY:
-[Corpo do anúncio com benefícios e persuasão]
-
-CTA:
-[Call to action claro e persuasivo]
-
-Otimize para a plataforma ${briefing.platform} e foque em ${briefing.campaign_objective}.
-  `;
-}
-
-function buildPagePrompt(briefing: PagesBriefing): string {
-  return `
-Crie uma copy completa de ${briefing.page_type} para:
-
-PRODUTO: ${briefing.product_name}
-BENEFÍCIOS: ${briefing.product_benefits}
-PÚBLICO-ALVO: ${briefing.target_audience}
-TIPO DE PÁGINA: ${briefing.page_type}
-OBJETIVO DE CONVERSÃO: ${briefing.conversion_goal}
-OFERTA PRINCIPAL: ${briefing.main_offer}
-TOM: ${briefing.tone}
-OBJETIVO: ${briefing.objective}
-${briefing.additional_info ? `INFORMAÇÕES EXTRAS: ${briefing.additional_info}` : ''}
-
-Estruture a resposta em:
-
-HEADLINE:
-[Headline principal impactante]
-
-SUBHEADLINE:
-[Subheadline de apoio]
-
-CONTENT:
-[Conteúdo completo da página com seções bem estruturadas]
-
-CTA:
-[Call to action otimizado para conversão]
-
-Otimize para ${briefing.page_type} focando em ${briefing.conversion_goal}.
-  `;
-}
-
-function buildContentPrompt(briefing: ContentBriefing): string {
-  return `
-Crie um ${briefing.content_type} para:
-
-PRODUTO/SERVIÇO: ${briefing.product_name}
-BENEFÍCIOS: ${briefing.product_benefits}
-PÚBLICO-ALVO: ${briefing.target_audience}
-TIPO DE CONTEÚDO: ${briefing.content_type}
-TAMANHO: ${briefing.content_length}
-CALL TO ACTION: ${briefing.call_to_action}
-TOM: ${briefing.tone}
-OBJETIVO: ${briefing.objective}
-${briefing.additional_info ? `INFORMAÇÕES EXTRAS: ${briefing.additional_info}` : ''}
-
-Estruture a resposta em:
-
-TITLE:
-[Título/assunto do conteúdo]
-
-CONTENT:
-[Conteúdo principal otimizado para ${briefing.content_type}]
-
-HASHTAGS:
-[Hashtags relevantes se aplicável]
-
-Otimize para engajamento e ${briefing.call_to_action}.
-  `;
-}
-
+// Funções auxiliares melhoradas para extrair seções
 function extractSection(text: string, section: string): string {
-  const regex = new RegExp(`${section}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`, 'i');
+  const regex = new RegExp(`${section}[:\\-\\s]*([\\s\\S]*?)(?=\\n[A-Z][A-Z\\s]*[:\\-]|$)`, 'i');
   const match = text.match(regex);
   return match ? match[1].trim() : '';
+}
+
+function extractVariations(text: string): string[] {
+  const variations: string[] = [];
+  
+  // Procurar por variações numeradas
+  for (let i = 1; i <= 5; i++) {
+    const variation = extractSection(text, `VARIAÇÃO ${i}`);
+    if (variation) {
+      variations.push(variation);
+    }
+  }
+  
+  // Se não encontrou variações numeradas, dividir por seções
+  if (variations.length === 0) {
+    const sections = text.split(/\n(?=[A-Z])/);
+    sections.forEach(section => {
+      if (section.trim().length > 50) {
+        variations.push(section.trim());
+      }
+    });
+  }
+  
+  return variations.slice(0, 3); // Retornar no máximo 3 variações
 }

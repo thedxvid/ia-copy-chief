@@ -4,11 +4,41 @@ import { Bot } from 'lucide-react';
 
 interface TypingIndicatorProps {
   agentName: string;
+  streamingContent?: string;
+  isStreaming?: boolean;
 }
 
-export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ agentName }) => {
+export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ 
+  agentName, 
+  streamingContent = '', 
+  isStreaming = false 
+}) => {
+  // Se há conteúdo sendo transmitido em tempo real
+  if (isStreaming && streamingContent) {
+    return (
+      <div className="flex gap-3 justify-start animate-fade-in">
+        <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+          <Bot className="w-4 h-4 text-white" />
+        </div>
+        
+        <div className="max-w-[70%]">
+          <div className="rounded-2xl px-4 py-3 bg-[#2A2A2A] border border-[#4B5563]/20">
+            <div className="text-white text-sm whitespace-pre-wrap">
+              {streamingContent}
+              <span className="inline-block w-2 h-5 bg-[#3B82F6] ml-1 animate-pulse"></span>
+            </div>
+          </div>
+          <div className="mt-1 text-xs text-[#888888]">
+            Gerando em tempo real...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Indicador de pensamento tradicional (fallback)
   return (
-    <div className="flex gap-3 justify-start">
+    <div className="flex gap-3 justify-start animate-fade-in">
       <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center flex-shrink-0 mt-1">
         <Bot className="w-4 h-4 text-white" />
       </div>

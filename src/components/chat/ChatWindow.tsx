@@ -43,6 +43,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const {
     messages,
     isLoading,
+    isStreaming,
+    streamingContent,
     sendMessage,
   } = useAgentChat(agent.id);
 
@@ -50,7 +52,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   useEffect(() => {
     if (textareaRef.current && isActive) {
@@ -69,9 +71,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [messages, onNewMessage]);
 
   const handleSend = async () => {
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isLoading || isStreaming) return;
     
-    await sendMessage(message, agent.prompt, agent.name, agent.isCustom);
+    // Habilitar streaming por padrão para chat em tempo real
+    await sendMessage(message, agent.prompt, agent.name, agent.isCustom, true);
     setMessage('');
   };
 
@@ -122,6 +125,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             {!isActive && (
               <p className="text-xs text-[#888888]">Clique para focar</p>
             )}
+            {isStreaming && (
+              <p className="text-xs text-[#3B82F6]">Gerando em tempo real...</p>
+            )}
           </div>
         </div>
         <div className="flex space-x-1">
@@ -163,7 +169,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <ChatMessage key={index} message={msg} />
             ))
           )}
-          {isLoading && <TypingIndicator agentName={agent.name} />}
+          {(isLoading || isStreaming) && (
+            <TypingIndicator 
+              agentName={agent.name} 
+              streamingContent={streamingContent}
+              isStreaming={isStreaming}
+            />
+          )}
         </div>
       </ScrollArea>
 
@@ -178,17 +190,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onFocus={handleFocus}
             placeholder={`Mensagem para ${agent.name}...`}
             className="flex-1 min-h-[36px] max-h-20 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none text-sm"
-            disabled={isLoading}
+            disabled={isLoading || isStreaming}
           />
           <Button
             onClick={handleSend}
-            disabled={!message.trim() || isLoading}
+            disabled={!message.trim() || isLoading || isStreaming}
             size="icon"
-            className="h-[36px] w-[36px] bg-[#3B82F6] hover:bg-[#2563EB] text-white flex-shrink-0"
+            className={`h-[36px] w-[36px] flex-shrink-0 ${
+              isStreaming 
+                ? 'bg-orange-500 hover:bg-orange-600' 
+                : 'bg-[#3B82F6] hover:bg-[#2563EB]'
+            } text-white`}
           >
             <Send className="w-4 h-4" />
           </Button>
         </div>
+        {isStreaming && (
+          <div className="mt-2 text-xs text-[#3B82F6] text-center">
+            💬 Resposta sendo gerada em tempo real
+          </div>
+        )}
       </div>
     </div>
   );

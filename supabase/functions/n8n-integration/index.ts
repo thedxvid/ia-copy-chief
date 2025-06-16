@@ -37,6 +37,15 @@ serve(async (req) => {
         target_audience: data.target_audience || data.quiz_answers?.target,
         product_info: data.product_info || data.quiz_answers?.product
       };
+    } else if (requestBody.briefing) {
+      // Estrutura das páginas especializadas: { briefing, userId }
+      console.log('🔧 Using specialized pages structure');
+      const briefing = requestBody.briefing;
+      productData = briefing;
+      copyType = briefing.copy_type || 'specialized_copy';
+      customInstructions = briefing.additional_info;
+      type = 'copy_generation';
+      data = requestBody;
     } else {
       // Estrutura antiga das outras ferramentas: { userId, copyType, productData, customInstructions }
       console.log('🔧 Using legacy structure');
@@ -77,16 +86,16 @@ serve(async (req) => {
 
     // Determinar prompt baseado no tipo de requisição
     let prompt = '';
-    let estimatedTokens = 1500;
+    let estimatedTokens = 2500; // Tokens estimados para Claude 4 Sonnet
 
     if (type === 'copy_generation' && (data?.copy_type || copyType)) {
-      // Nova estrutura para copies especializadas (Quiz)
+      // Nova estrutura para copies especializadas (Quiz e páginas especializadas)
       console.log('🎯 Processing specialized copy generation');
       
       if (data?.prompt) {
         prompt = data.prompt;
       } else {
-        prompt = buildSpecializedCopyPrompt(data?.copy_type || copyType, data?.quiz_answers || productData);
+        prompt = buildSpecializedCopyPrompt(data?.copy_type || copyType, data?.quiz_answers || data?.briefing || productData);
       }
       
       estimatedTokens = estimateSpecializedTokens(data?.copy_type || copyType);
@@ -121,9 +130,9 @@ serve(async (req) => {
       throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para gerar esta copy.`);
     }
 
-    console.log('🤖 Calling Claude API...');
+    console.log('🤖 Calling Claude 4 Sonnet API...');
 
-    // Chamar Claude API com a sintaxe correta
+    // Chamar Claude 4 Sonnet API com a sintaxe correta
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -132,8 +141,8 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 3000,
+        model: 'claude-sonnet-4-20250514', // ✅ ATUALIZADO: Claude 4 Sonnet
+        max_tokens: 4000, // ✅ AUMENTADO: Aproveitando melhor o Claude 4
         messages: [
           { role: 'user', content: prompt } // ✅ CORRIGIDO: user ao invés de human
         ]
@@ -142,7 +151,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Claude API error:', response.status, errorText);
+      console.error('❌ Claude 4 Sonnet API error:', response.status, errorText);
       
       // Melhor tratamento de erros específicos da API Claude
       if (response.status === 400) {
@@ -162,7 +171,7 @@ serve(async (req) => {
     const claudeData = await response.json();
     const generatedCopy = claudeData.content[0]?.text || 'Copy não gerada';
 
-    console.log('✅ Copy generated successfully, length:', generatedCopy.length);
+    console.log('✅ Copy generated successfully with Claude 4 Sonnet, length:', generatedCopy.length);
 
     // Calcular tokens reais usados
     const actualTokensUsed = claudeData.usage?.input_tokens + claudeData.usage?.output_tokens || estimatedTokens;
@@ -187,7 +196,7 @@ serve(async (req) => {
     // Verificar notificações
     await checkAndSendNotifications(supabase, userId, userTokens.total_available - actualTokensUsed);
 
-    console.log('🎉 Copy generation completed successfully');
+    console.log('🎉 Copy generation completed successfully with Claude 4 Sonnet');
 
     return new Response(JSON.stringify({
       generatedCopy,
@@ -219,16 +228,21 @@ serve(async (req) => {
 });
 
 function estimateSpecializedTokens(copyType: string): number {
+  // Estimativas ajustadas para Claude 4 Sonnet
   const estimates: { [key: string]: number } = {
-    'vsl': 3000,
-    'ads': 1500,
-    'landing_page': 2500,
-    'email': 2000,
-    'product': 2200,
-    'landing': 2500
+    'vsl': 4000,
+    'sales_video': 4000,
+    'ads': 2000,
+    'landing_page': 3000,
+    'landing': 3000,
+    'email': 2500,
+    'product': 3000,
+    'page': 3000,
+    'content': 2500,
+    'specialized_copy': 3000
   };
   
-  return estimates[copyType] || 2000;
+  return estimates[copyType] || 2500;
 }
 
 function buildSpecializedCopyPrompt(copyType: string, briefingData: any): string {
@@ -240,39 +254,231 @@ function buildSpecializedCopyPrompt(copyType: string, briefingData: any): string
     return briefingData.prompt;
   }
   
-  // Construir prompt baseado nas respostas do quiz
+  // Construir prompt baseado nas respostas do quiz ou briefing
   const answers = briefingData || {};
+  
+  // Extrair informações principais do briefing
+  const productName = answers.product_name || answers.product || 'produto/serviço';
+  const benefits = answers.product_benefits || answers.benefits || 'benefícios do produto';
+  const audience = answers.target_audience || answers.target || 'público-alvo';
+  const tone = answers.tone || 'profissional';
+  const objective = answers.objective || 'conversão';
+  
+  // Construir texto das informações
   const answersText = Object.entries(answers)
     .filter(([key, value]) => value && key !== 'prompt')
     .map(([key, value]) => `${key}: ${value}`)
     .join('\n');
 
   const typePrompts = {
-    'vsl': `Crie um roteiro completo de VSL (Video Sales Letter) baseado nas seguintes informações:\n\n${answersText}\n\nEstruture em: Hook, Desenvolvimento (problema/agitação/solução), Oferta e CTA final.`,
-    'product': `Crie uma estrutura de oferta completa baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Proposta de valor, benefícios, bônus, garantia e urgência.`,
-    'landing': `Crie uma copy completa para landing page baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Headline, subheadline, benefícios, prova social e CTA.`,
-    'landing_page': `Crie uma copy completa para landing page baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Headline, subheadline, benefícios, prova social e CTA.`,
-    'ads': `Crie múltiplas variações de anúncios pagos baseado nas seguintes informações:\n\n${answersText}\n\nGere pelo menos 3 variações com diferentes abordagens.`,
-    'email': `Crie uma sequência de email marketing baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Emails de boas-vindas, educacionais e de conversão.`
+    'vsl': `Crie um roteiro completo de VSL (Video Sales Letter) para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HOOK (30-60 segundos) - Prenda a atenção imediatamente
+2. APRESENTAÇÃO - Credibilidade e autoridade
+3. PROBLEMA - Identifique a dor do cliente
+4. AGITAÇÃO - Amplifique o problema
+5. SOLUÇÃO - Apresente o produto como solução
+6. BENEFÍCIOS - Liste benefícios específicos
+7. PROVA SOCIAL - Depoimentos e resultados
+8. OFERTA - Detalhe a proposta de valor
+9. URGÊNCIA/ESCASSEZ - Crie senso de urgência
+10. CTA FINAL - Call to action claro e persuasivo
+
+Tom: ${tone}
+Objetivo: ${objective}`,
+
+    'sales_video': `Crie um roteiro completo de VSL (Video Sales Letter) para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HOOK (30-60 segundos) - Prenda a atenção imediatamente
+2. APRESENTAÇÃO - Credibilidade e autoridade
+3. PROBLEMA - Identifique a dor do cliente
+4. AGITAÇÃO - Amplifique o problema
+5. SOLUÇÃO - Apresente o produto como solução
+6. BENEFÍCIOS - Liste benefícios específicos
+7. PROVA SOCIAL - Depoimentos e resultados
+8. OFERTA - Detalhe a proposta de valor
+9. URGÊNCIA/ESCASSEZ - Crie senso de urgência
+10. CTA FINAL - Call to action claro e persuasivo
+
+Tom: ${tone}
+Objetivo: ${objective}`,
+
+    'product': `Crie uma estrutura de oferta completa para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. PROPOSTA DE VALOR - Headlines impactantes
+2. BENEFÍCIOS PRINCIPAIS - O que o cliente ganha
+3. COMO FUNCIONA - Processo ou metodologia
+4. BÔNUS EXCLUSIVOS - Itens de valor agregado
+5. GARANTIA - Política de satisfação
+6. URGÊNCIA - Limitação de tempo/vagas
+7. PREÇO E CONDIÇÕES - Apresentação da oferta
+8. CTA PERSUASIVO - Chamada para ação
+
+Tom: ${tone}
+Foco: ${audience}`,
+
+    'landing': `Crie uma copy completa para landing page de ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HEADLINE PRINCIPAL - Promessa clara e impactante
+2. SUBHEADLINE - Apoio e clarificação
+3. BENEFÍCIOS - Lista de vantagens específicas
+4. COMO FUNCIONA - Processo simplificado
+5. PROVA SOCIAL - Depoimentos e números
+6. OBJEÇÕES - Antecipe e responda dúvidas
+7. GARANTIA - Reduza o risco percebido
+8. CTA PRINCIPAL - Botão de conversão otimizado
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'landing_page': `Crie uma copy completa para landing page de ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HEADLINE PRINCIPAL - Promessa clara e impactante
+2. SUBHEADLINE - Apoio e clarificação
+3. BENEFÍCIOS - Lista de vantagens específicas
+4. COMO FUNCIONA - Processo simplificado
+5. PROVA SOCIAL - Depoimentos e números
+6. OBJEÇÕES - Antecipe e responda dúvidas
+7. GARANTIA - Reduza o risco percebido
+8. CTA PRINCIPAL - Botão de conversão otimizado
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'page': `Crie uma copy completa para página de ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HEADLINE PRINCIPAL - Promessa clara e impactante
+2. SUBHEADLINE - Apoio e clarificação
+3. BENEFÍCIOS - Lista de vantagens específicas
+4. COMO FUNCIONA - Processo simplificado
+5. PROVA SOCIAL - Depoimentos e números
+6. OBJEÇÕES - Antecipe e responda dúvidas
+7. GARANTIA - Reduza o risco percebido
+8. CTA PRINCIPAL - Botão de conversão otimizado
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'ads': `Crie múltiplas variações de anúncios pagos para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. VARIAÇÃO 1 - Foco no problema
+   - Headline impactante
+   - Corpo do anúncio
+   - CTA específico
+   
+2. VARIAÇÃO 2 - Foco na solução
+   - Headline diferente
+   - Corpo do anúncio
+   - CTA específico
+   
+3. VARIAÇÃO 3 - Foco no benefício
+   - Headline única
+   - Corpo do anúncio  
+   - CTA específico
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'email': `Crie uma sequência de email marketing para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. EMAIL 1 - Boas-vindas
+   - Assunto persuasivo
+   - Conteúdo de apresentação
+   - CTA suave
+   
+2. EMAIL 2 - Educacional/Valor
+   - Assunto curioso
+   - Conteúdo que agrega valor
+   - CTA de engajamento
+   
+3. EMAIL 3 - Conversão
+   - Assunto urgente
+   - Oferta principal
+   - CTA de conversão
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'content': `Crie conteúdo para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. TÍTULO/ASSUNTO - Atrativo e otimizado
+2. INTRODUÇÃO - Hook inicial
+3. DESENVOLVIMENTO - Conteúdo principal de valor
+4. CONCLUSÃO - Síntese e direcionamento
+5. CTA - Chamada para ação
+6. HASHTAGS - Relevantes para o nicho (se aplicável)
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'specialized_copy': `Crie uma copy especializada para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA BÁSICA:
+1. HEADLINE - Chamada principal
+2. CONTEÚDO - Desenvolvimento persuasivo
+3. BENEFÍCIOS - Vantagens claras
+4. CTA - Chamada para ação
+
+Tom: ${tone}
+Público: ${audience}`
   };
 
   return typePrompts[copyType as keyof typeof typePrompts] || 
-         `Crie uma copy profissional baseada nas seguintes informações:\n\n${answersText}`;
+         `Crie uma copy profissional para ${productName} baseada nas seguintes informações:\n\n${answersText}\n\nTom: ${tone}\nPúblico: ${audience}\nObjetivo: ${objective}`;
 }
 
 function estimateTokensForCopy(copyType: string, productData: any, customInstructions?: string): number {
-  // Estimativas baseadas no tipo de copy
+  // Estimativas baseadas no tipo de copy para Claude 4 Sonnet
   const baseEstimates: { [key: string]: number } = {
-    'landing_page': 2500,
-    'email_sequence': 2000,
-    'social_media': 1000,
-    'vsl_script': 3000,
-    'telegram_copy': 1500,
-    'whatsapp_copy': 1200,
-    'ad_copy': 800
+    'landing_page': 3000,
+    'email_sequence': 2500,
+    'social_media': 1500,
+    'vsl_script': 4000,
+    'telegram_copy': 2000,
+    'whatsapp_copy': 1500,
+    'ad_copy': 1200
   };
 
-  let baseTokens = baseEstimates[copyType] || 1500;
+  let baseTokens = baseEstimates[copyType] || 2000;
 
   // Ajustar baseado no tamanho dos dados do produto
   const productDataSize = JSON.stringify(productData || {}).length;

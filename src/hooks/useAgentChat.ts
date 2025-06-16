@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,6 +50,8 @@ export const useAgentChat = (agentId: string) => {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const { user } = useAuth();
 
   const saveToStorage = useCallback((msgs: Message[]) => {
@@ -90,7 +93,7 @@ export const useAgentChat = (agentId: string) => {
     }
   }, [agentId, user?.id, messages.length]);
 
-  const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string, isCustomAgent?: boolean) => {
+  const sendMessage = useCallback(async (content: string, agentPrompt: string, agentName?: string, isCustomAgent?: boolean, enableStreaming: boolean = true) => {
     if (!content.trim()) return;
 
     console.log('=== 📤 ENVIANDO MENSAGEM ===');
@@ -101,6 +104,7 @@ export const useAgentChat = (agentId: string) => {
     console.log('🆔 User ID:', user?.id);
     console.log('📋 Current message count:', messages.length);
     console.log('🎯 Storage Key que será usado:', `chat-${agentId}`);
+    console.log('📡 Streaming enabled:', enableStreaming);
 
     // Validação crítica do agentId
     if (!agentId) {
@@ -129,6 +133,7 @@ export const useAgentChat = (agentId: string) => {
     }
 
     setIsLoading(true);
+    setStreamingContent('');
 
     try {
       console.log('=== 🔄 CHAMANDO EDGE FUNCTION ===');
@@ -139,7 +144,8 @@ export const useAgentChat = (agentId: string) => {
         chatHistory: messages,
         agentName: agentName || 'Agente IA',
         isCustomAgent: isCustomAgent || false,
-        userId: user?.id
+        userId: user?.id,
+        streaming: enableStreaming
       };
 
       console.log('📦 Request body summary:', {
@@ -148,8 +154,90 @@ export const useAgentChat = (agentId: string) => {
         chatHistoryLength: messages.length,
         agentName,
         isCustomAgent,
-        userId: user?.id
+        userId: user?.id,
+        streaming: enableStreaming
       });
+
+      // Se streaming estiver habilitado, usar Server-Sent Events
+      if (enableStreaming) {
+        console.log('📡 Iniciando streaming...');
+        setIsStreaming(true);
+        setIsLoading(false);
+
+        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/chat-with-claude`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabase.supabaseKey}`,
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+
+        // Se a resposta tem Server-Sent Events
+        if (response.headers.get('content-type')?.includes('text/event-stream')) {
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          let accumulatedContent = '';
+
+          if (reader) {
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) break;
+                
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                  if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    
+                    try {
+                      const parsed = JSON.parse(data);
+                      if (parsed.type === 'content' && parsed.text) {
+                        accumulatedContent += parsed.text;
+                        setStreamingContent(accumulatedContent);
+                      }
+                    } catch (e) {
+                      // Ignorar erros de parsing
+                    }
+                  }
+                }
+              }
+            } finally {
+              reader.releaseLock();
+            }
+          }
+
+          // Adicionar mensagem final ao histórico
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: accumulatedContent,
+            role: 'assistant',
+            timestamp: new Date()
+          };
+
+          setMessages(prev => {
+            const updated = [...prev, assistantMessage];
+            saveToStorage(updated);
+            return updated;
+          });
+
+          setIsStreaming(false);
+          setStreamingContent('');
+          
+          toast.success('💬 Resposta gerada em tempo real!');
+          return;
+        }
+      }
+
+      // Fallback para resposta normal (sem streaming)
+      console.log('📞 Usando resposta padrão (sem streaming)');
       
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: requestBody
@@ -322,6 +410,8 @@ export const useAgentChat = (agentId: string) => {
       });
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
+      setStreamingContent('');
     }
   }, [messages, saveToStorage, triggerWebhook, user?.id, agentId]);
 
@@ -352,6 +442,8 @@ export const useAgentChat = (agentId: string) => {
   return {
     messages,
     isLoading,
+    isStreaming,
+    streamingContent,
     sendMessage,
     clearChat,
     exportChat

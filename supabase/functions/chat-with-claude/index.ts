@@ -1,5 +1,4 @@
 
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -15,29 +14,16 @@ serve(async (req) => {
   }
 
   try {
-    const { message, agentPrompt, chatHistory, agentName, isCustomAgent, userId } = await req.json();
+    const { message, agentPrompt, chatHistory, agentName, isCustomAgent, userId, streaming = false } = await req.json();
 
     console.log('=== CHAT REQUEST DEBUG ===');
     console.log('User ID:', userId);
     console.log('Agent Name:', agentName);
     console.log('Is Custom Agent:', isCustomAgent);
-    console.log('Message Length:', message?.length);
-    console.log('Agent Prompt Length:', agentPrompt?.length);
+    console.log('Message Length:', message.length);
+    console.log('Agent Prompt Length:', agentPrompt?.length || 0);
+    console.log('Streaming enabled:', streaming);
 
-    // Validações básicas
-    if (!message || message.trim().length === 0) {
-      throw new Error('Mensagem é obrigatória');
-    }
-
-    if (!userId) {
-      throw new Error('User ID é obrigatório');
-    }
-
-    if (!agentPrompt) {
-      throw new Error('Prompt do agente é obrigatório');
-    }
-
-    // Verificar variáveis de ambiente
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
@@ -48,184 +34,234 @@ serve(async (req) => {
     console.log('Anthropic API Key:', anthropicApiKey ? 'OK' : 'MISSING');
 
     if (!supabaseUrl || !supabaseKey || !anthropicApiKey) {
-      throw new Error('Configuração de ambiente incompleta. Verifique se ANTHROPIC_API_KEY está configurado.');
+      throw new Error('Configuração de ambiente incompleta');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Estimar tokens necessários ANTES da chamada (aumentado para Claude 4 Sonnet)
-    const estimatedTokens = estimateTokensForChat(message, chatHistory, agentPrompt);
-    console.log('Tokens estimados necessários (Claude 4 Sonnet):', estimatedTokens);
+    // Verificar tokens disponíveis se userId fornecido
+    if (userId) {
+      console.log('=== TOKEN VERIFICATION ===');
+      
+      const { data: tokensData, error: tokensError } = await supabase
+        .rpc('get_available_tokens', { p_user_id: userId });
 
-    // Verificar se o usuário tem tokens suficientes
-    console.log('=== TOKEN VERIFICATION ===');
-    const { data: tokensData, error: tokensError } = await supabase
-      .rpc('get_available_tokens', { p_user_id: userId });
+      if (tokensError) {
+        console.error('Erro ao verificar tokens:', tokensError);
+        throw new Error('Erro ao verificar tokens disponíveis');
+      }
 
-    if (tokensError) {
-      console.error('Erro ao verificar tokens:', tokensError);
-      throw new Error('Erro ao verificar tokens disponíveis');
-    }
+      const userTokens = tokensData?.[0];
+      console.log('User tokens:', userTokens);
 
-    const userTokens = tokensData?.[0];
-    console.log('User tokens:', userTokens);
-    
-    if (!userTokens || userTokens.total_available < estimatedTokens) {
-      console.log('Tokens insuficientes:', { available: userTokens?.total_available, needed: estimatedTokens });
-      throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens.`);
-    }
+      // Estimar tokens necessários para Claude 4 Sonnet
+      const systemPromptLength = agentPrompt?.length || 0;
+      const messageLength = message.length;
+      const historyLength = chatHistory?.reduce((acc: number, msg: any) => acc + msg.content.length, 0) || 0;
+      
+      const estimatedTokens = Math.ceil((systemPromptLength + messageLength + historyLength) * 1.3) + 1000; // Buffer para resposta
+      console.log('Tokens estimados necessários (Claude 4 Sonnet):', estimatedTokens);
 
-    // Construir histórico para a API - CORREÇÃO PRINCIPAL: separar system prompt das mensagens
-    const messages = [];
-    
-    // Adicionar histórico do chat se existir (SEM o system prompt)
-    if (chatHistory && Array.isArray(chatHistory)) {
-      for (const msg of chatHistory) {
-        if (msg && msg.content && msg.role && msg.role !== 'system') {
-          messages.push({
-            role: msg.role === 'user' ? 'user' : 'assistant',
-            content: msg.content
-          });
-        }
+      if (!userTokens || userTokens.total_available < estimatedTokens) {
+        throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para esta conversa.`);
       }
     }
+
+    // Preparar mensagens para Claude 4 Sonnet
+    const messages = [];
     
-    // Adicionar mensagem atual
-    messages.push({ role: "user", content: message });
+    if (chatHistory && chatHistory.length > 0) {
+      chatHistory.forEach((msg: any) => {
+        messages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      });
+    }
+    
+    messages.push({
+      role: 'user',
+      content: message
+    });
 
     console.log('=== CLAUDE 4 SONNET API CALL ===');
     console.log('Messages count:', messages.length);
-    console.log('System prompt length:', agentPrompt.length);
+    console.log('System prompt length:', agentPrompt?.length || 0);
+
+    const requestBody = {
+      model: 'claude-sonnet-4-20250514', // ✅ Claude 4 Sonnet
+      max_tokens: 3000,
+      system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil.`,
+      messages: messages,
+      stream: streaming
+    };
+
+    console.log('Request body structure (Claude 4):', {
+      model: requestBody.model,
+      max_tokens: requestBody.max_tokens,
+      system_length: requestBody.system.length,
+      messages_count: requestBody.messages.length
+    });
+
+    console.log('Tentativa 1/3 com Claude 4 Sonnet');
     console.log('Calling Claude 4 Sonnet API...');
 
-    // Chamar Claude API com Claude 4 Sonnet
-    let claudeResponse;
-    let attempts = 0;
-    const maxAttempts = 3;
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(requestBody)
+    });
 
-    while (attempts < maxAttempts) {
-      attempts++;
-      console.log(`Tentativa ${attempts}/${maxAttempts} com Claude 4 Sonnet`);
-
-      try {
-        const requestBody = {
-          model: 'claude-sonnet-4-20250514', // 🚀 ATUALIZADO PARA CLAUDE 4 SONNET
-          max_tokens: 3000, // Aumentado para aproveitar melhor o Claude 4
-          system: agentPrompt,
-          messages: messages
-        };
-
-        console.log('Request body structure (Claude 4):', {
-          model: requestBody.model,
-          max_tokens: requestBody.max_tokens,
-          system_length: requestBody.system?.length,
-          messages_count: requestBody.messages?.length
-        });
-
-        claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': anthropicApiKey,
-            'anthropic-version': '2023-06-01'
-          },
-          body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(60000) // Aumentado para 60s para Claude 4
-        });
-
-        if (claudeResponse.ok) {
-          console.log('Claude 4 Sonnet API call successful');
-          break; // Sucesso, sair do loop
-        } else {
-          const errorText = await claudeResponse.text();
-          console.error(`Erro Claude 4 API (tentativa ${attempts}):`, claudeResponse.status, errorText);
-          
-          if (attempts === maxAttempts) {
-            throw new Error(`Falha na comunicação com Claude 4 Sonnet após ${maxAttempts} tentativas. Status: ${claudeResponse.status}. Erro: ${errorText}`);
-          }
-          
-          // Aguardar um pouco antes da próxima tentativa
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-        }
-      } catch (error) {
-        console.error(`Erro na tentativa ${attempts} com Claude 4:`, error);
-        
-        if (attempts === maxAttempts) {
-          throw new Error(`Falha na comunicação com Claude 4 Sonnet: ${error.message}`);
-        }
-        
-        // Aguardar um pouco antes da próxima tentativa
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Claude 4 Sonnet API error:', response.status, errorText);
+      
+      if (response.status === 400) {
+        throw new Error('Erro na formatação da requisição para Claude API');
+      } else if (response.status === 401) {
+        throw new Error('Chave da API Claude inválida');
+      } else if (response.status === 429) {
+        throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos');
+      } else {
+        throw new Error(`Falha na comunicação com Claude API: ${response.status}`);
       }
     }
 
-    const claudeData = await claudeResponse.json();
-    console.log('Claude 4 Sonnet API response received');
-    console.log('Usage:', claudeData.usage);
-    console.log('Response content preview:', claudeData.content?.[0]?.text?.substring(0, 100) + '...');
-
-    const responseContent = claudeData.content?.[0]?.text || claudeData.content || 'Resposta vazia do agente';
-
-    // Calcular tokens reais usados
-    const actualTokensUsed = claudeData.usage?.input_tokens + claudeData.usage?.output_tokens || estimatedTokens;
-    console.log('Tokens realmente usados pelo Claude 4:', actualTokensUsed);
-
-    // Consumir tokens no banco
-    console.log('=== TOKEN CONSUMPTION ===');
-    const { data: consumeResult, error: consumeError } = await supabase
-      .rpc('consume_tokens', {
-        p_user_id: userId,
-        p_tokens_used: actualTokensUsed,
-        p_feature_used: isCustomAgent ? 'custom_agent_chat_claude4' : 'agent_chat_claude4',
-        p_prompt_tokens: claudeData.usage?.input_tokens || Math.floor(actualTokensUsed * 0.6),
-        p_completion_tokens: claudeData.usage?.output_tokens || Math.floor(actualTokensUsed * 0.4)
+    // Se streaming está habilitado, retornar Server-Sent Events
+    if (streaming && response.body) {
+      console.log('=== STREAMING RESPONSE ===');
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          const reader = response.body!.getReader();
+          const decoder = new TextDecoder();
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              
+              if (done) break;
+              
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  
+                  if (data === '[DONE]') {
+                    controller.close();
+                    return;
+                  }
+                  
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.delta?.text) {
+                      // Enviar chunk de texto para o frontend
+                      controller.enqueue(`data: ${JSON.stringify({ 
+                        type: 'content',
+                        text: parsed.delta.text 
+                      })}\n\n`);
+                    }
+                  } catch (e) {
+                    // Ignorar erros de parsing de chunks
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Streaming error:', error);
+            controller.error(error);
+          }
+        }
       });
 
-    if (consumeError || !consumeResult) {
-      console.error('Erro ao consumir tokens:', consumeError);
-      // Continuar mesmo com erro de consumo, mas logar
-    } else {
-      console.log('Tokens consumidos com sucesso (Claude 4)');
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
     }
 
-    // Verificar se precisa enviar notificações
-    await checkAndSendNotifications(supabase, userId, userTokens.total_available - actualTokensUsed);
+    // Resposta normal (não-streaming)
+    console.log('Claude 4 Sonnet API call successful');
+    const data = await response.json();
+    console.log('Claude 4 Sonnet API response received');
+
+    const assistantResponse = data.content[0]?.text || 'Resposta não disponível';
+    
+    console.log('Usage:', data.usage);
+    console.log('Response content preview:', assistantResponse.substring(0, 100) + '...');
+
+    // Calcular tokens usados
+    const actualTokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
+    console.log('Tokens realmente usados pelo Claude 4:', actualTokensUsed);
+
+    // Consumir tokens se userId fornecido
+    if (userId && actualTokensUsed > 0) {
+      console.log('=== TOKEN CONSUMPTION ===');
+      
+      const { data: consumeResult, error: consumeError } = await supabase
+        .rpc('consume_tokens', {
+          p_user_id: userId,
+          p_tokens_used: actualTokensUsed,
+          p_feature_used: `chat_${agentName || 'agent'}`,
+          p_prompt_tokens: data.usage?.input_tokens || Math.floor(actualTokensUsed * 0.7),
+          p_completion_tokens: data.usage?.output_tokens || Math.floor(actualTokensUsed * 0.3)
+        });
+
+      if (consumeError || !consumeResult) {
+        console.error('⚠️ Erro ao consumir tokens:', consumeError);
+      } else {
+        console.log('Tokens consumidos com sucesso (Claude 4)');
+      }
+
+      // Verificar e enviar notificações se necessário
+      const { data: tokensAfter } = await supabase
+        .rpc('get_available_tokens', { p_user_id: userId });
+      
+      const remainingTokens = tokensAfter?.[0]?.total_available || 0;
+      console.log('Verificando notificações:', { remainingTokens, usagePercentage: ((100000 - remainingTokens) / 100000) * 100 });
+    }
 
     console.log('=== SUCCESS ===');
     console.log('Chat processado com sucesso usando Claude 4 Sonnet');
 
     return new Response(JSON.stringify({
-      response: responseContent,
+      response: assistantResponse,
       tokensUsed: actualTokensUsed,
-      tokensRemaining: userTokens.total_available - actualTokensUsed,
-      success: true,
-      model: 'claude-sonnet-4-20250514' // Informar qual modelo foi usado
+      tokensRemaining: userId ? await getUserRemainingTokens(supabase, userId) : null
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('=== ERROR ===');
-    console.error('Erro no chat-with-claude (Claude 4):', error);
-    console.error('Stack trace:', error.stack);
+    console.error('❌ Erro no chat:', error);
     
-    // Retornar erro específico baseado no tipo
     let statusCode = 500;
-    let errorMessage = error.message || 'Erro interno do servidor';
+    let errorMessage = 'Erro interno do servidor';
     
-    if (error.message.includes('Tokens insuficientes')) {
+    if (error.message?.includes('Tokens insuficientes')) {
       statusCode = 402;
-    } else if (error.message.includes('obrigatório')) {
-      statusCode = 400;
-    } else if (error.message.includes('ambiente incompleta')) {
+      errorMessage = error.message;
+    } else if (error.message?.includes('Claude API')) {
       statusCode = 503;
-      errorMessage = 'Serviço temporariamente indisponível. Verifique a configuração.';
+      errorMessage = error.message;
+    } else if (error.message?.includes('ambiente incompleta')) {
+      statusCode = 503;
+      errorMessage = 'Configuração do sistema incompleta';
     }
 
     return new Response(JSON.stringify({
       error: errorMessage,
-      success: false,
-      details: error.stack?.split('\n').slice(0, 3).join('\n') // Primeiras 3 linhas do stack
+      details: error.message
     }), {
       status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -233,64 +269,12 @@ serve(async (req) => {
   }
 });
 
-function estimateTokensForChat(message: string, chatHistory: any[] = [], agentPrompt: string): number {
-  // Estimativa ajustada para Claude 4 Sonnet (mais conservadora)
-  const messageChars = message.length;
-  const historyChars = (chatHistory || []).reduce((total, msg) => total + (msg.content?.length || 0), 0);
-  const promptChars = agentPrompt.length;
-  
-  // ~4 caracteres por token (conservador)
-  const inputTokens = Math.ceil((messageChars + historyChars + promptChars) / 4);
-  // Estimar resposta maior para Claude 4 (750-1000 tokens)
-  const outputTokens = 1000;
-  
-  return inputTokens + outputTokens;
-}
-
-async function checkAndSendNotifications(supabase: any, userId: string, remainingTokens: number) {
+async function getUserRemainingTokens(supabase: any, userId: string): Promise<number> {
   try {
-    const MONTHLY_TOKENS = 100000; // Limite atual
-    const usagePercentage = ((MONTHLY_TOKENS - remainingTokens) / MONTHLY_TOKENS) * 100;
-    
-    console.log('Verificando notificações:', { remainingTokens, usagePercentage });
-
-    // Buscar perfil atual para verificar flags de notificação
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('notified_90, notified_50, notified_10')
-      .eq('id', userId)
-      .single();
-
-    let updateData: any = {};
-
-    // Notificação 90% usado (10.000 tokens restantes)
-    if (usagePercentage >= 90 && !profile?.notified_90) {
-      updateData.notified_90 = true;
-      console.log('Usuário atingiu 90% de uso dos tokens');
-    }
-
-    // Notificação 50% usado (50.000 tokens restantes)  
-    if (usagePercentage >= 50 && !profile?.notified_50) {
-      updateData.notified_50 = true;
-      console.log('Usuário atingiu 50% de uso dos tokens');
-    }
-
-    // Notificação 10% restantes (90.000 tokens usados)
-    if (usagePercentage >= 90 && !profile?.notified_10) {
-      updateData.notified_10 = true;
-      console.log('Usuário tem apenas 10% dos tokens restantes');
-    }
-
-    // Atualizar flags se necessário
-    if (Object.keys(updateData).length > 0) {
-      await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('id', userId);
-    }
-  } catch (error) {
-    console.error('Erro ao verificar notificações:', error);
-    // Não falhar por causa de notificações
+    const { data } = await supabase
+      .rpc('get_available_tokens', { p_user_id: userId });
+    return data?.[0]?.total_available || 0;
+  } catch {
+    return 0;
   }
 }
-
