@@ -1,11 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Download, Trash2 } from 'lucide-react';
-import { useStreamingChat } from '@/hooks/useStreamingChat';
+import { Send, Download, X } from 'lucide-react';
+import { useChatSessions } from '@/hooks/useChatSessions';
+import { useOptimizedStreaming } from '@/hooks/useOptimizedStreaming';
+import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { StreamingMessage } from '@/components/chat/StreamingMessage';
 import { ConnectionStatus } from '@/components/chat/ConnectionStatus';
 
@@ -34,15 +36,32 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const {
+    sessions,
+    currentSession,
     messages,
+    createNewSession,
+    selectSession,
+    addMessage,
+    updateMessage,
+    deleteSession
+  } = useChatSessions(agent.id);
+
+  const handleMessageComplete = async (messageId: string, content: string) => {
+    if (currentSession) {
+      await updateMessage(messageId, content, true);
+    }
+  };
+
+  const {
     isConnected,
     isTyping,
-    isSending,
     connectionStatus,
+    isSending,
+    currentStreamingMessage,
+    currentMessageId,
     sendMessage,
-    clearChat,
     reconnect
-  } = useStreamingChat(agent.id);
+  } = useOptimizedStreaming(agent.id, handleMessageComplete);
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -52,7 +71,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
     }
-  }, [messages]);
+  }, [messages, currentStreamingMessage]);
 
   // Focus automático no textarea quando o modal abre
   useEffect(() => {
@@ -61,19 +80,37 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         textareaRef.current?.focus();
       }, 100);
     }
-  }, [isOpen]);
+  }, [isOpen, currentSession]);
+
+  const handleNewChat = async () => {
+    await createNewSession(agent.name);
+  };
 
   const handleSend = async () => {
-    if (!message.trim() || isSending || isTyping) return;
+    if (!message.trim() || isSending || isTyping || !currentSession) return;
     
     const messageToSend = message;
     setMessage(''); // Limpar input imediatamente
     
     try {
-      await sendMessage(messageToSend, agent.prompt, agent.name, agent.isCustom);
+      // Adicionar mensagem do usuário ao banco
+      await addMessage(currentSession.id, 'user', messageToSend);
+
+      // Criar mensagem placeholder para o assistente
+      const assistantMessage = await addMessage(currentSession.id, 'assistant', '', 0);
+
+      // Enviar para streaming
+      await sendMessage(
+        currentSession.id,
+        messageToSend,
+        agent.prompt,
+        agent.name,
+        agent.isCustom
+      );
+
     } catch (error) {
-      // Em caso de erro, restaurar a mensagem
-      setMessage(messageToSend);
+      console.error('Erro ao enviar mensagem:', error);
+      setMessage(messageToSend); // Restaurar mensagem em caso de erro
     }
   };
 
@@ -85,10 +122,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   };
 
   const exportChat = () => {
-    if (messages.length === 0) return;
+    if (messages.length === 0 || !currentSession) return;
 
     const chatContent = messages.map(msg => {
-      const time = (msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp)).toLocaleTimeString('pt-BR', { 
+      const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { 
         hour: '2-digit', 
         minute: '2-digit' 
       });
@@ -100,28 +137,46 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `chat-${agent.name}-${new Date().toISOString().split('T')[0]}.txt`;
+    a.download = `chat-${agent.name}-${currentSession.title || 'conversa'}-${new Date().toISOString().split('T')[0]}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
+  // Automaticamente criar nova sessão se não existir nenhuma
+  useEffect(() => {
+    if (isOpen && sessions.length === 0 && !currentSession) {
+      handleNewChat();
+    }
+  }, [isOpen, sessions.length, currentSession]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-[#1E1E1E] border-[#4B5563]/20 text-white max-w-4xl w-full h-[80vh] flex flex-col">
-        <DialogHeader className="border-b border-[#4B5563]/20 pb-4">
-          <div className="flex items-center justify-between">
+      <DialogContent className="bg-[#1E1E1E] border-[#4B5563]/20 text-white max-w-7xl w-full h-[90vh] flex p-0">
+        {/* Sidebar */}
+        <ChatSidebar
+          sessions={sessions}
+          currentSession={currentSession}
+          agentName={agent.name}
+          agentIcon={agent.icon}
+          onNewChat={handleNewChat}
+          onSelectSession={selectSession}
+          onDeleteSession={deleteSession}
+        />
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-[#4B5563]/20">
             <div className="flex items-center space-x-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                 agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
               }`}>
-                <agent.icon className="w-5 h-5 text-white" />
+                <agent.icon className="w-4 h-4 text-white" />
               </div>
               <div>
-                <DialogTitle className="text-xl font-semibold text-white">
-                  {agent.name}
-                </DialogTitle>
+                <h3 className="font-semibold text-white">{agent.name}</h3>
                 <ConnectionStatus 
                   status={connectionStatus} 
                   isTyping={isTyping}
@@ -141,76 +196,107 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 Exportar
               </Button>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={clearChat}
-                disabled={messages.length === 0}
-                className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="text-[#CCCCCC] hover:text-white"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Limpar
+                <X className="w-4 h-4" />
               </Button>
             </div>
           </div>
-        </DialogHeader>
 
-        {/* Área de mensagens */}
-        <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
-          <div className="space-y-4 py-4">
-            {messages.length === 0 ? (
-              <div className="text-center text-[#888888] py-8">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
-                  agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
-                }`}>
-                  <agent.icon className="w-6 h-6 text-white" />
+          {/* Messages */}
+          <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
+            <div className="space-y-4 py-4">
+              {!currentSession ? (
+                <div className="text-center text-[#888888] py-8">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
+                    agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
+                  }`}>
+                    <agent.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-lg font-medium text-white mb-2">{agent.name}</h3>
+                  <p className="text-[#CCCCCC] mb-4">{agent.description}</p>
+                  <p className="text-sm">Criando nova conversa...</p>
                 </div>
-                <h3 className="text-lg font-medium text-white mb-2">{agent.name}</h3>
-                <p className="text-[#CCCCCC] mb-4">{agent.description}</p>
-                <p className="text-sm">Como posso ajudar você hoje?</p>
+              ) : messages.length === 0 ? (
+                <div className="text-center text-[#888888] py-8">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
+                    agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
+                  }`}>
+                    <agent.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-lg font-medium text-white mb-2">{agent.name}</h3>
+                  <p className="text-[#CCCCCC] mb-4">{agent.description}</p>
+                  <p className="text-sm">Como posso ajudar você hoje?</p>
+                </div>
+              ) : (
+                <>
+                  {messages.map((msg, index) => (
+                    <StreamingMessage 
+                      key={msg.id} 
+                      message={{
+                        id: msg.id,
+                        content: msg.content,
+                        role: msg.role,
+                        timestamp: new Date(msg.created_at),
+                        isStreaming: !msg.streaming_complete
+                      }}
+                      isLast={index === messages.length - 1}
+                    />
+                  ))}
+                  
+                  {/* Mensagem de streaming em tempo real */}
+                  {isTyping && currentMessageId && currentStreamingMessage && (
+                    <StreamingMessage 
+                      message={{
+                        id: currentMessageId,
+                        content: currentStreamingMessage,
+                        role: 'assistant',
+                        timestamp: new Date(),
+                        isStreaming: true
+                      }}
+                      isLast={true}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Input */}
+          <div className="border-t border-[#4B5563]/20 p-6">
+            <div className="flex space-x-3">
+              <Textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`Mensagem para ${agent.name}...`}
+                className="flex-1 min-h-[44px] max-h-32 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none"
+                disabled={isSending || isTyping || !isConnected || !currentSession}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!message.trim() || isSending || isTyping || !isConnected || !currentSession}
+                size="lg"
+                className={`px-6 ${
+                  isSending 
+                    ? 'bg-orange-500 hover:bg-orange-600' 
+                    : 'bg-[#3B82F6] hover:bg-[#2563EB]'
+                } text-white transition-all duration-200`}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+            {isSending && (
+              <div className="mt-3 text-sm text-[#3B82F6] flex items-center">
+                <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
+                Enviando mensagem...
               </div>
-            ) : (
-              messages.map((msg, index) => (
-                <StreamingMessage 
-                  key={msg.id} 
-                  message={msg} 
-                  isLast={index === messages.length - 1}
-                />
-              ))
             )}
           </div>
-        </ScrollArea>
-
-        {/* Área de input */}
-        <div className="border-t border-[#4B5563]/20 p-6">
-          <div className="flex space-x-3">
-            <Textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`Mensagem para ${agent.name}...`}
-              className="flex-1 min-h-[44px] max-h-32 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none"
-              disabled={isSending || isTyping || !isConnected}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!message.trim() || isSending || isTyping || !isConnected}
-              size="lg"
-              className={`px-6 ${
-                isSending 
-                  ? 'bg-orange-500 hover:bg-orange-600' 
-                  : 'bg-[#3B82F6] hover:bg-[#2563EB]'
-              } text-white transition-all duration-200`}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-          {isSending && (
-            <div className="mt-3 text-sm text-[#3B82F6] flex items-center">
-              <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
-              Enviando mensagem...
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

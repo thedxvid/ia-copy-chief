@@ -43,7 +43,6 @@ async function validateUser(userId: string): Promise<boolean> {
     
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Verificar se o usuário existe
     const { data, error } = await supabase
       .from('profiles')
       .select('id')
@@ -68,7 +67,6 @@ async function handleStreamingConnection(req: Request, url: URL) {
     });
   }
 
-  // Validar usuário para SSE connection
   const isValidUser = await validateUser(userId);
   if (!isValidUser) {
     return new Response('Unauthorized', { 
@@ -83,7 +81,6 @@ async function handleStreamingConnection(req: Request, url: URL) {
     start(controller) {
       const encoder = new TextEncoder();
       
-      // Send initial connection confirmation
       const data = JSON.stringify({
         type: 'connection_established',
         userId,
@@ -93,7 +90,6 @@ async function handleStreamingConnection(req: Request, url: URL) {
       
       controller.enqueue(encoder.encode(`data: ${data}\n\n`));
 
-      // Keep connection alive with periodic pings
       const keepAlive = setInterval(() => {
         try {
           const pingData = JSON.stringify({
@@ -108,7 +104,7 @@ async function handleStreamingConnection(req: Request, url: URL) {
         }
       }, 30000);
 
-      // Store controller globally (in production, use Redis)
+      // Use agentId as streamKey for consistency
       const streamKey = `stream_${userId}_${agentId}`;
       globalThis[streamKey] = { controller, encoder, keepAlive };
     },
@@ -146,16 +142,17 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    const { message, agentPrompt, agentName, isCustomAgent, userId, messageId } = await req.json();
+    const { message, agentPrompt, agentName, isCustomAgent, userId, sessionId, streamKey } = await req.json();
 
     console.log('📨 Processing message send:', {
       userId,
-      messageId,
+      sessionId,
       agentName,
+      streamKey,
       messageLength: message?.length || 0
     });
 
-    if (!message || !agentPrompt || !agentName || !userId || !messageId) {
+    if (!message || !agentPrompt || !agentName || !userId || !sessionId) {
       return new Response(JSON.stringify({
         error: 'Missing required parameters'
       }), {
@@ -192,25 +189,50 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    // Get SSE connection for streaming response
-    const streamKey = `stream_${userId}_${agentName.replace(/\s+/g, '_')}`;
-    const streamData = globalThis[streamKey];
+    // Use streamKey or fallback to agentId-based key
+    const finalStreamKey = streamKey || `stream_${userId}_${agentName.replace(/\s+/g, '_')}`;
+    const streamData = globalThis[finalStreamKey];
 
     if (!streamData) {
-      console.warn(`⚠️ No active stream found for ${streamKey}`);
+      console.warn(`⚠️ No active stream found for ${finalStreamKey}`);
     }
 
-    const assistantMessageId = `assistant-${Date.now()}`;
+    const assistantMessageId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Send message start event
     if (streamData) {
       const startData = JSON.stringify({
         type: 'message_start',
         messageId: assistantMessageId,
-        agentName
+        agentName,
+        sessionId
       });
       streamData.controller.enqueue(streamData.encoder.encode(`data: ${startData}\n\n`));
     }
+
+    // Get conversation history from the session
+    let conversationHistory = [];
+    try {
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('chat_messages')
+        .select('role, content')
+        .eq('session_id', sessionId)
+        .eq('streaming_complete', true)
+        .order('created_at', { ascending: true })
+        .limit(20); // Last 20 messages for context
+
+      if (!messagesError && messagesData) {
+        conversationHistory = messagesData.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+      }
+    } catch (error) {
+      console.warn('Could not load conversation history:', error);
+    }
+
+    // Add current message to history
+    conversationHistory.push({ role: 'user', content: message });
 
     // Call Claude API with streaming
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -224,7 +246,7 @@ async function handleMessageSend(req: Request) {
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 3000,
         system: agentPrompt,
-        messages: [{ role: 'user', content: message }],
+        messages: conversationHistory,
         stream: true
       })
     });
@@ -261,7 +283,8 @@ async function handleMessageSend(req: Request) {
                 const deltaData = JSON.stringify({
                   type: 'content_delta',
                   messageId: assistantMessageId,
-                  content: fullResponse
+                  content: fullResponse,
+                  sessionId
                 });
                 streamData.controller.enqueue(streamData.encoder.encode(`data: ${deltaData}\n\n`));
               }
@@ -276,13 +299,38 @@ async function handleMessageSend(req: Request) {
       const completeData = JSON.stringify({
         type: 'message_complete',
         messageId: assistantMessageId,
-        content: fullResponse
+        content: fullResponse,
+        sessionId
       });
       streamData.controller.enqueue(streamData.encoder.encode(`data: ${completeData}\n\n`));
     }
 
-    // Consume tokens
+    // Update the assistant message in database
     const tokensUsed = Math.ceil((message.length + fullResponse.length) * 1.3);
+    
+    try {
+      // Find and update the assistant message
+      const { error: updateError } = await supabase
+        .from('chat_messages')
+        .update({
+          content: fullResponse,
+          tokens_used: tokensUsed,
+          streaming_complete: true
+        })
+        .eq('session_id', sessionId)
+        .eq('role', 'assistant')
+        .eq('streaming_complete', false)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (updateError) {
+        console.error('Error updating assistant message:', updateError);
+      }
+    } catch (error) {
+      console.error('Error updating message in database:', error);
+    }
+
+    // Consume tokens
     await supabase.rpc('consume_tokens', {
       p_user_id: userId,
       p_tokens_used: tokensUsed,
@@ -296,7 +344,8 @@ async function handleMessageSend(req: Request) {
     return new Response(JSON.stringify({
       success: true,
       messageId: assistantMessageId,
-      tokensUsed
+      tokensUsed,
+      sessionId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
