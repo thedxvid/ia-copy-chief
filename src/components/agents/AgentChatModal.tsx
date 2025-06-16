@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -431,10 +432,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     setIsSidebarOpen(false);
   };
 
-  const handleSelectSession = async (session: any) => {
+  const handleSelectSession = (session: any) => {
     modalLogger.log('SESSION_SELECTED', { sessionId: session.id });
     clearChatInterface();
-    await selectSession(session);
+    selectSession(session);
   };
 
   return (
@@ -622,3 +623,4 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     </Dialog>
   );
 };
+
