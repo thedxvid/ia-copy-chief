@@ -124,8 +124,15 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     clearChat
   } = useAgentChat(agent.id);
 
-  // Combinar mensagens da sessão com mensagens do chat
-  const allMessages = [...sessionMessages, ...chatMessages];
+  // Converter ChatMessage para Message format e combinar com mensagens do chat
+  const normalizedSessionMessages: Message[] = sessionMessages.map(msg => ({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    timestamp: new Date(msg.created_at)
+  }));
+
+  const allMessages: Message[] = [...normalizedSessionMessages, ...chatMessages];
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
