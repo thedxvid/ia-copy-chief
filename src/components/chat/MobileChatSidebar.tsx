@@ -107,10 +107,10 @@ export const MobileChatSidebar: React.FC<MobileChatSidebarProps> = ({
   }
 
   return (
-    <div className="absolute inset-0 z-[200] flex">
+    <div className="fixed inset-0 z-[100] flex">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
         onClick={handleBackdropClick}
       />
       
