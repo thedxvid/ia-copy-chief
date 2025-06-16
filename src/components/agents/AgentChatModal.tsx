@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,6 @@ interface AgentChatModalProps {
   onClose: () => void;
 }
 
-// 🔍 DEBUG: Função para logging detalhado no modal
 const debugLog = (category: string, message: string, data?: any) => {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] 🔍 MODAL_${category}: ${message}`, data || '');
@@ -39,7 +39,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const [message, setMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const sessionCreationRef = useRef(false); // Prevent duplicate session creation
+  const sessionInitializedRef = useRef(false);
   
   debugLog('MODAL_RENDER', `Modal renderizado para agente: ${agent.name}`, { 
     agentId: agent.id, 
@@ -50,7 +50,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     sessions,
     currentSession,
     messages,
-    createNewSession,
+    findOrCreateSessionForAgent,
     selectSession,
     addMessage,
     updateMessage,
@@ -78,17 +78,19 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       }
     });
 
-  // Log estado da conexão
+  // Efeito para inicializar sessão APENAS uma vez quando o modal abrir
   useEffect(() => {
-    debugLog('CONNECTION_STATE', 'Estado da conexão mudou', {
-      isConnected,
-      connectionStatus,
-      isSending,
-      isTyping,
-      canSendMessage,
-      agentId: agent.id
-    });
-  }, [isConnected, connectionStatus, isSending, isTyping, canSendMessage, agent.id]);
+    if (isOpen && agent.id && !sessionInitializedRef.current) {
+      sessionInitializedRef.current = true;
+      debugLog('SESSION_INIT', 'Inicializando sessão para agente', { agentId: agent.id, agentName: agent.name });
+      findOrCreateSessionForAgent(agent.name);
+    }
+    
+    // Reset quando modal fechar
+    if (!isOpen) {
+      sessionInitializedRef.current = false;
+    }
+  }, [isOpen, agent.id, agent.name, findOrCreateSessionForAgent]);
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -110,19 +112,8 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   }, [isOpen, currentSession]);
 
   const handleNewChat = async () => {
-    if (sessionCreationRef.current) {
-      debugLog('NEW_CHAT_BLOCKED', 'Criação de sessão já em progresso');
-      return;
-    }
-    
-    sessionCreationRef.current = true;
     debugLog('NEW_CHAT', 'Criando nova sessão', { agentName: agent.name, agentId: agent.id });
-    
-    try {
-      await createNewSession(agent.name);
-    } finally {
-      sessionCreationRef.current = false;
-    }
+    await findOrCreateSessionForAgent(agent.name);
   };
 
   const handleSend = async () => {
@@ -137,7 +128,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       isTyping
     });
 
-    // ✅ Usar validação robusta
     if (!message.trim() || !canSendMessage || !currentSession) {
       if (!canSendMessage) {
         debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: conexão não está pronta', {
@@ -158,7 +148,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     }
     
     const messageToSend = message;
-    setMessage(''); // Limpar input imediatamente
+    setMessage('');
     
     debugLog('SEND_START', 'Iniciando envio de mensagem', {
       messageLength: messageToSend.length,
@@ -168,15 +158,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     });
     
     try {
-      // Adicionar mensagem do usuário ao banco
       debugLog('USER_MESSAGE', 'Adicionando mensagem do usuário');
       await addMessage(currentSession.id, 'user', messageToSend);
 
-      // Criar mensagem placeholder para o assistente
       debugLog('ASSISTANT_MESSAGE', 'Criando mensagem placeholder do assistente');
       const assistantMessage = await addMessage(currentSession.id, 'assistant', '', 0);
 
-      // Enviar para streaming
       debugLog('STREAMING_SEND', 'Enviando para streaming', {
         sessionId: currentSession.id,
         agentPrompt: agent.prompt,
@@ -199,7 +186,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined
       });
-      setMessage(messageToSend); // Restaurar mensagem em caso de erro
+      setMessage(messageToSend);
     }
   };
 
@@ -238,14 +225,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
-
-  // Automatically create new session only if none exists and not already creating
-  useEffect(() => {
-    if (isOpen && sessions.length === 0 && !currentSession && !sessionCreationRef.current) {
-      debugLog('AUTO_SESSION', 'Criando sessão automaticamente');
-      handleNewChat();
-    }
-  }, [isOpen, sessions.length, currentSession]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
