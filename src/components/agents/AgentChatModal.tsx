@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -365,11 +364,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     setIsSidebarOpen(false);
   };
 
-  // CORREÇÃO: selectSession espera apenas um argumento
-  const handleSelectSession = (session: any) => {
+  // CORREÇÃO: selectSession espera apenas um argumento do tipo ChatSession
+  const handleSelectSession = async (session: any) => {
     modalLogger.log('SESSION_SELECTED', { sessionId: session.id });
     clearChatInterface();
-    selectSession(session); // Corrigido: removido segundo argumento
+    await selectSession(session); // Corrigido: chamada com apenas um argumento
   };
 
   return (
