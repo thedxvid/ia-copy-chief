@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import { useOptimizedStreaming } from '@/hooks/useOptimizedStreaming';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { StreamingMessage } from '@/components/chat/StreamingMessage';
 import { ConnectionStatus } from '@/components/chat/ConnectionStatus';
+import { toast } from 'react-toastify';
 
 interface Agent {
   id: string;
@@ -137,6 +137,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           isTyping,
           canSendMessage
         });
+        
+        // Tentar reconectar se não estiver conectado
+        if (!isConnected && connectionStatus !== 'connecting') {
+          toast.info('Tentando reconectar...');
+          reconnect();
+        }
       }
       if (!currentSession) {
         debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: sem sessão atual');
@@ -187,6 +193,18 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         stack: error instanceof Error ? error.stack : undefined
       });
       setMessage(messageToSend);
+      
+      // Mostrar erro mais específico
+      if (error instanceof Error) {
+        if (error.message.includes('Tokens insuficientes')) {
+          toast.error('Tokens insuficientes para continuar a conversa');
+        } else if (error.message.includes('404') || error.message.includes('NO_ACTIVE_STREAM')) {
+          toast.error('Conexão perdida. Reconectando...');
+          reconnect();
+        } else {
+          toast.error(`Erro: ${error.message}`);
+        }
+      }
     }
   };
 
@@ -300,12 +318,27 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                   </div>
                   <h3 className="text-lg font-medium text-white mb-2">{agent.name}</h3>
                   <p className="text-[#CCCCCC] mb-4">{agent.description}</p>
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
-                    <span className="text-sm ml-2">Preparando conversa...</span>
-                  </div>
+                  {connectionStatus === 'connecting' ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
+                      <span className="text-sm ml-2">Conectando...</span>
+                    </div>
+                  ) : connectionStatus === 'error' ? (
+                    <div className="space-y-2">
+                      <p className="text-red-400 text-sm">Erro na conexão</p>
+                      <Button
+                        onClick={reconnect}
+                        size="sm"
+                        className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                      >
+                        Tentar Novamente
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm">Inicializando conversa...</p>
+                  )}
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center text-[#888888] py-8">
@@ -380,8 +413,8 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               </Button>
             </div>
             
-            {/* Status */}
-            {!canSendMessage && (
+            {/* Status melhorado */}
+            {(!canSendMessage || connectionStatus !== 'connected') && (
               <div className="mt-3 text-sm flex items-center justify-center">
                 {isSending ? (
                   <div className="text-[#3B82F6] flex items-center">
@@ -392,6 +425,19 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                   <div className="text-yellow-500 flex items-center">
                     <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse mr-2"></div>
                     Conectando ao assistente...
+                  </div>
+                ) : connectionStatus === 'error' ? (
+                  <div className="text-red-500 flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span>Erro de conexão</span>
+                    <Button
+                      onClick={reconnect}
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-xs border-red-500 text-red-400 hover:bg-red-500/10"
+                    >
+                      Reconectar
+                    </Button>
                   </div>
                 ) : !isConnected ? (
                   <div className="text-red-500 flex items-center">
