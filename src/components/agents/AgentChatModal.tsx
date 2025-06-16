@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -450,8 +451,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           <DialogTitle>Chat com {agent.name}</DialogTitle>
         </DialogHeader>
 
-        {/* Container interno com flex para organizar sidebar + chat */}
-        <div className="flex h-full w-full relative">
+        <div className="flex h-full w-full">
           {/* Sidebar Desktop */}
           {!isMobile && (
             <ChatSidebar
@@ -486,7 +486,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           <div className="flex-1 flex flex-col min-w-0 relative">
             {/* Header */}
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-[#4B5563]/20">
-              {/* ... keep existing code (header content) */}
               <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                 {isMobile && (
                   <Button
