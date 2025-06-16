@@ -20,17 +20,43 @@ const connectionPool = new Map<string, {
   lastActivity: number;
 }>();
 
+// 🔍 DEBUG: Função para logging detalhado
+const debugLog = (category: string, message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] 🔍 ${category}: ${message}`;
+  console.log(logMessage, data || '');
+};
+
+// 🔍 DEBUG: Função para verificar estado do pool
+const debugPoolState = (context: string) => {
+  debugLog('POOL_STATE', `${context} - Pool size: ${connectionPool.size}`);
+  debugLog('POOL_KEYS', 'Available streams:', Array.from(connectionPool.keys()));
+  connectionPool.forEach((connection, key) => {
+    debugLog('POOL_DETAIL', `Stream ${key}:`, {
+      readyState: connection.eventSource.readyState,
+      isReady: connection.isReady,
+      callbackCount: connection.callbacks.size,
+      lastActivity: new Date(connection.lastActivity).toISOString(),
+      age: Date.now() - connection.createdAt
+    });
+  });
+};
+
 // Cleanup automático de conexões órfãs
 setInterval(() => {
   const now = Date.now();
+  debugLog('CLEANUP', 'Iniciando limpeza automática');
+  
   for (const [key, connection] of connectionPool.entries()) {
-    // Remove conexões inativas por mais de 5 minutos
-    if (now - connection.lastActivity > 300000) {
-      console.log(`🧹 Limpando conexão inativa: ${key}`);
+    const age = now - connection.lastActivity;
+    if (age > 300000) { // 5 minutos
+      debugLog('CLEANUP', `Removendo conexão inativa: ${key}`, { age, lastActivity: new Date(connection.lastActivity) });
       connection.eventSource.close();
       connectionPool.delete(key);
     }
   }
+  
+  debugPoolState('PÓS_CLEANUP');
 }, 60000);
 
 export const useOptimizedStreaming = (
@@ -55,25 +81,47 @@ export const useOptimizedStreaming = (
   const connectingRef = useRef(false);
 
   const updateConnectionStatus = useCallback((status: StreamingState['connectionStatus']) => {
+    debugLog('CONNECTION_STATUS', `Mudança de status: ${state.connectionStatus} → ${status}`);
     setState(prev => ({ ...prev, connectionStatus: status }));
-  }, []);
+  }, [state.connectionStatus]);
 
-  // CORRIGIDO: Usar sempre userId-agentId como streamKey
+  // 🔍 DEBUG: Função para gerar streamKey com logging
   const getStreamKey = useCallback(() => {
-    if (!user?.id) return null;
-    return `${user.id}-${agentId}`;
+    if (!user?.id) {
+      debugLog('STREAM_KEY', 'ERRO: userId não disponível', { userId: user?.id });
+      return null;
+    }
+    
+    const streamKey = `${user.id}-${agentId}`;
+    debugLog('STREAM_KEY', 'Gerado streamKey:', { userId: user.id, agentId, streamKey });
+    return streamKey;
   }, [user?.id, agentId]);
 
   // Função para conectar ao SSE com validação robusta
   const connectToStream = useCallback(async () => {
-    if (!user?.id || connectingRef.current) return;
+    debugLog('CONNECT_START', 'Iniciando conexão', { userId: user?.id, agentId, connecting: connectingRef.current });
+    
+    if (!user?.id || connectingRef.current) {
+      debugLog('CONNECT_ABORT', 'Conexão abortada', { userId: user?.id, connecting: connectingRef.current });
+      return;
+    }
 
     const streamKey = getStreamKey();
-    if (!streamKey) return;
+    if (!streamKey) {
+      debugLog('CONNECT_ERROR', 'StreamKey inválido');
+      return;
+    }
+    
+    debugPoolState('PRÉ_CONEXÃO');
     
     // Verificar se já existe conexão ativa e válida
     if (connectionPool.has(streamKey)) {
       const existingConnection = connectionPool.get(streamKey)!;
+      debugLog('EXISTING_CONNECTION', 'Verificando conexão existente', {
+        readyState: existingConnection.eventSource.readyState,
+        isReady: existingConnection.isReady,
+        callbackCount: existingConnection.callbacks.size
+      });
       
       // Verificar se a conexão ainda está viva
       if (existingConnection.eventSource.readyState === EventSource.OPEN) {
@@ -85,17 +133,23 @@ export const useOptimizedStreaming = (
           updateConnectionStatus('connected');
           setState(prev => ({ ...prev, isConnected: true }));
           reconnectAttemptsRef.current = 0;
-          console.log('🔗 Reutilizando conexão SSE PRONTA para agente:', agentId);
+          debugLog('CONNECTION_REUSED', 'Reutilizando conexão PRONTA', { streamKey, callbackId: callbackIdRef.current });
           return;
+        } else {
+          debugLog('CONNECTION_NOT_READY', 'Conexão existe mas não está pronta', { streamKey });
         }
       } else {
         // Remover conexão morta
-        console.log('🗑️ Removendo conexão morta:', streamKey);
+        debugLog('CONNECTION_DEAD', 'Removendo conexão morta', { 
+          streamKey, 
+          readyState: existingConnection.eventSource.readyState 
+        });
         connectionPool.delete(streamKey);
       }
     }
 
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      debugLog('MAX_RECONNECT', 'Máximo de tentativas atingido', { attempts: reconnectAttemptsRef.current });
       updateConnectionStatus('error');
       toast.error('Falha ao conectar após várias tentativas');
       return;
@@ -103,11 +157,14 @@ export const useOptimizedStreaming = (
 
     connectingRef.current = true;
     updateConnectionStatus('connecting');
+    debugLog('SSE_CREATING', 'Criando nova conexão SSE', { streamKey, attempt: reconnectAttemptsRef.current + 1 });
 
     try {
       const url = new URL(`https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/streaming-chat`);
       url.searchParams.set('userId', user.id);
-      url.searchParams.set('agentId', agentId); // ✅ Usar agentId, não agentName
+      url.searchParams.set('agentId', agentId);
+      
+      debugLog('SSE_URL', 'URL da conexão SSE:', { url: url.toString() });
 
       const eventSource = new EventSource(url.toString());
       const callbacks = new Map<string, (data: any) => void>();
@@ -115,6 +172,7 @@ export const useOptimizedStreaming = (
       
       // Registrar este callback
       callbacks.set(callbackIdRef.current, handleSSEMessage);
+      debugLog('CALLBACK_REGISTERED', 'Callback registrado', { callbackId: callbackIdRef.current });
 
       // Adicionar ao pool - inicialmente NÃO está pronto
       const connectionData = { 
@@ -125,9 +183,10 @@ export const useOptimizedStreaming = (
         lastActivity: now
       };
       connectionPool.set(streamKey, connectionData);
+      debugLog('POOL_ADDED', 'Conexão adicionada ao pool', { streamKey, ready: false });
 
       eventSource.onopen = () => {
-        console.log('🔗 EventSource aberto para agente:', agentId, 'StreamKey:', streamKey);
+        debugLog('SSE_OPENED', 'EventSource aberto', { streamKey, readyState: eventSource.readyState });
         connectingRef.current = false;
         connectionData.lastActivity = Date.now();
       };
@@ -135,6 +194,7 @@ export const useOptimizedStreaming = (
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          debugLog('SSE_MESSAGE', 'Mensagem recebida', { type: data.type, streamKey });
           connectionData.lastActivity = Date.now();
           
           // ✅ Confirmação IMEDIATA do backend
@@ -143,25 +203,30 @@ export const useOptimizedStreaming = (
             updateConnectionStatus('connected');
             setState(prev => ({ ...prev, isConnected: true }));
             reconnectAttemptsRef.current = 0;
-            console.log('✅ Conexão IMEDIATAMENTE pronta para agente:', agentId);
+            debugLog('CONNECTION_READY', '✅ Conexão IMEDIATAMENTE pronta', { streamKey });
           }
           
           // Executar todos os callbacks registrados
-          callbacks.forEach(callback => callback(data));
+          callbacks.forEach((callback, callbackId) => {
+            debugLog('CALLBACK_EXECUTE', 'Executando callback', { callbackId, type: data.type });
+            callback(data);
+          });
         } catch (error) {
-          console.error('Error parsing stream data:', error);
+          debugLog('SSE_PARSE_ERROR', 'Erro ao parsear dados do stream', { error, data: event.data });
         }
       };
 
       eventSource.onerror = (error) => {
-        console.error('EventSource error for agent', agentId, ':', error);
+        debugLog('SSE_ERROR', 'Erro no EventSource', { streamKey, error, readyState: eventSource.readyState });
         connectingRef.current = false;
         
         // Remover do pool
         connectionPool.delete(streamKey);
+        debugLog('POOL_REMOVED', 'Conexão removida do pool devido a erro', { streamKey });
         
         // Notificar todos os callbacks sobre o erro
-        callbacks.forEach(callback => {
+        callbacks.forEach((callback, callbackId) => {
+          debugLog('ERROR_CALLBACK', 'Notificando callback sobre erro', { callbackId });
           callback({ type: 'error', error: 'Connection lost' });
         });
         
@@ -176,18 +241,27 @@ export const useOptimizedStreaming = (
           }
           
           const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000;
+          debugLog('RECONNECT_SCHEDULE', 'Agendando reconexão', { 
+            attempt: reconnectAttemptsRef.current, 
+            delay, 
+            streamKey 
+          });
           
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`🔄 Tentativa de reconexão para agente ${agentId}... (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+            debugLog('RECONNECT_ATTEMPT', 'Tentativa de reconexão', { 
+              attempt: reconnectAttemptsRef.current, 
+              streamKey 
+            });
             connectToStream();
           }, delay);
         } else {
+          debugLog('RECONNECT_FAILED', 'Falha definitiva na reconexão', { streamKey });
           toast.error('Conexão perdida. Clique em "Reconectar" para tentar novamente.');
         }
       };
 
     } catch (error) {
-      console.error('Failed to connect to stream for agent', agentId, ':', error);
+      debugLog('CONNECT_EXCEPTION', 'Exceção ao conectar', { error, streamKey });
       connectingRef.current = false;
       updateConnectionStatus('error');
       reconnectAttemptsRef.current++;
@@ -197,12 +271,15 @@ export const useOptimizedStreaming = (
 
   // Handler para mensagens SSE
   const handleSSEMessage = useCallback((data: any) => {
+    debugLog('MESSAGE_HANDLE', `Processando mensagem tipo: ${data.type}`, data);
+    
     switch (data.type) {
       case 'connection_established':
-        console.log('✅ Conexão confirmada para agente:', agentId);
+        debugLog('MESSAGE_CONNECTION', '✅ Conexão confirmada via mensagem', { agentId });
         break;
 
       case 'message_start':
+        debugLog('MESSAGE_START', 'Início de streaming', { messageId: data.messageId });
         setState(prev => ({
           ...prev,
           isTyping: true,
@@ -212,6 +289,10 @@ export const useOptimizedStreaming = (
         break;
 
       case 'content_delta':
+        debugLog('MESSAGE_DELTA', 'Delta de conteúdo', { 
+          messageId: data.messageId, 
+          contentLength: data.content?.length 
+        });
         setState(prev => ({
           ...prev,
           currentStreamingMessage: data.content
@@ -219,6 +300,10 @@ export const useOptimizedStreaming = (
         break;
 
       case 'message_complete':
+        debugLog('MESSAGE_COMPLETE', 'Streaming completo', { 
+          messageId: data.messageId, 
+          contentLength: data.content?.length 
+        });
         setState(prev => ({
           ...prev,
           isTyping: false,
@@ -229,11 +314,11 @@ export const useOptimizedStreaming = (
         break;
 
       case 'ping':
-        // Keep alive ping
+        debugLog('MESSAGE_PING', 'Keep alive ping recebido');
         break;
 
       case 'error':
-        console.error('Stream error:', data.error);
+        debugLog('MESSAGE_ERROR', 'Erro recebido via stream', { error: data.error });
         toast.error('Erro no streaming: ' + data.error);
         break;
     }
@@ -241,25 +326,42 @@ export const useOptimizedStreaming = (
 
   const disconnectStream = useCallback(() => {
     const streamKey = getStreamKey();
-    if (!streamKey) return;
+    if (!streamKey) {
+      debugLog('DISCONNECT_ERROR', 'StreamKey inválido para desconexão');
+      return;
+    }
 
+    debugLog('DISCONNECT_START', 'Iniciando desconexão', { streamKey });
     const connection = connectionPool.get(streamKey);
     
     if (connection) {
       // Remover apenas este callback
-      connection.callbacks.delete(callbackIdRef.current);
+      const removed = connection.callbacks.delete(callbackIdRef.current);
+      debugLog('CALLBACK_REMOVED', 'Callback removido', { 
+        callbackId: callbackIdRef.current, 
+        removed, 
+        remainingCallbacks: connection.callbacks.size 
+      });
       
       // Se não há mais callbacks, fechar a conexão
       if (connection.callbacks.size === 0) {
         connection.eventSource.close();
         connectionPool.delete(streamKey);
-        console.log('🔌 Conexão SSE fechada para agente:', agentId, 'StreamKey:', streamKey);
+        debugLog('CONNECTION_CLOSED', '🔌 Conexão SSE fechada (sem callbacks)', { streamKey });
+      } else {
+        debugLog('CONNECTION_KEPT', 'Conexão mantida (outros callbacks ativos)', { 
+          streamKey, 
+          remainingCallbacks: connection.callbacks.size 
+        });
       }
+    } else {
+      debugLog('DISCONNECT_NOT_FOUND', 'Conexão não encontrada para desconexão', { streamKey });
     }
     
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+      debugLog('RECONNECT_TIMEOUT_CLEARED', 'Timeout de reconexão limpo');
     }
 
     reconnectAttemptsRef.current = 0;
@@ -273,7 +375,9 @@ export const useOptimizedStreaming = (
       currentStreamingMessage: '',
       currentMessageId: null
     }));
-  }, [getStreamKey, agentId]);
+
+    debugPoolState('PÓS_DESCONEXÃO');
+  }, [getStreamKey]);
 
   const sendMessage = useCallback(async (
     sessionId: string,
@@ -282,39 +386,79 @@ export const useOptimizedStreaming = (
     agentName: string,
     isCustomAgent: boolean = false
   ) => {
+    debugLog('SEND_START', 'Iniciando envio de mensagem', {
+      sessionId,
+      messageLength: message.length,
+      agentName,
+      agentId,
+      isSending,
+      userId: user?.id
+    });
+
     if (!user?.id || !message.trim() || isSending) {
+      debugLog('SEND_VALIDATION_FAILED', 'Validação inicial falhou', {
+        hasUserId: !!user?.id,
+        hasMessage: !!message.trim(),
+        isSending
+      });
       return;
     }
 
     const streamKey = getStreamKey();
     if (!streamKey) {
+      debugLog('SEND_ERROR', 'StreamKey inválido', { userId: user?.id, agentId });
       toast.error('Erro: usuário não autenticado');
       return;
     }
 
+    debugLog('SEND_STREAMKEY', 'StreamKey para envio', { streamKey });
     const streamData = connectionPool.get(streamKey);
 
     // ✅ Verificação robusta e clara
     if (!streamData) {
-      console.warn(`⚠️ Stream não existe para ${streamKey}`);
+      debugPoolState('SEND_NO_STREAM');
+      debugLog('SEND_ERROR', `⚠️ Stream não existe`, { 
+        streamKey, 
+        availableKeys: Array.from(connectionPool.keys()),
+        poolSize: connectionPool.size
+      });
       toast.error('Conexão não estabelecida. Reconectando...');
       await connectToStream();
       return;
     }
 
     if (!streamData.isReady) {
-      console.warn(`⚠️ Stream ${streamKey} não está pronto. Ready: ${streamData.isReady}`);
+      debugLog('SEND_ERROR', `⚠️ Stream não está pronto`, { 
+        streamKey, 
+        isReady: streamData.isReady,
+        readyState: streamData.eventSource.readyState
+      });
       toast.error('Conexão ainda não está pronta. Aguarde...');
       return;
     }
 
     if (streamData.eventSource.readyState !== EventSource.OPEN) {
-      console.warn(`⚠️ EventSource não está aberto. Estado: ${streamData.eventSource.readyState}`);
+      debugLog('SEND_ERROR', `⚠️ EventSource não está aberto`, { 
+        streamKey, 
+        readyState: streamData.eventSource.readyState,
+        EventSourceStates: {
+          CONNECTING: EventSource.CONNECTING,
+          OPEN: EventSource.OPEN,
+          CLOSED: EventSource.CLOSED
+        }
+      });
       toast.error('Conexão perdida. Reconectando...');
       connectionPool.delete(streamKey);
       await connectToStream();
       return;
     }
+
+    debugLog('SEND_VALIDATION_OK', '✅ Todas as validações passaram', {
+      streamKey,
+      streamExists: !!streamData,
+      isReady: streamData.isReady,
+      readyState: streamData.eventSource.readyState
+    });
 
     setIsSending(true);
 
@@ -322,11 +466,17 @@ export const useOptimizedStreaming = (
       // Abortar requisição anterior se existir
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+        debugLog('SEND_ABORT', 'Requisição anterior abortada');
       }
 
       abortControllerRef.current = new AbortController();
 
-      console.log('📤 Enviando mensagem para agente:', agentId, 'StreamKey:', streamKey);
+      debugLog('SEND_REQUEST', '📤 Enviando requisição HTTP', {
+        sessionId,
+        agentId,
+        streamKey,
+        messageLength: message.length
+      });
 
       const response = await fetch('https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/streaming-chat', {
         method: 'POST',
@@ -341,28 +491,43 @@ export const useOptimizedStreaming = (
           isCustomAgent,
           userId: user.id,
           sessionId,
-          agentId // ✅ Incluir agentId no payload
+          agentId
         }),
         signal: abortControllerRef.current.signal
       });
 
+      debugLog('SEND_RESPONSE', 'Resposta recebida', {
+        status: response.status,
+        ok: response.ok,
+        streamKey
+      });
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        debugLog('SEND_ERROR_RESPONSE', 'Erro na resposta', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log('✅ Mensagem enviada com sucesso para agente:', agentId);
+      debugLog('SEND_SUCCESS', '✅ Mensagem enviada com sucesso', { streamKey, agentId });
 
       // Atualizar atividade do stream
       streamData.lastActivity = Date.now();
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Request aborted for agent:', agentId);
+        debugLog('SEND_ABORTED', 'Envio abortado pelo usuário', { streamKey });
         return;
       }
 
-      console.error('❌ Erro ao enviar mensagem para agente', agentId, ':', error);
+      debugLog('SEND_EXCEPTION', '❌ Erro ao enviar mensagem', {
+        error: error instanceof Error ? error.message : String(error),
+        streamKey,
+        agentId
+      });
       
       const errorMessage = error instanceof Error ? error.message : 'Erro ao enviar mensagem';
       toast.error(errorMessage);
@@ -371,22 +536,31 @@ export const useOptimizedStreaming = (
     } finally {
       setIsSending(false);
       abortControllerRef.current = null;
+      debugLog('SEND_COMPLETE', 'Envio finalizado', { streamKey });
     }
   }, [user?.id, isSending, agentId, getStreamKey, connectToStream]);
 
   const reconnect = useCallback(() => {
+    debugLog('RECONNECT_MANUAL', 'Reconexão manual iniciada');
     reconnectAttemptsRef.current = 0;
     disconnectStream();
-    setTimeout(() => connectToStream(), 1000);
+    setTimeout(() => {
+      debugLog('RECONNECT_DELAYED', 'Executando reconexão após delay');
+      connectToStream();
+    }, 1000);
   }, [connectToStream, disconnectStream]);
 
   // Auto-conectar com retry inteligente
   useEffect(() => {
+    debugLog('HOOK_INIT', 'useOptimizedStreaming inicializado', { agentId, userId: user?.id });
+    
     const timer = setTimeout(() => {
+      debugLog('HOOK_CONNECT', 'Iniciando auto-conexão');
       connectToStream();
     }, 500);
 
     return () => {
+      debugLog('HOOK_CLEANUP', 'Limpando hook', { agentId });
       clearTimeout(timer);
       disconnectStream();
     };
@@ -398,10 +572,19 @@ export const useOptimizedStreaming = (
                         !isSending && 
                         !state.isTyping;
 
+  debugLog('HOOK_STATE', 'Estado atual do hook', {
+    isConnected: state.isConnected,
+    connectionStatus: state.connectionStatus,
+    isSending,
+    isTyping: state.isTyping,
+    canSendMessage,
+    agentId
+  });
+
   return {
     ...state,
     isSending,
-    canSendMessage, // ✅ Novo campo para validação
+    canSendMessage,
     sendMessage,
     reconnect,
     disconnect: disconnectStream

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,12 @@ interface AgentChatModalProps {
   onClose: () => void;
 }
 
+// 🔍 DEBUG: Função para logging detalhado no modal
+const debugLog = (category: string, message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 🔍 MODAL_${category}: ${message}`, data || '');
+};
+
 export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   agent,
   isOpen,
@@ -33,6 +40,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const [message, setMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  debugLog('MODAL_RENDER', `Modal renderizado para agente: ${agent.name}`, { 
+    agentId: agent.id, 
+    isOpen 
+  });
   
   const {
     sessions,
@@ -46,6 +58,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   } = useChatSessions(agent.id);
 
   const handleMessageComplete = async (messageId: string, content: string) => {
+    debugLog('MESSAGE_COMPLETE', 'Mensagem streaming completa', { 
+      messageId, 
+      contentLength: content.length,
+      sessionId: currentSession?.id 
+    });
     if (currentSession) {
       await updateMessage(messageId, content, true);
     }
@@ -62,6 +79,18 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     sendMessage,
     reconnect
   } = useOptimizedStreaming(agent.id, handleMessageComplete);
+
+  // Log estado da conexão
+  useEffect(() => {
+    debugLog('CONNECTION_STATE', 'Estado da conexão mudou', {
+      isConnected,
+      connectionStatus,
+      isSending,
+      isTyping,
+      canSendMessage,
+      agentId: agent.id
+    });
+  }, [isConnected, connectionStatus, isSending, isTyping, canSendMessage, agent.id]);
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -83,15 +112,38 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   }, [isOpen, currentSession]);
 
   const handleNewChat = async () => {
+    debugLog('NEW_CHAT', 'Criando nova sessão', { agentName: agent.name, agentId: agent.id });
     await createNewSession(agent.name);
   };
 
   const handleSend = async () => {
+    debugLog('SEND_ATTEMPT', 'Tentativa de envio', {
+      hasMessage: !!message.trim(),
+      canSendMessage,
+      hasCurrentSession: !!currentSession,
+      agentId: agent.id,
+      connectionStatus,
+      isConnected,
+      isSending,
+      isTyping
+    });
+
     // ✅ Usar validação robusta
     if (!message.trim() || !canSendMessage || !currentSession) {
       if (!canSendMessage) {
-        console.warn('⚠️ Não é possível enviar: conexão não está pronta');
-        console.log('Estado da conexão:', { isConnected, connectionStatus, isSending, isTyping });
+        debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: conexão não está pronta', {
+          isConnected,
+          connectionStatus,
+          isSending,
+          isTyping,
+          canSendMessage
+        });
+      }
+      if (!currentSession) {
+        debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: sem sessão atual');
+      }
+      if (!message.trim()) {
+        debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: mensagem vazia');
       }
       return;
     }
@@ -99,14 +151,30 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     const messageToSend = message;
     setMessage(''); // Limpar input imediatamente
     
+    debugLog('SEND_START', 'Iniciando envio de mensagem', {
+      messageLength: messageToSend.length,
+      sessionId: currentSession.id,
+      agentId: agent.id,
+      agentName: agent.name
+    });
+    
     try {
       // Adicionar mensagem do usuário ao banco
+      debugLog('USER_MESSAGE', 'Adicionando mensagem do usuário');
       await addMessage(currentSession.id, 'user', messageToSend);
 
       // Criar mensagem placeholder para o assistente
+      debugLog('ASSISTANT_MESSAGE', 'Criando mensagem placeholder do assistente');
       const assistantMessage = await addMessage(currentSession.id, 'assistant', '', 0);
 
       // Enviar para streaming
+      debugLog('STREAMING_SEND', 'Enviando para streaming', {
+        sessionId: currentSession.id,
+        agentPrompt: agent.prompt,
+        agentName: agent.name,
+        isCustom: agent.isCustom
+      });
+      
       await sendMessage(
         currentSession.id,
         messageToSend,
@@ -115,8 +183,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         agent.isCustom
       );
 
+      debugLog('SEND_SUCCESS', '✅ Mensagem enviada com sucesso');
+
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
+      debugLog('SEND_ERROR', '❌ Erro ao enviar mensagem', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setMessage(messageToSend); // Restaurar mensagem em caso de erro
     }
   };
@@ -124,12 +197,18 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      debugLog('KEYBOARD_SEND', 'Enviando via Enter');
       handleSend();
     }
   };
 
   const exportChat = () => {
     if (messages.length === 0 || !currentSession) return;
+
+    debugLog('EXPORT_CHAT', 'Exportando chat', {
+      messageCount: messages.length,
+      sessionTitle: currentSession.title
+    });
 
     const chatContent = messages.map(msg => {
       const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { 
@@ -154,6 +233,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   // Automaticamente criar nova sessão se não existir nenhuma
   useEffect(() => {
     if (isOpen && sessions.length === 0 && !currentSession) {
+      debugLog('AUTO_SESSION', 'Criando sessão automaticamente');
       handleNewChat();
     }
   }, [isOpen, sessions.length, currentSession]);
@@ -294,11 +374,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder={`Mensagem para ${agent.name}...`}
                 className="flex-1 min-h-[44px] max-h-32 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none"
-                disabled={!canSendMessage || !currentSession} // ✅ Usar validação robusta
+                disabled={!canSendMessage || !currentSession}
               />
               <Button
                 onClick={handleSend}
-                disabled={!message.trim() || !canSendMessage || !currentSession} // ✅ Usar validação robusta
+                disabled={!message.trim() || !canSendMessage || !currentSession}
                 size="lg"
                 className={`px-6 transition-all duration-200 ${
                   isSending 

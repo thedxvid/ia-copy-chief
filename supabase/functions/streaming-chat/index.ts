@@ -9,6 +9,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
+// 🔍 DEBUG: Função para logging detalhado no backend
+const debugLog = (category: string, message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 🔍 BACKEND_${category}: ${message}`, data ? JSON.stringify(data, null, 2) : '');
+};
+
 // Pool global de streams com cleanup automático
 const streamPool = new Map<string, {
   controller: ReadableStreamDefaultController;
@@ -19,26 +25,49 @@ const streamPool = new Map<string, {
   createdAt: number;
 }>();
 
+// 🔍 DEBUG: Função para verificar estado do pool no backend
+const debugPoolState = (context: string) => {
+  debugLog('POOL_STATE', `${context} - Pool size: ${streamPool.size}`);
+  debugLog('POOL_KEYS', 'Available streams:', Array.from(streamPool.keys()));
+  streamPool.forEach((stream, key) => {
+    debugLog('POOL_DETAIL', `Stream ${key}:`, {
+      isReady: stream.isReady,
+      lastActivity: new Date(stream.lastActivity).toISOString(),
+      age: Date.now() - stream.createdAt
+    });
+  });
+};
+
 // Cleanup automático de streams órfãos a cada 30 segundos
 setInterval(() => {
   const now = Date.now();
+  debugLog('CLEANUP', 'Iniciando limpeza automática de streams');
+  
   for (const [key, stream] of streamPool.entries()) {
-    // Remove streams inativos por mais de 5 minutos
-    if (now - stream.lastActivity > 300000) {
-      console.log(`🧹 Limpando stream inativo: ${key}`);
+    const age = now - stream.lastActivity;
+    if (age > 300000) { // 5 minutos
+      debugLog('CLEANUP', `Limpando stream inativo: ${key}`, { 
+        age, 
+        lastActivity: new Date(stream.lastActivity).toISOString() 
+      });
       clearInterval(stream.keepAlive);
       streamPool.delete(key);
       try {
         stream.controller.close();
       } catch (e) {
-        console.warn('Controller already closed for:', key);
+        debugLog('CLEANUP', `Controller já fechado para: ${key}`, { error: e.message });
       }
     }
   }
+  
+  debugPoolState('PÓS_CLEANUP');
 }, 30000);
 
 serve(async (req) => {
+  debugLog('REQUEST', `${req.method} ${req.url}`);
+  
   if (req.method === 'OPTIONS') {
+    debugLog('CORS', 'Respondendo OPTIONS');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -46,14 +75,17 @@ serve(async (req) => {
   
   // Handle GET requests for SSE streaming
   if (req.method === 'GET') {
+    debugLog('SSE_REQUEST', 'Processando requisição SSE');
     return handleStreamingConnection(req, url);
   }
   
   // Handle POST requests for sending messages
   if (req.method === 'POST') {
+    debugLog('POST_REQUEST', 'Processando envio de mensagem');
     return handleMessageSend(req);
   }
 
+  debugLog('ERROR', `Método não permitido: ${req.method}`);
   return new Response('Method not allowed', { 
     status: 405, 
     headers: corsHeaders 
@@ -61,13 +93,21 @@ serve(async (req) => {
 });
 
 async function validateUser(userId: string): Promise<boolean> {
-  if (!userId) return false;
+  debugLog('USER_VALIDATION', 'Validando usuário', { userId });
+  
+  if (!userId) {
+    debugLog('USER_VALIDATION', 'UserId vazio');
+    return false;
+  }
   
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!supabaseUrl || !supabaseKey) return false;
+    if (!supabaseUrl || !supabaseKey) {
+      debugLog('USER_VALIDATION', 'Configuração Supabase incompleta');
+      return false;
+    }
     
     const supabase = createClient(supabaseUrl, supabaseKey);
     
@@ -77,9 +117,11 @@ async function validateUser(userId: string): Promise<boolean> {
       .eq('id', userId)
       .single();
     
-    return !error && !!data;
+    const isValid = !error && !!data;
+    debugLog('USER_VALIDATION', `Resultado: ${isValid}`, { error: error?.message });
+    return isValid;
   } catch (error) {
-    console.error('Error validating user:', error);
+    debugLog('USER_VALIDATION', 'Erro na validação', { error: error.message });
     return false;
   }
 }
@@ -88,7 +130,10 @@ async function handleStreamingConnection(req: Request, url: URL) {
   const userId = url.searchParams.get('userId');
   const agentId = url.searchParams.get('agentId');
 
+  debugLog('SSE_PARAMS', 'Parâmetros recebidos', { userId, agentId });
+
   if (!userId || !agentId) {
+    debugLog('SSE_ERROR', 'Parâmetros obrigatórios ausentes');
     return new Response('Missing userId or agentId', { 
       status: 400, 
       headers: corsHeaders 
@@ -97,19 +142,28 @@ async function handleStreamingConnection(req: Request, url: URL) {
 
   const isValidUser = await validateUser(userId);
   if (!isValidUser) {
+    debugLog('SSE_ERROR', 'Usuário não autorizado', { userId });
     return new Response('Unauthorized', { 
       status: 401, 
       headers: corsHeaders 
     });
   }
 
-  // CORRIGIDO: Usar sempre userId-agentId como streamKey
+  // 🔍 DEBUG: Usar sempre userId-agentId como streamKey
   const streamKey = `${userId}-${agentId}`;
+  debugLog('SSE_STREAMKEY', 'StreamKey gerado', { streamKey, userId, agentId });
+  
+  debugPoolState('PRÉ_VERIFICAÇÃO');
   
   // Verificar se já existe stream ativa
   if (streamPool.has(streamKey)) {
-    console.log(`🔄 Reutilizando stream existente para ${streamKey}`);
     const existingStream = streamPool.get(streamKey)!;
+    debugLog('SSE_EXISTING', 'Stream já existe', { 
+      streamKey, 
+      isReady: existingStream.isReady,
+      age: Date.now() - existingStream.createdAt
+    });
+    
     existingStream.lastActivity = Date.now();
     
     return new Response('Stream already exists', { 
@@ -118,14 +172,16 @@ async function handleStreamingConnection(req: Request, url: URL) {
     });
   }
 
-  console.log(`🔗 Nova conexão SSE estabelecida para ${streamKey}`);
+  debugLog('SSE_CREATING', `🔗 Nova conexão SSE para ${streamKey}`);
 
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
       const now = Date.now();
       
-      // CORRIGIDO: Marcar como pronto IMEDIATAMENTE sem delay
+      debugLog('SSE_START', 'Iniciando stream', { streamKey });
+      
+      // ✅ CORRIGIDO: Marcar como pronto IMEDIATAMENTE
       const streamData = {
         controller,
         encoder,
@@ -135,8 +191,10 @@ async function handleStreamingConnection(req: Request, url: URL) {
         createdAt: now
       };
 
+      debugLog('SSE_READY', '✅ Stream marcado como pronto IMEDIATAMENTE', { streamKey });
+
       // Enviar confirmação IMEDIATAMENTE
-      const data = JSON.stringify({
+      const connectionData = JSON.stringify({
         type: 'connection_established',
         userId,
         agentId,
@@ -145,16 +203,17 @@ async function handleStreamingConnection(req: Request, url: URL) {
       });
       
       try {
-        controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-        console.log(`✅ Conexão IMEDIATAMENTE pronta para ${streamKey}`);
+        controller.enqueue(encoder.encode(`data: ${connectionData}\n\n`));
+        debugLog('SSE_CONFIRMED', '✅ Confirmação enviada IMEDIATAMENTE', { streamKey });
       } catch (error) {
-        console.error('Erro ao enviar confirmação:', error);
+        debugLog('SSE_ERROR', 'Erro ao enviar confirmação', { error: error.message, streamKey });
       }
 
       const keepAlive = setInterval(() => {
         try {
           const currentStreamData = streamPool.get(streamKey);
           if (!currentStreamData || !currentStreamData.isReady) {
+            debugLog('KEEPALIVE', 'Stream não encontrado ou não pronto, parando keepalive', { streamKey });
             clearInterval(keepAlive);
             return;
           }
@@ -167,24 +226,25 @@ async function handleStreamingConnection(req: Request, url: URL) {
           controller.enqueue(encoder.encode(`data: ${pingData}\n\n`));
           
           // Verificar timeout (5 minutos sem atividade)
-          if (Date.now() - currentStreamData.lastActivity > 300000) {
-            console.log(`⏰ Timeout para stream ${streamKey}`);
+          const inactiveTime = Date.now() - currentStreamData.lastActivity;
+          if (inactiveTime > 300000) {
+            debugLog('KEEPALIVE', `⏰ Timeout para stream ${streamKey}`, { inactiveTime });
             streamPool.delete(streamKey);
             clearInterval(keepAlive);
             try {
               controller.close();
             } catch (e) {
-              console.warn('Controller already closed');
+              debugLog('KEEPALIVE', 'Controller já fechado no timeout', { streamKey });
             }
           }
         } catch (error) {
-          console.error('Error sending ping:', error);
+          debugLog('KEEPALIVE', 'Erro no keepalive', { error: error.message, streamKey });
           streamPool.delete(streamKey);
           clearInterval(keepAlive);
           try {
             controller.close();
           } catch (e) {
-            console.warn('Controller already closed');
+            debugLog('KEEPALIVE', 'Controller já fechado no erro', { streamKey });
           }
         }
       }, 30000);
@@ -194,18 +254,23 @@ async function handleStreamingConnection(req: Request, url: URL) {
       
       // Armazenar no pool
       streamPool.set(streamKey, streamData);
+      debugLog('SSE_POOLED', 'Stream adicionado ao pool', { streamKey, isReady: true });
+      debugPoolState('PÓS_CRIAÇÃO');
     },
 
     cancel() {
-      console.log(`🔌 Conexão SSE fechada para ${streamKey}`);
+      debugLog('SSE_CANCEL', `🔌 Conexão SSE cancelada para ${streamKey}`);
       const streamData = streamPool.get(streamKey);
       if (streamData) {
         clearInterval(streamData.keepAlive);
         streamPool.delete(streamKey);
+        debugLog('SSE_CLEANUP', 'Stream removido do pool', { streamKey });
       }
+      debugPoolState('PÓS_CANCELAMENTO');
     }
   });
 
+  debugLog('SSE_RESPONSE', 'Retornando resposta SSE', { streamKey });
   return new Response(stream, {
     headers: {
       ...corsHeaders,
@@ -217,9 +282,12 @@ async function handleStreamingConnection(req: Request, url: URL) {
 }
 
 async function handleMessageSend(req: Request) {
+  debugLog('MESSAGE_SEND', 'Iniciando processamento de envio');
+  
   try {
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      debugLog('MESSAGE_ERROR', 'Header de autorização inválido');
       return new Response(JSON.stringify({
         error: 'Missing or invalid authorization header'
       }), {
@@ -230,15 +298,17 @@ async function handleMessageSend(req: Request) {
 
     const { message, agentPrompt, agentName, isCustomAgent, userId, sessionId, agentId } = await req.json();
 
-    console.log('📨 Processing message send:', {
+    debugLog('MESSAGE_PARAMS', 'Parâmetros da mensagem:', {
       userId,
       sessionId,
       agentName,
       agentId,
-      messageLength: message?.length || 0
+      messageLength: message?.length || 0,
+      hasPrompt: !!agentPrompt
     });
 
     if (!message || !agentPrompt || !agentName || !userId || !sessionId || !agentId) {
+      debugLog('MESSAGE_ERROR', 'Parâmetros obrigatórios ausentes');
       return new Response(JSON.stringify({
         error: 'Missing required parameters'
       }), {
@@ -252,6 +322,7 @@ async function handleMessageSend(req: Request) {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
     if (!supabaseUrl || !supabaseKey || !anthropicApiKey) {
+      debugLog('MESSAGE_ERROR', 'Configuração do servidor incompleta');
       return new Response(JSON.stringify({
         error: 'Server configuration incomplete'
       }), {
@@ -267,6 +338,7 @@ async function handleMessageSend(req: Request) {
       .rpc('get_available_tokens', { p_user_id: userId });
 
     if (tokensError || !tokensData?.[0] || tokensData[0].total_available < 1000) {
+      debugLog('MESSAGE_ERROR', 'Tokens insuficientes', { tokensData, error: tokensError });
       return new Response(JSON.stringify({
         error: 'Insufficient tokens'
       }), {
@@ -275,13 +347,20 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    // CORRIGIDO: Usar sempre userId-agentId como streamKey
+    // 🔍 DEBUG: Usar sempre userId-agentId como streamKey
     const streamKey = `${userId}-${agentId}`;
+    debugLog('MESSAGE_STREAMKEY', 'StreamKey para mensagem', { streamKey, userId, agentId });
+    
+    debugPoolState('PRÉ_BUSCA_STREAM');
     const streamData = streamPool.get(streamKey);
 
-    // CORRIGIDO: Verificação robusta de stream
+    // 🔍 DEBUG: Verificação robusta de stream
     if (!streamData) {
-      console.warn(`⚠️ No stream found for ${streamKey}. Available:`, Array.from(streamPool.keys()));
+      debugLog('MESSAGE_ERROR', `⚠️ Nenhum stream encontrado para ${streamKey}`, {
+        streamKey,
+        availableStreams: Array.from(streamPool.keys()),
+        poolSize: streamPool.size
+      });
       return new Response(JSON.stringify({
         error: 'No active stream connection',
         streamKey: streamKey,
@@ -294,7 +373,11 @@ async function handleMessageSend(req: Request) {
     }
 
     if (!streamData.isReady) {
-      console.warn(`⚠️ Stream ${streamKey} exists but is not ready yet`);
+      debugLog('MESSAGE_ERROR', `⚠️ Stream ${streamKey} existe mas não está pronto`, {
+        streamKey,
+        isReady: streamData.isReady,
+        age: Date.now() - streamData.createdAt
+      });
       return new Response(JSON.stringify({
         error: 'Stream connection not ready yet',
         streamKey: streamKey
@@ -304,10 +387,18 @@ async function handleMessageSend(req: Request) {
       });
     }
 
+    debugLog('MESSAGE_VALIDATION', '✅ Stream encontrado e pronto', {
+      streamKey,
+      isReady: streamData.isReady,
+      age: Date.now() - streamData.createdAt
+    });
+
     // Atualizar atividade do stream
     streamData.lastActivity = Date.now();
 
     const assistantMessageId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    debugLog('MESSAGE_START_EVENT', 'Enviando evento message_start', { assistantMessageId, streamKey });
 
     // Send message start event
     const startData = JSON.stringify({
@@ -335,13 +426,20 @@ async function handleMessageSend(req: Request) {
           role: msg.role,
           content: msg.content
         }));
+        debugLog('MESSAGE_HISTORY', `Carregado histórico: ${conversationHistory.length} mensagens`);
       }
     } catch (error) {
-      console.warn('Could not load conversation history:', error);
+      debugLog('MESSAGE_HISTORY', 'Não foi possível carregar histórico', { error: error.message });
     }
 
     // Add current message to history
     conversationHistory.push({ role: 'user', content: message });
+
+    debugLog('CLAUDE_REQUEST', 'Chamando API Claude', {
+      model: 'claude-3-5-sonnet-20241022',
+      messagesCount: conversationHistory.length,
+      promptLength: agentPrompt.length
+    });
 
     // Call Claude API with streaming
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -361,8 +459,11 @@ async function handleMessageSend(req: Request) {
     });
 
     if (!claudeResponse.ok) {
+      debugLog('CLAUDE_ERROR', `Erro na API Claude: ${claudeResponse.status}`);
       throw new Error(`Claude API error: ${claudeResponse.status}`);
     }
+
+    debugLog('CLAUDE_STREAMING', 'Iniciando processamento de streaming');
 
     // Process streaming response
     const reader = claudeResponse.body?.getReader();
@@ -372,7 +473,10 @@ async function handleMessageSend(req: Request) {
     if (reader) {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          debugLog('CLAUDE_STREAMING', 'Streaming concluído');
+          break;
+        }
 
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
@@ -387,6 +491,12 @@ async function handleMessageSend(req: Request) {
               
               if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
                 fullResponse += parsed.delta.text;
+                
+                debugLog('CONTENT_DELTA', 'Enviando delta', {
+                  messageId: assistantMessageId,
+                  deltaLength: parsed.delta.text.length,
+                  totalLength: fullResponse.length
+                });
                 
                 // Send content delta to client
                 const deltaData = JSON.stringify({
@@ -408,6 +518,12 @@ async function handleMessageSend(req: Request) {
         }
       }
 
+      debugLog('MESSAGE_COMPLETE_EVENT', 'Enviando evento message_complete', {
+        messageId: assistantMessageId,
+        contentLength: fullResponse.length,
+        streamKey
+      });
+
       // Send completion event
       const completeData = JSON.stringify({
         type: 'message_complete',
@@ -421,6 +537,12 @@ async function handleMessageSend(req: Request) {
 
     // Update the assistant message in database
     const tokensUsed = Math.ceil((message.length + fullResponse.length) * 1.3);
+    
+    debugLog('DATABASE_UPDATE', 'Atualizando mensagem no banco', {
+      messageId: assistantMessageId,
+      tokensUsed,
+      contentLength: fullResponse.length
+    });
     
     try {
       // Find and update the assistant message
@@ -438,10 +560,12 @@ async function handleMessageSend(req: Request) {
         .limit(1);
 
       if (updateError) {
-        console.error('Error updating assistant message:', updateError);
+        debugLog('DATABASE_ERROR', 'Erro ao atualizar mensagem', { error: updateError });
+      } else {
+        debugLog('DATABASE_SUCCESS', 'Mensagem atualizada com sucesso');
       }
     } catch (error) {
-      console.error('Error updating message in database:', error);
+      debugLog('DATABASE_ERROR', 'Exceção ao atualizar mensagem', { error: error.message });
     }
 
     // Consume tokens
@@ -453,7 +577,12 @@ async function handleMessageSend(req: Request) {
       p_completion_tokens: Math.floor(tokensUsed * 0.3)
     });
 
-    console.log('✅ Streaming message completed successfully for', streamKey);
+    debugLog('MESSAGE_SUCCESS', '✅ Streaming message completed successfully', {
+      streamKey,
+      messageId: assistantMessageId,
+      tokensUsed,
+      contentLength: fullResponse.length
+    });
 
     return new Response(JSON.stringify({
       success: true,
@@ -466,7 +595,10 @@ async function handleMessageSend(req: Request) {
     });
 
   } catch (error) {
-    console.error('❌ Error in streaming chat:', error);
+    debugLog('MESSAGE_EXCEPTION', '❌ Erro no streaming chat', {
+      error: error.message,
+      stack: error.stack
+    });
     
     return new Response(JSON.stringify({
       error: 'Internal server error',
