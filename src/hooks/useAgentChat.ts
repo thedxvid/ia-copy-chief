@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface Message {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
@@ -29,6 +30,7 @@ export const useAgentChat = (agentId: string) => {
     }
 
     const userMessage: Message = {
+      id: `user-${Date.now()}-${Math.random()}`,
       role: 'user',
       content: message,
       timestamp: new Date()
@@ -82,6 +84,7 @@ export const useAgentChat = (agentId: string) => {
                   setIsStreaming(false);
                   // Add final assistant message
                   const assistantMessage: Message = {
+                    id: `assistant-${Date.now()}-${Math.random()}`,
                     role: 'assistant',
                     content: fullContent,
                     timestamp: new Date()
@@ -113,6 +116,7 @@ export const useAgentChat = (agentId: string) => {
         const data = await response.json();
         
         const assistantMessage: Message = {
+          id: `assistant-${Date.now()}-${Math.random()}`,
           role: 'assistant',
           content: data.response,
           timestamp: new Date()
@@ -144,11 +148,47 @@ export const useAgentChat = (agentId: string) => {
     }
   }, [user?.id]);
 
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    setStreamingContent('');
+    toast.success('Chat limpo com sucesso!');
+  }, []);
+
+  const exportChat = useCallback((agentName: string) => {
+    if (messages.length === 0) {
+      toast.error('Não há mensagens para exportar');
+      return;
+    }
+
+    const chatContent = messages.map(msg => {
+      const time = msg.timestamp.toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      const role = msg.role === 'user' ? 'Você' : agentName;
+      return `[${time}] ${role}: ${msg.content}`;
+    }).join('\n\n');
+
+    const blob = new Blob([chatContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${agentName}-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success('Chat exportado com sucesso!');
+  }, [messages]);
+
   return {
     messages,
     isLoading,
     isStreaming,
     streamingContent,
     sendMessage,
+    clearChat,
+    exportChat,
   };
 };
