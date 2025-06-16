@@ -14,15 +14,27 @@ serve(async (req) => {
   }
 
   try {
-    const { message, agentPrompt, chatHistory, agentName, isCustomAgent, userId, streaming = false } = await req.json();
+    const { message, agentPrompt, agentName, isCustomAgent, userId, streaming = false } = await req.json();
 
     console.log('=== CHAT REQUEST DEBUG ===');
     console.log('User ID:', userId);
     console.log('Agent Name:', agentName);
     console.log('Is Custom Agent:', isCustomAgent);
-    console.log('Message Length:', message.length);
+    console.log('Message Length:', message?.length || 0);
     console.log('Agent Prompt Length:', agentPrompt?.length || 0);
     console.log('Streaming enabled:', streaming);
+
+    // Validate required parameters
+    if (!message || !agentPrompt || !agentName) {
+      console.error('❌ Missing required parameters');
+      return new Response(JSON.stringify({
+        error: 'Parâmetros obrigatórios ausentes',
+        details: 'message, agentPrompt e agentName são obrigatórios'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -57,9 +69,8 @@ serve(async (req) => {
       // Estimar tokens necessários para Claude 4 Sonnet
       const systemPromptLength = agentPrompt?.length || 0;
       const messageLength = message.length;
-      const historyLength = chatHistory?.reduce((acc: number, msg: any) => acc + msg.content.length, 0) || 0;
       
-      const estimatedTokens = Math.ceil((systemPromptLength + messageLength + historyLength) * 1.3) + 1000; // Buffer para resposta
+      const estimatedTokens = Math.ceil((systemPromptLength + messageLength) * 1.3) + 1000; // Buffer para resposta
       console.log('Tokens estimados necessários (Claude 4 Sonnet):', estimatedTokens);
 
       if (!userTokens || userTokens.total_available < estimatedTokens) {
@@ -68,43 +79,32 @@ serve(async (req) => {
     }
 
     // Preparar mensagens para Claude 4 Sonnet
-    const messages = [];
-    
-    if (chatHistory && chatHistory.length > 0) {
-      chatHistory.forEach((msg: any) => {
-        messages.push({
-          role: msg.role,
-          content: msg.content
-        });
-      });
-    }
-    
-    messages.push({
+    const messages = [{
       role: 'user',
       content: message
-    });
+    }];
 
     console.log('=== CLAUDE 4 SONNET API CALL ===');
     console.log('Messages count:', messages.length);
     console.log('System prompt length:', agentPrompt?.length || 0);
 
     const requestBody = {
-      model: 'claude-sonnet-4-20250514', // ✅ Claude 4 Sonnet
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 3000,
       system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil.`,
       messages: messages,
       stream: streaming
     };
 
-    console.log('Request body structure (Claude 4):', {
+    console.log('Request body structure (Claude):', {
       model: requestBody.model,
       max_tokens: requestBody.max_tokens,
       system_length: requestBody.system.length,
-      messages_count: requestBody.messages.length
+      messages_count: requestBody.messages.length,
+      stream: requestBody.stream
     });
 
-    console.log('Tentativa 1/3 com Claude 4 Sonnet');
-    console.log('Calling Claude 4 Sonnet API...');
+    console.log('Calling Claude API...');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -118,7 +118,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Claude 4 Sonnet API error:', response.status, errorText);
+      console.error('❌ Claude API error:', response.status, errorText);
       
       if (response.status === 400) {
         throw new Error('Erro na formatação da requisição para Claude API');
@@ -144,7 +144,11 @@ serve(async (req) => {
             while (true) {
               const { done, value } = await reader.read();
               
-              if (done) break;
+              if (done) {
+                controller.enqueue(`data: [DONE]\n\n`);
+                controller.close();
+                return;
+              }
               
               const chunk = decoder.decode(value);
               const lines = chunk.split('\n');
@@ -154,6 +158,7 @@ serve(async (req) => {
                   const data = line.slice(6);
                   
                   if (data === '[DONE]') {
+                    controller.enqueue(`data: [DONE]\n\n`);
                     controller.close();
                     return;
                   }
@@ -163,7 +168,6 @@ serve(async (req) => {
                     if (parsed.delta?.text) {
                       // Enviar chunk de texto para o frontend
                       controller.enqueue(`data: ${JSON.stringify({ 
-                        type: 'content',
                         text: parsed.delta.text 
                       })}\n\n`);
                     }
@@ -191,9 +195,9 @@ serve(async (req) => {
     }
 
     // Resposta normal (não-streaming)
-    console.log('Claude 4 Sonnet API call successful');
+    console.log('Claude API call successful');
     const data = await response.json();
-    console.log('Claude 4 Sonnet API response received');
+    console.log('Claude API response received');
 
     const assistantResponse = data.content[0]?.text || 'Resposta não disponível';
     
@@ -202,7 +206,7 @@ serve(async (req) => {
 
     // Calcular tokens usados
     const actualTokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
-    console.log('Tokens realmente usados pelo Claude 4:', actualTokensUsed);
+    console.log('Tokens realmente usados pelo Claude:', actualTokensUsed);
 
     // Consumir tokens se userId fornecido
     if (userId && actualTokensUsed > 0) {
@@ -220,7 +224,7 @@ serve(async (req) => {
       if (consumeError || !consumeResult) {
         console.error('⚠️ Erro ao consumir tokens:', consumeError);
       } else {
-        console.log('Tokens consumidos com sucesso (Claude 4)');
+        console.log('Tokens consumidos com sucesso');
       }
 
       // Verificar e enviar notificações se necessário
@@ -232,7 +236,7 @@ serve(async (req) => {
     }
 
     console.log('=== SUCCESS ===');
-    console.log('Chat processado com sucesso usando Claude 4 Sonnet');
+    console.log('Chat processado com sucesso usando Claude');
 
     return new Response(JSON.stringify({
       response: assistantResponse,

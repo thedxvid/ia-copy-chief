@@ -29,6 +29,14 @@ export const useAgentChat = (agentId: string) => {
       return;
     }
 
+    console.log('🚀 Enviando mensagem:', {
+      message: message.substring(0, 50) + '...',
+      agentName,
+      isCustomAgent,
+      enableStreaming,
+      userId: user.id
+    });
+
     const userMessage: Message = {
       id: `user-${Date.now()}-${Math.random()}`,
       role: 'user',
@@ -42,28 +50,46 @@ export const useAgentChat = (agentId: string) => {
     setStreamingContent('');
 
     try {
+      const requestBody = {
+        message,
+        agentPrompt,
+        agentName,
+        userId: user.id,
+        isCustomAgent,
+        streaming: enableStreaming
+      };
+
+      console.log('📡 Request body enviado:', requestBody);
+
       const response = await fetch('/functions/v1/chat-with-claude', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({
-          message,
-          agent_prompt: agentPrompt,
-          agent_name: agentName,
-          user_id: user.id,
-          is_custom_agent: isCustomAgent,
-          stream: enableStreaming
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro na requisição');
+        let errorMessage = 'Erro na requisição';
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('❌ Error response:', errorData);
+        } catch (parseError) {
+          console.error('❌ Erro ao fazer parse do erro:', parseError);
+          errorMessage = `Erro ${response.status}: ${response.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       if (enableStreaming && response.body) {
+        console.log('🔄 Iniciando streaming...');
         // Handle Server-Sent Events (SSE) streaming
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -81,6 +107,7 @@ export const useAgentChat = (agentId: string) => {
               if (line.startsWith('data: ')) {
                 const data = line.slice(6);
                 if (data === '[DONE]') {
+                  console.log('✅ Streaming concluído');
                   setIsStreaming(false);
                   // Add final assistant message
                   const assistantMessage: Message = {
@@ -96,25 +123,46 @@ export const useAgentChat = (agentId: string) => {
 
                 try {
                   const parsed = JSON.parse(data);
-                  if (parsed.content) {
-                    fullContent += parsed.content;
+                  if (parsed.text) {
+                    fullContent += parsed.text;
                     setStreamingContent(fullContent);
                   }
                 } catch (e) {
-                  // Ignore JSON parse errors for streaming
+                  console.warn('⚠️ Erro ao fazer parse do chunk SSE:', e);
                 }
               }
             }
           }
         } catch (streamError) {
-          console.error('Streaming error:', streamError);
+          console.error('❌ Streaming error:', streamError);
           setIsStreaming(false);
           throw streamError;
         }
       } else {
         // Handle regular JSON response
-        const data = await response.json();
+        console.log('📄 Processando resposta não-streaming...');
         
+        const responseText = await response.text();
+        console.log('📄 Response text:', responseText);
+
+        if (!responseText.trim()) {
+          throw new Error('Resposta vazia do servidor');
+        }
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Erro ao fazer parse do JSON:', parseError);
+          console.error('📄 Response text que causou erro:', responseText);
+          throw new Error('Resposta inválida do servidor');
+        }
+        
+        if (!data.response) {
+          console.error('❌ Resposta sem conteúdo:', data);
+          throw new Error('Resposta sem conteúdo válido');
+        }
+
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}-${Math.random()}`,
           role: 'assistant',
@@ -123,10 +171,11 @@ export const useAgentChat = (agentId: string) => {
         };
 
         setMessages(prev => [...prev, assistantMessage]);
+        console.log('✅ Mensagem adicionada com sucesso');
       }
 
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
+      console.error('❌ Erro ao enviar mensagem:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro ao processar mensagem';
       
       if (errorMessage.includes('Tokens insuficientes')) {
