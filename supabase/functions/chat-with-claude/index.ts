@@ -14,44 +14,15 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      message, 
-      agentPrompt, 
-      agentName, 
-      isCustomAgent, 
-      userId, 
-      sessionId,
-      conversationHistory = [],
-      streaming = false 
-    } = await req.json();
+    const { message, agentPrompt, chatHistory, agentName, isCustomAgent, userId, streaming = false } = await req.json();
 
     console.log('=== CHAT REQUEST DEBUG ===');
     console.log('User ID:', userId);
-    console.log('Session ID:', sessionId);
     console.log('Agent Name:', agentName);
     console.log('Is Custom Agent:', isCustomAgent);
-    console.log('Message Length:', message?.length || 0);
+    console.log('Message Length:', message.length);
     console.log('Agent Prompt Length:', agentPrompt?.length || 0);
-    console.log('Conversation History Count:', conversationHistory?.length || 0);
     console.log('Streaming enabled:', streaming);
-    console.log('Request timestamp:', new Date().toISOString());
-
-    // Validate required parameters
-    if (!message || !agentPrompt || !agentName) {
-      console.error('❌ Missing required parameters:', {
-        hasMessage: !!message,
-        hasAgentPrompt: !!agentPrompt,
-        hasAgentName: !!agentName
-      });
-      return new Response(JSON.stringify({
-        error: 'Parâmetros obrigatórios ausentes',
-        details: 'message, agentPrompt e agentName são obrigatórios',
-        response: 'Erro: Parâmetros inválidos. Tente novamente.'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -62,26 +33,8 @@ serve(async (req) => {
     console.log('Supabase Key:', supabaseKey ? 'OK' : 'MISSING');
     console.log('Anthropic API Key:', anthropicApiKey ? 'OK' : 'MISSING');
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Supabase configuration missing');
-      return new Response(JSON.stringify({
-        error: 'Configuração do Supabase incompleta',
-        response: 'Erro de configuração do servidor. Contate o suporte.'
-      }), {
-        status: 503,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!anthropicApiKey) {
-      console.error('❌ Anthropic API key missing');
-      return new Response(JSON.stringify({
-        error: 'Chave da API Anthropic não configurada',
-        response: 'Serviço de IA temporariamente indisponível. Tente novamente mais tarde.'
-      }), {
-        status: 503,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!supabaseUrl || !supabaseKey || !anthropicApiKey) {
+      throw new Error('Configuração de ambiente incompleta');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -90,103 +43,68 @@ serve(async (req) => {
     if (userId) {
       console.log('=== TOKEN VERIFICATION ===');
       
-      try {
-        const { data: tokensData, error: tokensError } = await supabase
-          .rpc('get_available_tokens', { p_user_id: userId });
+      const { data: tokensData, error: tokensError } = await supabase
+        .rpc('get_available_tokens', { p_user_id: userId });
 
-        if (tokensError) {
-          console.error('❌ Erro ao verificar tokens:', tokensError);
-          return new Response(JSON.stringify({
-            error: 'Erro ao verificar tokens disponíveis',
-            response: 'Não foi possível verificar seus tokens. Tente novamente.'
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
+      if (tokensError) {
+        console.error('Erro ao verificar tokens:', tokensError);
+        throw new Error('Erro ao verificar tokens disponíveis');
+      }
 
-        const userTokens = tokensData?.[0];
-        console.log('User tokens:', userTokens);
+      const userTokens = tokensData?.[0];
+      console.log('User tokens:', userTokens);
 
-        // Estimar tokens necessários incluindo histórico
-        const systemPromptLength = agentPrompt?.length || 0;
-        const messageLength = message.length;
-        const historyLength = conversationHistory.reduce((acc, msg) => acc + (msg.content?.length || 0), 0);
-        
-        const estimatedTokens = Math.ceil((systemPromptLength + messageLength + historyLength) * 1.3) + 1000;
-        console.log('Tokens estimados necessários (com contexto):', estimatedTokens);
+      // Estimar tokens necessários para Claude 4 Sonnet
+      const systemPromptLength = agentPrompt?.length || 0;
+      const messageLength = message.length;
+      const historyLength = chatHistory?.reduce((acc: number, msg: any) => acc + msg.content.length, 0) || 0;
+      
+      const estimatedTokens = Math.ceil((systemPromptLength + messageLength + historyLength) * 1.3) + 1000; // Buffer para resposta
+      console.log('Tokens estimados necessários (Claude 4 Sonnet):', estimatedTokens);
 
-        if (!userTokens || userTokens.total_available < estimatedTokens) {
-          console.error('❌ Tokens insuficientes:', {
-            available: userTokens?.total_available || 0,
-            needed: estimatedTokens
-          });
-          return new Response(JSON.stringify({
-            error: 'Tokens insuficientes',
-            response: `Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para esta conversa.`
-          }), {
-            status: 402,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-      } catch (tokenError) {
-        console.error('❌ Erro na verificação de tokens:', tokenError);
-        return new Response(JSON.stringify({
-          error: 'Erro na verificação de tokens',
-          response: 'Não foi possível verificar seus tokens. Tente novamente.'
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      if (!userTokens || userTokens.total_available < estimatedTokens) {
+        throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para esta conversa.`);
       }
     }
 
-    // Preparar mensagens para Claude incluindo histórico
-    console.log('=== PREPARING CONVERSATION CONTEXT ===');
-    
+    // Preparar mensagens para Claude 4 Sonnet
     const messages = [];
     
-    // Adicionar histórico da conversa se disponível
-    if (conversationHistory && conversationHistory.length > 0) {
-      console.log('Adding conversation history:', conversationHistory.length, 'messages');
-      
-      for (const historyMessage of conversationHistory) {
-        if (historyMessage.role && historyMessage.content) {
-          messages.push({
-            role: historyMessage.role,
-            content: historyMessage.content
-          });
-        }
-      }
+    if (chatHistory && chatHistory.length > 0) {
+      chatHistory.forEach((msg: any) => {
+        messages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      });
     }
     
-    // Adicionar mensagem atual do usuário
     messages.push({
       role: 'user',
       content: message
     });
 
-    console.log('=== CLAUDE API CALL ===');
-    console.log('Total messages to send:', messages.length);
+    console.log('=== CLAUDE 4 SONNET API CALL ===');
+    console.log('Messages count:', messages.length);
     console.log('System prompt length:', agentPrompt?.length || 0);
 
     const requestBody = {
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514', // ✅ Claude 4 Sonnet
       max_tokens: 3000,
-      system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil. Mantenha o contexto da conversa anterior.`,
+      system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil.`,
       messages: messages,
-      stream: false
+      stream: streaming
     };
 
-    console.log('Request body structure (Claude):', {
+    console.log('Request body structure (Claude 4):', {
       model: requestBody.model,
       max_tokens: requestBody.max_tokens,
       system_length: requestBody.system.length,
-      messages_count: requestBody.messages.length,
-      stream: requestBody.stream
+      messages_count: requestBody.messages.length
     });
 
-    console.log('Calling Claude API with conversation context...');
+    console.log('Tentativa 1/3 com Claude 4 Sonnet');
+    console.log('Calling Claude 4 Sonnet API...');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -198,83 +116,123 @@ serve(async (req) => {
       body: JSON.stringify(requestBody)
     });
 
-    console.log('Claude API response status:', response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Claude API error:', response.status, errorText);
+      console.error('❌ Claude 4 Sonnet API error:', response.status, errorText);
       
-      let errorMessage = 'Erro na comunicação com a IA';
       if (response.status === 400) {
-        errorMessage = 'Erro na formatação da requisição para Claude API';
+        throw new Error('Erro na formatação da requisição para Claude API');
       } else if (response.status === 401) {
-        errorMessage = 'Chave da API Claude inválida';
+        throw new Error('Chave da API Claude inválida');
       } else if (response.status === 429) {
-        errorMessage = 'Limite de requisições atingido. Tente novamente em alguns minutos';
+        throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos');
+      } else {
+        throw new Error(`Falha na comunicação com Claude API: ${response.status}`);
       }
+    }
 
-      return new Response(JSON.stringify({
-        error: errorMessage,
-        response: 'Desculpe, houve um problema com o serviço de IA. Tente novamente em alguns instantes.'
-      }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Se streaming está habilitado, retornar Server-Sent Events
+    if (streaming && response.body) {
+      console.log('=== STREAMING RESPONSE ===');
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          const reader = response.body!.getReader();
+          const decoder = new TextDecoder();
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              
+              if (done) break;
+              
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  
+                  if (data === '[DONE]') {
+                    controller.close();
+                    return;
+                  }
+                  
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.delta?.text) {
+                      // Enviar chunk de texto para o frontend
+                      controller.enqueue(`data: ${JSON.stringify({ 
+                        type: 'content',
+                        text: parsed.delta.text 
+                      })}\n\n`);
+                    }
+                  } catch (e) {
+                    // Ignorar erros de parsing de chunks
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Streaming error:', error);
+            controller.error(error);
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
       });
     }
 
-    console.log('Claude API call successful');
+    // Resposta normal (não-streaming)
+    console.log('Claude 4 Sonnet API call successful');
     const data = await response.json();
-    console.log('Claude API response received:', {
-      hasContent: !!data.content,
-      contentLength: data.content?.[0]?.text?.length || 0,
-      usage: data.usage
-    });
+    console.log('Claude 4 Sonnet API response received');
 
-    const assistantResponse = data.content?.[0]?.text || 'Resposta não disponível';
+    const assistantResponse = data.content[0]?.text || 'Resposta não disponível';
     
-    if (!assistantResponse || assistantResponse.trim() === '') {
-      console.error('❌ Resposta vazia do Claude');
-      return new Response(JSON.stringify({
-        error: 'Resposta vazia da IA',
-        response: 'A IA não conseguiu gerar uma resposta. Tente reformular sua pergunta.'
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    console.log('Usage:', data.usage);
     console.log('Response content preview:', assistantResponse.substring(0, 100) + '...');
 
     // Calcular tokens usados
     const actualTokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
-    console.log('Tokens realmente usados pelo Claude:', actualTokensUsed);
+    console.log('Tokens realmente usados pelo Claude 4:', actualTokensUsed);
 
     // Consumir tokens se userId fornecido
     if (userId && actualTokensUsed > 0) {
       console.log('=== TOKEN CONSUMPTION ===');
       
-      try {
-        const { data: consumeResult, error: consumeError } = await supabase
-          .rpc('consume_tokens', {
-            p_user_id: userId,
-            p_tokens_used: actualTokensUsed,
-            p_feature_used: `chat_${agentName || 'agent'}`,
-            p_prompt_tokens: data.usage?.input_tokens || Math.floor(actualTokensUsed * 0.7),
-            p_completion_tokens: data.usage?.output_tokens || Math.floor(actualTokensUsed * 0.3)
-          });
+      const { data: consumeResult, error: consumeError } = await supabase
+        .rpc('consume_tokens', {
+          p_user_id: userId,
+          p_tokens_used: actualTokensUsed,
+          p_feature_used: `chat_${agentName || 'agent'}`,
+          p_prompt_tokens: data.usage?.input_tokens || Math.floor(actualTokensUsed * 0.7),
+          p_completion_tokens: data.usage?.output_tokens || Math.floor(actualTokensUsed * 0.3)
+        });
 
-        if (consumeError || !consumeResult) {
-          console.error('⚠️ Erro ao consumir tokens:', consumeError);
-        } else {
-          console.log('✅ Tokens consumidos com sucesso');
-        }
-      } catch (tokenConsumeError) {
-        console.error('⚠️ Erro na consumição de tokens:', tokenConsumeError);
+      if (consumeError || !consumeResult) {
+        console.error('⚠️ Erro ao consumir tokens:', consumeError);
+      } else {
+        console.log('Tokens consumidos com sucesso (Claude 4)');
       }
+
+      // Verificar e enviar notificações se necessário
+      const { data: tokensAfter } = await supabase
+        .rpc('get_available_tokens', { p_user_id: userId });
+      
+      const remainingTokens = tokensAfter?.[0]?.total_available || 0;
+      console.log('Verificando notificações:', { remainingTokens, usagePercentage: ((100000 - remainingTokens) / 100000) * 100 });
     }
 
     console.log('=== SUCCESS ===');
-    console.log('Chat processado com sucesso usando Claude com contexto de conversa');
+    console.log('Chat processado com sucesso usando Claude 4 Sonnet');
 
     return new Response(JSON.stringify({
       response: assistantResponse,
@@ -285,14 +243,27 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro geral no chat:', error);
+    console.error('❌ Erro no chat:', error);
     
+    let statusCode = 500;
+    let errorMessage = 'Erro interno do servidor';
+    
+    if (error.message?.includes('Tokens insuficientes')) {
+      statusCode = 402;
+      errorMessage = error.message;
+    } else if (error.message?.includes('Claude API')) {
+      statusCode = 503;
+      errorMessage = error.message;
+    } else if (error.message?.includes('ambiente incompleta')) {
+      statusCode = 503;
+      errorMessage = 'Configuração do sistema incompleta';
+    }
+
     return new Response(JSON.stringify({
-      error: 'Erro interno do servidor',
-      details: error.message,
-      response: 'Ocorreu um erro inesperado. Tente novamente ou contate o suporte se o problema persistir.'
+      error: errorMessage,
+      details: error.message
     }), {
-      status: 500,
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

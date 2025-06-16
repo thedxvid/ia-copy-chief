@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -31,8 +32,7 @@ export const CreateAdModal = ({ open, onOpenChange }: CreateAdModalProps) => {
     platform: '',
     campaign_objective: 'sales',
     budget_range: '',
-    additional_info: '',
-    copy_type: 'ads'
+    additional_info: ''
   });
 
   const [manualData, setManualData] = useState({
@@ -87,8 +87,7 @@ export const CreateAdModal = ({ open, onOpenChange }: CreateAdModalProps) => {
         platform: '',
         campaign_objective: 'sales',
         budget_range: '',
-        additional_info: '',
-        copy_type: 'ads'
+        additional_info: ''
       });
       setManualData({
         title: '',
