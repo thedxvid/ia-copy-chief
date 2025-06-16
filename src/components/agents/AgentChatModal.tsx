@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +33,16 @@ interface Message {
   content: string;
   timestamp: Date;
 }
+
+// Sistema de logs para o modal
+const modalLogger = {
+  log: (action: string, data?: any) => {
+    console.log(`[MODAL] ${new Date().toISOString()} - ${action}:`, data || '');
+  },
+  error: (action: string, error: any) => {
+    console.error(`[MODAL ERROR] ${new Date().toISOString()} - ${action}:`, error);
+  }
+};
 
 const MessageComponent: React.FC<{ message: Message; agentName: string }> = ({ message, agentName }) => {
   const [copied, setCopied] = useState(false);
@@ -115,6 +124,8 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
   const isMobile = useMobileDetection();
+  const mountedRef = useRef(true);
+  const lastMessageCountRef = useRef(0);
   
   const {
     sessions,
@@ -124,18 +135,19 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     selectSession,
     addMessage,
     deleteSession,
-    createNewSession
+    createNewSession,
+    validateState,
+    recoverFromError
   } = useChatSessions(agent.id);
 
-  console.log('🔍 AgentChatModal - Estado atual:', {
+  modalLogger.log('MODAL_RENDER', {
     agentId: agent.id,
     agentName: agent.name,
     currentSessionId: currentSession?.id,
     messagesCount: sessionMessages.length,
-    isLoading,
+    isOpen,
     isMobile,
-    isSidebarOpen,
-    isCreatingSession
+    isSidebarOpen
   });
 
   // Converter mensagens da sessão para o formato Message
@@ -146,32 +158,69 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     timestamp: new Date(msg.created_at)
   }));
 
-  // Auto-scroll para a última mensagem
-  useEffect(() => {
-    if (scrollAreaRef.current) {
+  // Função de renderização limpa do chat
+  const renderChatInterface = useCallback(() => {
+    modalLogger.log('RENDERING_CHAT_INTERFACE', {
+      currentSessionId: currentSession?.id,
+      messagesCount: allMessages.length
+    });
+
+    // Auto-scroll apenas se houver novas mensagens
+    if (allMessages.length > lastMessageCountRef.current && scrollAreaRef.current) {
       const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollElement) {
-        scrollElement.scrollTop = scrollElement.scrollHeight;
+        setTimeout(() => {
+          scrollElement.scrollTop = scrollElement.scrollHeight;
+        }, 100);
       }
+      lastMessageCountRef.current = allMessages.length;
     }
-  }, [allMessages]);
+  }, [allMessages.length, currentSession?.id]);
 
-  // Focus automático no textarea quando o modal abre
+  // Função de limpeza da interface
+  const clearChatInterface = useCallback(() => {
+    modalLogger.log('CLEARING_CHAT_INTERFACE');
+    setMessage('');
+    setIsLoading(false);
+    lastMessageCountRef.current = 0;
+  }, []);
+
+  // Auto-scroll otimizado
   useEffect(() => {
-    if (isOpen && textareaRef.current && !isMobile) {
+    renderChatInterface();
+  }, [renderChatInterface]);
+
+  // Focus automático no textarea
+  useEffect(() => {
+    if (isOpen && textareaRef.current && !isMobile && currentSession) {
       setTimeout(() => {
         textareaRef.current?.focus();
-      }, 100);
+      }, 300);
     }
-  }, [isOpen, isMobile]);
+  }, [isOpen, isMobile, currentSession]);
 
   // Inicializar sessão quando o modal abrir
   useEffect(() => {
-    if (isOpen && agent.id) {
-      console.log('🚀 Inicializando sessão para agente:', agent.name);
+    if (isOpen && agent.id && user?.id) {
+      modalLogger.log('INITIALIZING_SESSION', { agentName: agent.name });
+      
+      // Validar estado antes de inicializar
+      if (!validateState()) {
+        modalLogger.error('INVALID_STATE_DETECTED', 'Recuperando...');
+        recoverFromError();
+      }
+      
       findOrCreateSessionForAgent(agent.name);
     }
-  }, [isOpen, agent.id, agent.name, findOrCreateSessionForAgent]);
+  }, [isOpen, agent.id, agent.name, user?.id, findOrCreateSessionForAgent, validateState, recoverFromError]);
+
+  // Cleanup ao fechar
+  useEffect(() => {
+    if (!isOpen) {
+      clearChatInterface();
+      setIsSidebarOpen(false);
+    }
+  }, [isOpen, clearChatInterface]);
 
   // Fechar sidebar automaticamente em mobile quando uma sessão for selecionada
   useEffect(() => {
@@ -180,49 +229,70 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     }
   }, [currentSession, isMobile, isSidebarOpen]);
 
+  // Cleanup geral
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      modalLogger.log('MODAL_UNMOUNTED');
+    };
+  }, []);
+
   const handleNewChat = async () => {
-    console.log('🔄 Iniciando nova conversa');
+    if (!mountedRef.current) return;
+    
+    modalLogger.log('NEW_CHAT_REQUESTED');
     setIsCreatingSession(true);
+    
     try {
+      clearChatInterface();
       const newSession = await createNewSession(agent.name);
-      if (newSession) {
+      
+      if (newSession && mountedRef.current) {
         toast.success('✨ Nova conversa iniciada!', {
           description: 'Uma nova conversa foi criada com sucesso.'
         });
-        console.log('✅ Nova sessão criada:', newSession.id);
+        modalLogger.log('NEW_SESSION_CREATED', { sessionId: newSession.id });
       }
     } catch (error) {
-      console.error('❌ Erro ao criar nova conversa:', error);
-      toast.error('❌ Erro ao criar nova conversa', {
-        description: 'Tente novamente em alguns instantes.'
-      });
+      modalLogger.error('NEW_CHAT_ERROR', error);
+      if (mountedRef.current) {
+        toast.error('❌ Erro ao criar nova conversa', {
+          description: 'Tente novamente em alguns instantes.'
+        });
+      }
     } finally {
-      setIsCreatingSession(false);
+      if (mountedRef.current) {
+        setIsCreatingSession(false);
+      }
     }
   };
 
   const sendMessageToAI = async (userMessage: string) => {
-    if (!user?.id || !currentSession) {
-      console.error('❌ Usuário ou sessão não disponível');
+    if (!user?.id || !currentSession || !mountedRef.current) {
+      modalLogger.error('SEND_MESSAGE_INVALID_STATE', {
+        hasUser: !!user?.id,
+        hasSession: !!currentSession,
+        mounted: mountedRef.current
+      });
       return;
     }
 
-    console.log('📤 Enviando mensagem para IA com contexto:', {
-      message: userMessage.substring(0, 50) + '...',
+    modalLogger.log('SENDING_MESSAGE_TO_AI', {
       sessionId: currentSession.id,
-      agentName: agent.name,
+      messagePreview: userMessage.substring(0, 50) + '...',
       historyCount: sessionMessages.length
     });
 
     try {
-      // Preparar histórico de mensagens para contexto (últimas 15 mensagens)
+      // Preparar histórico de mensagens
       const recentMessages = sessionMessages.slice(-15);
       const conversationHistory = recentMessages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Chamar a edge function com contexto
+      // Chamar a edge function
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: userMessage,
@@ -237,25 +307,27 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       });
 
       if (error) {
-        console.error('❌ Erro da edge function:', error);
+        modalLogger.error('AI_RESPONSE_ERROR', error);
         throw new Error(error.message || 'Erro na comunicação com o servidor');
       }
 
       if (!data?.response) {
-        console.error('❌ Resposta vazia da IA');
+        modalLogger.error('AI_EMPTY_RESPONSE');
         throw new Error('A IA retornou uma resposta vazia');
       }
 
-      console.log('✅ Resposta da IA recebida:', {
-        length: data.response.length,
-        preview: data.response.substring(0, 100) + '...'
+      modalLogger.log('AI_RESPONSE_RECEIVED', {
+        responseLength: data.response.length,
+        tokensUsed: data.tokensUsed || 0
       });
 
-      // Adicionar resposta da IA na sessão
-      await addMessage(currentSession.id, 'assistant', data.response, data.tokensUsed || 0);
+      // Adicionar resposta da IA
+      if (mountedRef.current) {
+        await addMessage(currentSession.id, 'assistant', data.response, data.tokensUsed || 0);
+      }
 
     } catch (error) {
-      console.error('❌ Erro ao processar resposta da IA:', error);
+      modalLogger.error('SEND_MESSAGE_EXCEPTION', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       
       if (errorMessage.includes('Tokens insuficientes')) {
@@ -272,11 +344,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   };
 
   const handleSend = async () => {
-    if (!message.trim() || isLoading || !currentSession) {
-      console.log('⚠️ Envio bloqueado:', { 
+    if (!message.trim() || isLoading || !currentSession || !mountedRef.current) {
+      modalLogger.log('SEND_BLOCKED', { 
         hasMessage: !!message.trim(), 
         isLoading, 
-        hasSession: !!currentSession 
+        hasSession: !!currentSession,
+        mounted: mountedRef.current
       });
       return;
     }
@@ -285,22 +358,27 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     setMessage('');
     setIsLoading(true);
     
+    modalLogger.log('SENDING_MESSAGE', { messagePreview: messageToSend.substring(0, 50) + '...' });
+    
     try {
-      console.log('📝 Adicionando mensagem do usuário');
-      // Adicionar mensagem do usuário na sessão
+      // Adicionar mensagem do usuário
       await addMessage(currentSession.id, 'user', messageToSend);
       
-      // Enviar para IA e aguardar resposta
+      // Enviar para IA
       await sendMessageToAI(messageToSend);
       
-      console.log('✅ Fluxo de mensagem completado com sucesso');
+      modalLogger.log('MESSAGE_FLOW_COMPLETED');
 
     } catch (error) {
-      console.error('❌ Erro no fluxo de envio:', error);
+      modalLogger.error('SEND_MESSAGE_FLOW_ERROR', error);
       // Restaurar mensagem no campo se houver erro
-      setMessage(messageToSend);
+      if (mountedRef.current) {
+        setMessage(messageToSend);
+      }
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -338,23 +416,24 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('🎯 TOGGLE SIDEBAR CHAMADO:', { 
+    modalLogger.log('TOGGLE_SIDEBAR', { 
       current: isSidebarOpen, 
-      new: !isSidebarOpen, 
-      isMobile,
-      agent: agent.name 
+      new: !isSidebarOpen,
+      isMobile 
     });
     
-    setIsSidebarOpen(prev => {
-      const newState = !prev;
-      console.log('🎯 SIDEBAR STATE CHANGED:', { from: prev, to: newState });
-      return newState;
-    });
+    setIsSidebarOpen(prev => !prev);
   };
 
   const handleCloseSidebar = () => {
-    console.log('🎯 CLOSE SIDEBAR CHAMADO');
+    modalLogger.log('CLOSE_SIDEBAR');
     setIsSidebarOpen(false);
+  };
+
+  const handleSelectSession = (session: any) => {
+    modalLogger.log('SESSION_SELECTED', { sessionId: session.id });
+    clearChatInterface();
+    selectSession(session);
   };
 
   return (
@@ -362,9 +441,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
       <DialogContent 
         className={`bg-[#1E1E1E] border-[#4B5563]/20 text-white ${
           isMobile 
-            ? 'max-w-full w-full h-full max-h-screen m-0 rounded-none' 
-            : 'max-w-7xl w-full h-[90vh]'
-        } p-0 overflow-hidden`}
+            ? 'max-w-full w-full h-full max-h-screen m-0 rounded-none p-0' 
+            : 'max-w-7xl w-full h-[90vh] p-0'
+        } overflow-hidden`}
         hideCloseButton={true}
       >
         <DialogHeader className="sr-only">
@@ -381,21 +460,21 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               agentName={agent.name}
               agentIcon={agent.icon}
               onNewChat={handleNewChat}
-              onSelectSession={selectSession}
+              onSelectSession={handleSelectSession}
               onDeleteSession={deleteSession}
               isLoading={isCreatingSession}
             />
           )}
 
           {/* Mobile Sidebar - Overlay quando aberta */}
-          {isMobile && isSidebarOpen && (
+          {isMobile && (
             <MobileChatSidebar
               sessions={sessions}
               currentSession={currentSession}
               agentName={agent.name}
               agentIcon={agent.icon}
               onNewChat={handleNewChat}
-              onSelectSession={selectSession}
+              onSelectSession={handleSelectSession}
               onDeleteSession={deleteSession}
               isLoading={isCreatingSession}
               isOpen={isSidebarOpen}
@@ -407,6 +486,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           <div className="flex-1 flex flex-col min-w-0 relative">
             {/* Header */}
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-[#4B5563]/20">
+              {/* ... keep existing code (header content) */}
               <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                 {isMobile && (
                   <Button

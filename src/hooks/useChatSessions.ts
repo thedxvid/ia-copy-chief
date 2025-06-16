@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,10 +25,24 @@ interface ChatMessage {
   streaming_complete: boolean;
 }
 
-const debugLog = (category: string, message: string, data?: any) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] 🔍 SESSIONS_${category}: ${message}`, data || '');
+// Sistema de logs detalhado
+const chatLogger = {
+  log: (action: string, data?: any) => {
+    console.log(`[CHAT] ${new Date().toISOString()} - ${action}:`, data || '');
+  },
+  error: (action: string, error: any) => {
+    console.error(`[CHAT ERROR] ${new Date().toISOString()} - ${action}:`, error);
+  }
 };
+
+// Estado global do chat para validação
+interface ChatState {
+  activeSessionId: string | null;
+  sessions: Map<string, ChatSession>;
+  messages: Map<string, ChatMessage[]>;
+  isLoading: boolean;
+  error: string | null;
+}
 
 export const useChatSessions = (agentId: string) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -35,77 +50,249 @@ export const useChatSessions = (agentId: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
+  
+  // Refs para controle de estado
+  const mountedRef = useRef(true);
+  const stateRef = useRef<ChatState>({
+    activeSessionId: null,
+    sessions: new Map(),
+    messages: new Map(),
+    isLoading: false,
+    error: null
+  });
 
-  // Função para encontrar ou criar uma sessão para o agente
+  // Função de validação completa do estado
+  const validateChatState = useCallback(() => {
+    chatLogger.log('VALIDATING_STATE', {
+      currentSessionId: currentSession?.id,
+      sessionsCount: sessions.length,
+      messagesCount: messages.length,
+      agentId
+    });
+
+    const issues: string[] = [];
+    
+    // Validar estado básico
+    if (!mountedRef.current) {
+      issues.push('Hook não está montado');
+    }
+
+    // Validar sessão ativa
+    if (currentSession && !sessions.find(s => s.id === currentSession.id)) {
+      issues.push('Sessão ativa não existe na lista de sessões');
+    }
+
+    // Validar consistência de dados
+    if (currentSession && messages.length > 0) {
+      const hasValidMessages = messages.every(msg => msg.session_id === currentSession.id);
+      if (!hasValidMessages) {
+        issues.push('Mensagens não correspondem à sessão ativa');
+      }
+    }
+
+    if (issues.length > 0) {
+      chatLogger.error('STATE_VALIDATION_FAILED', issues);
+      return false;
+    }
+
+    chatLogger.log('STATE_VALIDATION_SUCCESS');
+    return true;
+  }, [currentSession, sessions, messages, agentId]);
+
+  // Limpar estado corrompido
+  const clearCorruptedState = useCallback(() => {
+    chatLogger.log('CLEARING_CORRUPTED_STATE');
+    setCurrentSession(null);
+    setMessages([]);
+    setIsLoading(false);
+    stateRef.current = {
+      activeSessionId: null,
+      sessions: new Map(),
+      messages: new Map(),
+      isLoading: false,
+      error: null
+    };
+  }, []);
+
+  // Recuperação automática de erros
+  const recoverFromError = useCallback(() => {
+    chatLogger.log('STARTING_ERROR_RECOVERY');
+    
+    clearCorruptedState();
+    
+    // Recarregar dados
+    if (user?.id && agentId) {
+      loadSessions();
+    }
+    
+    chatLogger.log('ERROR_RECOVERY_COMPLETED');
+  }, [user?.id, agentId]);
+
+  // Carregar sessões com validação robusta
+  const loadSessions = useCallback(async () => {
+    if (!user?.id || !agentId || !mountedRef.current) {
+      chatLogger.log('LOAD_SESSIONS_SKIPPED', { hasUser: !!user?.id, hasAgent: !!agentId, mounted: mountedRef.current });
+      return;
+    }
+
+    setIsLoading(true);
+    chatLogger.log('LOADING_SESSIONS', { agentId, userId: user.id });
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('agent_id', agentId)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        chatLogger.error('LOAD_SESSIONS_ERROR', error);
+        throw error;
+      }
+
+      if (!mountedRef.current) return;
+
+      const typedSessions = (data || []) as ChatSession[];
+      setSessions(typedSessions);
+      
+      // Atualizar ref de estado
+      stateRef.current.sessions = new Map(typedSessions.map(s => [s.id, s]));
+      
+      chatLogger.log('SESSIONS_LOADED', { count: typedSessions.length });
+      
+    } catch (error) {
+      chatLogger.error('LOAD_SESSIONS_EXCEPTION', error);
+      if (mountedRef.current) {
+        toast.error('Erro ao carregar conversas');
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [user?.id, agentId]);
+
+  // Carregar mensagens com validação
+  const loadMessages = useCallback(async (sessionId: string) => {
+    if (!sessionId || !mountedRef.current) {
+      chatLogger.log('LOAD_MESSAGES_SKIPPED', { sessionId, mounted: mountedRef.current });
+      return;
+    }
+
+    chatLogger.log('LOADING_MESSAGES', { sessionId });
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        chatLogger.error('LOAD_MESSAGES_ERROR', error);
+        throw error;
+      }
+
+      if (!mountedRef.current) return;
+
+      const typedMessages = (data || []).map(msg => ({
+        ...msg,
+        role: msg.role as 'user' | 'assistant'
+      })) as ChatMessage[];
+
+      setMessages(typedMessages);
+      
+      // Atualizar ref de estado
+      stateRef.current.messages.set(sessionId, typedMessages);
+      
+      chatLogger.log('MESSAGES_LOADED', { sessionId, count: typedMessages.length });
+      
+    } catch (error) {
+      chatLogger.error('LOAD_MESSAGES_EXCEPTION', error);
+      if (mountedRef.current) {
+        setMessages([]);
+        toast.error('Erro ao carregar mensagens');
+      }
+    }
+  }, []);
+
+  // Encontrar ou criar sessão com estado limpo
   const findOrCreateSessionForAgent = useCallback(async (agentName: string, forceNew = false) => {
-    if (!user?.id) {
-      debugLog('CREATE_SKIP', 'Usuário não autenticado');
+    if (!user?.id || !mountedRef.current) {
+      chatLogger.error('CREATE_SESSION_INVALID_STATE', { hasUser: !!user?.id, mounted: mountedRef.current });
       return null;
     }
     
     setIsLoading(true);
-    debugLog('CREATE_START', `Iniciando busca/criação de sessão (forceNew: ${forceNew})`, { agentId, agentName });
+    chatLogger.log('FIND_OR_CREATE_SESSION', { agentName, forceNew, agentId });
 
     try {
       let session = null;
       
-      // Se forceNew for true, sempre cria uma nova sessão
       if (!forceNew) {
-        // 1. Tenta encontrar uma sessão existente na memória primeiro
+        // Buscar sessão existente
         session = sessions.find(s => s.agent_id === agentId) || null;
         
         if (session) {
-          debugLog('SESSION_FOUND_MEMORY', 'Sessão encontrada na memória', { sessionId: session.id });
-          setCurrentSession(session);
-          await loadMessages(session.id);
-          setIsLoading(false);
-          return session;
+          chatLogger.log('SESSION_FOUND_IN_MEMORY', { sessionId: session.id });
+          
+          // Validar se sessão ainda existe no banco
+          const { data: dbSession } = await supabase
+            .from('chat_sessions')
+            .select('*')
+            .eq('id', session.id)
+            .single();
+            
+          if (dbSession) {
+            setCurrentSession(session);
+            stateRef.current.activeSessionId = session.id;
+            await loadMessages(session.id);
+            setIsLoading(false);
+            return session;
+          } else {
+            // Sessão não existe mais no banco, remover da memória
+            setSessions(prev => prev.filter(s => s.id !== session!.id));
+            session = null;
+          }
         }
         
-        // 2. Se não encontrar na memória, busca no banco
-        debugLog('SEARCH_DATABASE', 'Buscando sessões no banco de dados', { agentId });
-        const { data: existingSessions, error: fetchError } = await supabase
-          .from('chat_sessions')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('agent_id', agentId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+        if (!session) {
+          // Buscar no banco
+          const { data: existingSessions } = await supabase
+            .from('chat_sessions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('agent_id', agentId)
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-        if (fetchError) {
-          debugLog('SEARCH_ERROR', 'Erro ao buscar sessões', fetchError);
-          toast.error('Erro ao buscar sessões de chat.');
-          setIsLoading(false);
-          return null;
-        }
-
-        if (existingSessions && existingSessions.length > 0) {
-          session = existingSessions[0] as ChatSession;
-          debugLog('SESSION_FOUND_DB', 'Sessão encontrada no banco', { sessionId: session.id });
-          
-          // Adicionar à memória
-          setSessions(prev => {
-            const exists = prev.find(s => s.id === session!.id);
-            if (!exists) {
-              return [session!, ...prev];
-            }
-            return prev;
-          });
+          if (existingSessions && existingSessions.length > 0) {
+            session = existingSessions[0] as ChatSession;
+            chatLogger.log('SESSION_FOUND_IN_DB', { sessionId: session.id });
+            
+            // Adicionar à memória
+            setSessions(prev => {
+              const exists = prev.find(s => s.id === session!.id);
+              if (!exists) {
+                return [session!, ...prev];
+              }
+              return prev;
+            });
+          }
         }
       }
 
-      // 3. Se ainda não houver sessão ou forceNew for true, cria uma nova
+      // Criar nova sessão se necessário
       if (!session || forceNew) {
-        debugLog('CREATE_NEW', `Criando nova sessão (forced: ${forceNew})`, { agentId, agentName });
+        chatLogger.log('CREATING_NEW_SESSION', { agentName, forceNew });
         
-        // Desativar sessão atual se existir
+        // Desativar sessão atual
         if (currentSession) {
           await supabase
             .from('chat_sessions')
             .update({ is_active: false })
             .eq('id', currentSession.id);
-          
-          debugLog('DEACTIVATE_CURRENT', 'Sessão atual desativada', { sessionId: currentSession.id });
         }
         
         const { data: newSession, error: createError } = await supabase
@@ -121,136 +308,102 @@ export const useChatSessions = (agentId: string) => {
           .single();
         
         if (createError) {
-          debugLog('CREATE_ERROR', 'Erro ao criar sessão', createError);
-          toast.error('Não foi possível iniciar um novo chat.');
-          setIsLoading(false);
-          return null;
+          chatLogger.error('CREATE_SESSION_ERROR', createError);
+          throw createError;
         }
 
         session = newSession as ChatSession;
-        debugLog('SESSION_CREATED', 'Nova sessão criada', { sessionId: session.id });
+        chatLogger.log('SESSION_CREATED', { sessionId: session.id });
         
-        // Adicionar nova sessão no início da lista
+        // Atualizar estado
         setSessions(prev => [session!, ...prev.filter(s => s.id !== session!.id)]);
-        
-        // Limpar mensagens para nova sessão
         setMessages([]);
+        stateRef.current.messages.set(session.id, []);
       }
       
+      // Ativar sessão
       setCurrentSession(session);
+      stateRef.current.activeSessionId = session.id;
       
-      // Carregar mensagens se existirem e não for nova sessão
-      if (session && !forceNew) {
+      // Carregar mensagens se não for nova
+      if (!forceNew && session) {
         await loadMessages(session.id);
       }
       
       setIsLoading(false);
-      debugLog('SESSION_READY', 'Sessão pronta para uso', { sessionId: session.id, isNew: forceNew });
+      chatLogger.log('SESSION_ACTIVATED', { sessionId: session.id });
       return session;
       
     } catch (error) {
-      debugLog('CREATE_EXCEPTION', 'Exceção na criação de sessão', error);
-      console.error('Erro na findOrCreateSessionForAgent:', error);
-      toast.error('Erro ao inicializar chat.');
-      setIsLoading(false);
+      chatLogger.error('FIND_OR_CREATE_EXCEPTION', error);
+      if (mountedRef.current) {
+        setIsLoading(false);
+        toast.error('Erro ao inicializar conversa');
+      }
       return null;
     }
-  }, [user?.id, agentId, sessions, currentSession]);
+  }, [user?.id, agentId, sessions, currentSession, loadMessages]);
 
-  // Carregar sessões do agente
-  const loadSessions = useCallback(async () => {
-    if (!user?.id || !agentId) {
-      debugLog('LOAD_SKIP', 'Usuário ou agentId não disponível');
-      return;
-    }
-
-    debugLog('LOAD_START', 'Carregando sessões', { agentId });
-    try {
-      const { data, error } = await supabase
-        .from('chat_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('agent_id', agentId)
-        .order('updated_at', { ascending: false });
-
-      if (error) {
-        debugLog('LOAD_ERROR', 'Erro ao carregar sessões', error);
-        throw error;
-      }
-      
-      debugLog('LOAD_SUCCESS', 'Sessões carregadas', { count: data?.length || 0 });
-      setSessions(data || []);
-    } catch (error) {
-      debugLog('LOAD_EXCEPTION', 'Exceção no carregamento', error);
-      console.error('Erro ao carregar sessões:', error);
-    }
-  }, [user?.id, agentId]);
-
-  // Carregar mensagens da sessão atual
-  const loadMessages = useCallback(async (sessionId: string) => {
-    debugLog('MESSAGES_LOAD_START', 'Carregando mensagens', { sessionId });
-    try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        debugLog('MESSAGES_LOAD_ERROR', 'Erro ao carregar mensagens', error);
-        throw error;
-      }
-      
-      const typedMessages = (data || []).map(msg => ({
-        ...msg,
-        role: msg.role as 'user' | 'assistant'
-      })) as ChatMessage[];
-      
-      debugLog('MESSAGES_LOADED', 'Mensagens carregadas', { count: typedMessages.length });
-      setMessages(typedMessages);
-    } catch (error) {
-      debugLog('MESSAGES_LOAD_EXCEPTION', 'Exceção no carregamento de mensagens', error);
-      console.error('Erro ao carregar mensagens:', error);
-      setMessages([]);
-    }
-  }, []);
-
-  // Criar nova sessão - FORÇAR NOVA CRIAÇÃO
+  // Criar nova sessão forçada
   const createNewSession = useCallback(async (agentName: string) => {
-    debugLog('FORCE_NEW_SESSION', 'Forçando criação de nova sessão', { agentName });
+    chatLogger.log('FORCE_NEW_SESSION', { agentName });
     return await findOrCreateSessionForAgent(agentName, true);
   }, [findOrCreateSessionForAgent]);
 
-  // Selecionar sessão
+  // Selecionar sessão com limpeza de estado
   const selectSession = useCallback(async (session: ChatSession) => {
-    debugLog('SELECT_SESSION', 'Selecionando sessão', { sessionId: session.id });
+    if (!mountedRef.current) return;
     
-    // Desativar sessão atual
-    if (currentSession && currentSession.id !== session.id) {
+    chatLogger.log('SELECTING_SESSION', { 
+      oldSessionId: currentSession?.id, 
+      newSessionId: session.id 
+    });
+    
+    try {
+      // Desativar sessão atual
+      if (currentSession && currentSession.id !== session.id) {
+        await supabase
+          .from('chat_sessions')
+          .update({ is_active: false })
+          .eq('id', currentSession.id);
+      }
+      
+      // Ativar nova sessão
       await supabase
         .from('chat_sessions')
-        .update({ is_active: false })
-        .eq('id', currentSession.id);
+        .update({ is_active: true })
+        .eq('id', session.id);
+      
+      // Limpar estado anterior
+      setMessages([]);
+      setCurrentSession(session);
+      stateRef.current.activeSessionId = session.id;
+      
+      // Carregar mensagens da nova sessão
+      await loadMessages(session.id);
+      
+      chatLogger.log('SESSION_SELECTED', { sessionId: session.id });
+      
+    } catch (error) {
+      chatLogger.error('SELECT_SESSION_ERROR', error);
+      toast.error('Erro ao selecionar conversa');
     }
-    
-    // Ativar nova sessão
-    await supabase
-      .from('chat_sessions')
-      .update({ is_active: true })
-      .eq('id', session.id);
-    
-    setCurrentSession(session);
-    await loadMessages(session.id);
-  }, [loadMessages, currentSession]);
+  }, [currentSession, loadMessages]);
 
-  // Adicionar mensagem
+  // Adicionar mensagem com validação
   const addMessage = useCallback(async (
     sessionId: string,
     role: 'user' | 'assistant',
     content: string,
     tokensUsed: number = 0
   ) => {
-    debugLog('ADD_MESSAGE', 'Adicionando mensagem', { sessionId, role, contentLength: content.length });
+    if (!sessionId || !content.trim() || !mountedRef.current) {
+      chatLogger.error('ADD_MESSAGE_INVALID_PARAMS', { sessionId, role, hasContent: !!content.trim() });
+      return null;
+    }
+
+    chatLogger.log('ADDING_MESSAGE', { sessionId, role, contentLength: content.length });
+
     try {
       const { data, error } = await supabase
         .from('chat_messages')
@@ -265,7 +418,7 @@ export const useChatSessions = (agentId: string) => {
         .single();
 
       if (error) {
-        debugLog('ADD_MESSAGE_ERROR', 'Erro ao adicionar mensagem', error);
+        chatLogger.error('ADD_MESSAGE_DB_ERROR', error);
         throw error;
       }
 
@@ -274,7 +427,14 @@ export const useChatSessions = (agentId: string) => {
         role: data.role as 'user' | 'assistant'
       } as ChatMessage;
       
-      setMessages(prev => [...prev, newMessage]);
+      // Atualizar estado apenas se for da sessão ativa
+      if (currentSession?.id === sessionId) {
+        setMessages(prev => {
+          const updated = [...prev, newMessage];
+          stateRef.current.messages.set(sessionId, updated);
+          return updated;
+        });
+      }
       
       // Atualizar timestamp da sessão
       await supabase
@@ -282,54 +442,25 @@ export const useChatSessions = (agentId: string) => {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', sessionId);
       
-      await loadSessions(); // Recarregar para atualizar ordem
+      // Recarregar sessões para atualizar ordem
+      await loadSessions();
       
-      debugLog('MESSAGE_ADDED', 'Mensagem adicionada com sucesso', { messageId: newMessage.id });
+      chatLogger.log('MESSAGE_ADDED', { messageId: newMessage.id, sessionId });
       return newMessage;
+      
     } catch (error) {
-      debugLog('ADD_MESSAGE_EXCEPTION', 'Exceção ao adicionar mensagem', error);
-      console.error('Erro ao adicionar mensagem:', error);
+      chatLogger.error('ADD_MESSAGE_EXCEPTION', error);
+      toast.error('Erro ao enviar mensagem');
       throw error;
     }
-  }, [loadSessions]);
+  }, [currentSession, loadSessions]);
 
-  // Atualizar mensagem (para streaming)
-  const updateMessage = useCallback(async (
-    messageId: string,
-    content: string,
-    isComplete: boolean = false
-  ) => {
-    debugLog('UPDATE_MESSAGE', 'Atualizando mensagem', { messageId, isComplete, contentLength: content.length });
-    try {
-      const { error } = await supabase
-        .from('chat_messages')
-        .update({
-          content,
-          streaming_complete: isComplete
-        })
-        .eq('id', messageId);
-
-      if (error) {
-        debugLog('UPDATE_MESSAGE_ERROR', 'Erro ao atualizar mensagem', error);
-        throw error;
-      }
-
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId 
-          ? { ...msg, content, streaming_complete: isComplete }
-          : msg
-      ));
-      
-      debugLog('MESSAGE_UPDATED', 'Mensagem atualizada com sucesso', { messageId });
-    } catch (error) {
-      debugLog('UPDATE_MESSAGE_EXCEPTION', 'Exceção ao atualizar mensagem', error);
-      console.error('Erro ao atualizar mensagem:', error);
-    }
-  }, []);
-
-  // Deletar sessão
+  // Deletar sessão com limpeza
   const deleteSession = useCallback(async (sessionId: string) => {
-    debugLog('DELETE_SESSION', 'Deletando sessão', { sessionId });
+    if (!sessionId || !mountedRef.current) return;
+    
+    chatLogger.log('DELETING_SESSION', { sessionId });
+
     try {
       const { error } = await supabase
         .from('chat_sessions')
@@ -337,32 +468,55 @@ export const useChatSessions = (agentId: string) => {
         .eq('id', sessionId);
 
       if (error) {
-        debugLog('DELETE_SESSION_ERROR', 'Erro ao deletar sessão', error);
+        chatLogger.error('DELETE_SESSION_ERROR', error);
         throw error;
       }
 
+      // Atualizar estado
       setSessions(prev => prev.filter(s => s.id !== sessionId));
+      stateRef.current.sessions.delete(sessionId);
+      stateRef.current.messages.delete(sessionId);
       
+      // Limpar sessão ativa se for a deletada
       if (currentSession?.id === sessionId) {
         setCurrentSession(null);
         setMessages([]);
+        stateRef.current.activeSessionId = null;
       }
 
-      debugLog('SESSION_DELETED', 'Sessão deletada com sucesso', { sessionId });
+      chatLogger.log('SESSION_DELETED', { sessionId });
       toast.success('Conversa excluída');
+      
     } catch (error) {
-      debugLog('DELETE_SESSION_EXCEPTION', 'Exceção ao deletar sessão', error);
-      console.error('Erro ao deletar sessão:', error);
+      chatLogger.error('DELETE_SESSION_EXCEPTION', error);
       toast.error('Erro ao excluir conversa');
     }
   }, [currentSession]);
 
-  // Carregar na inicialização
+  // Monitoramento contínuo do estado
   useEffect(() => {
+    const interval = setInterval(() => {
+      if (mountedRef.current && !validateChatState()) {
+        chatLogger.error('STATE_CORRUPTION_DETECTED', 'Iniciando recuperação automática');
+        recoverFromError();
+      }
+    }, 10000); // Verificar a cada 10 segundos
+
+    return () => clearInterval(interval);
+  }, [validateChatState, recoverFromError]);
+
+  // Inicialização
+  useEffect(() => {
+    mountedRef.current = true;
     if (user?.id && agentId) {
-      debugLog('HOOK_INIT', 'Inicializando hook de sessões', { agentId });
+      chatLogger.log('INITIALIZING_CHAT_HOOK', { agentId, userId: user.id });
       loadSessions();
     }
+    
+    return () => {
+      mountedRef.current = false;
+      chatLogger.log('CHAT_HOOK_UNMOUNTED', { agentId });
+    };
   }, [loadSessions, user?.id, agentId]);
 
   return {
@@ -374,8 +528,10 @@ export const useChatSessions = (agentId: string) => {
     createNewSession,
     selectSession,
     addMessage,
-    updateMessage,
     deleteSession,
-    loadSessions
+    loadSessions,
+    // Funções de diagnóstico
+    validateState: validateChatState,
+    recoverFromError
   };
 };
