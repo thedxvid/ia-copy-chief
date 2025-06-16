@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -359,187 +358,185 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   };
 
   return (
-    <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent 
-          className={`bg-[#1E1E1E] border-[#4B5563]/20 text-white ${
-            isMobile 
-              ? 'max-w-full w-full h-full max-h-screen m-0 rounded-none' 
-              : 'max-w-7xl w-full h-[90vh]'
-          } flex p-0 z-50 relative overflow-hidden`}
-          hideCloseButton={true}
-        >
-          <DialogHeader className="sr-only">
-            <DialogTitle>Chat com {agent.name}</DialogTitle>
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent 
+        className={`bg-[#1E1E1E] border-[#4B5563]/20 text-white ${
+          isMobile 
+            ? 'max-w-full w-full h-full max-h-screen m-0 rounded-none p-0' 
+            : 'max-w-7xl w-full h-[90vh] p-0'
+        } flex overflow-hidden relative`}
+        hideCloseButton={true}
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Chat com {agent.name}</DialogTitle>
+        </DialogHeader>
 
-          {/* Sidebar Desktop */}
-          {!isMobile && (
-            <ChatSidebar
-              sessions={sessions}
-              currentSession={currentSession}
-              agentName={agent.name}
-              agentIcon={agent.icon}
-              onNewChat={handleNewChat}
-              onSelectSession={selectSession}
-              onDeleteSession={deleteSession}
-              isLoading={isCreatingSession}
-            />
-          )}
+        {/* Sidebar Desktop */}
+        {!isMobile && (
+          <ChatSidebar
+            sessions={sessions}
+            currentSession={currentSession}
+            agentName={agent.name}
+            agentIcon={agent.icon}
+            onNewChat={handleNewChat}
+            onSelectSession={selectSession}
+            onDeleteSession={deleteSession}
+            isLoading={isCreatingSession}
+          />
+        )}
 
-          {/* Mobile Sidebar - Renderizada dentro do Dialog */}
-          {isMobile && (
-            <MobileChatSidebar
-              sessions={sessions}
-              currentSession={currentSession}
-              agentName={agent.name}
-              agentIcon={agent.icon}
-              onNewChat={handleNewChat}
-              onSelectSession={selectSession}
-              onDeleteSession={deleteSession}
-              isLoading={isCreatingSession}
-              isOpen={isSidebarOpen}
-              onClose={handleCloseSidebar}
-            />
-          )}
+        {/* Mobile Sidebar - Overlay quando aberta */}
+        {isMobile && isSidebarOpen && (
+          <MobileChatSidebar
+            sessions={sessions}
+            currentSession={currentSession}
+            agentName={agent.name}
+            agentIcon={agent.icon}
+            onNewChat={handleNewChat}
+            onSelectSession={selectSession}
+            onDeleteSession={deleteSession}
+            isLoading={isCreatingSession}
+            isOpen={isSidebarOpen}
+            onClose={handleCloseSidebar}
+          />
+        )}
 
-          {/* Chat Area */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Header */}
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-[#4B5563]/20">
-              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-                {isMobile && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleToggleSidebar}
-                    className="text-[#CCCCCC] hover:text-white hover:bg-[#3B82F6]/20 flex-shrink-0 w-10 h-10 min-h-[44px] min-w-[44px] touch-manipulation border border-[#4B5563]/20 transition-all duration-200"
-                    aria-label="Abrir histórico de conversas"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </Button>
-                )}
-                
-                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
-                }`}>
-                  <agent.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                </div>
-                
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-white text-sm sm:text-base truncate">{agent.name}</h3>
-                  <p className="text-xs sm:text-sm text-[#888888]">
-                    {isLoading ? 'Processando...' : isCreatingSession ? 'Criando nova conversa...' : 'Online'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex space-x-1 sm:space-x-2 flex-shrink-0">
-                {!isMobile && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportChat}
-                    disabled={allMessages.length === 0}
-                    className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] text-xs"
-                  >
-                    <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Exportar</span>
-                  </Button>
-                )}
-                
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* Header */}
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-[#4B5563]/20">
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+              {isMobile && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={onClose}
-                  className="text-[#CCCCCC] hover:text-white w-8 h-8 sm:w-10 sm:h-10"
+                  onClick={handleToggleSidebar}
+                  className="text-[#CCCCCC] hover:text-white hover:bg-[#3B82F6]/20 flex-shrink-0 w-10 h-10 min-h-[44px] min-w-[44px] touch-manipulation border border-[#4B5563]/20 transition-all duration-200"
+                  aria-label="Abrir histórico de conversas"
                 >
-                  <X className="w-4 h-4" />
+                  <Menu className="w-5 h-5" />
                 </Button>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <ScrollArea className="flex-1 px-3 sm:px-6" ref={scrollAreaRef}>
-              <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
-                {!currentSession ? (
-                  <div className="text-center text-[#888888] py-8">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
-                      agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
-                    }`}>
-                      <agent.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-medium text-white mb-2">{agent.name}</h3>
-                    <p className="text-sm sm:text-base text-[#CCCCCC] mb-4 px-4">{agent.description}</p>
-                    <p className="text-xs sm:text-sm">Inicializando conversa...</p>
-                  </div>
-                ) : allMessages.length === 0 ? (
-                  <div className="text-center text-[#888888] py-8">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
-                      agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
-                    }`}>
-                      <agent.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-medium text-white mb-2">{agent.name}</h3>
-                    <p className="text-sm sm:text-base text-[#CCCCCC] mb-4 px-4">{agent.description}</p>
-                    <p className="text-xs sm:text-sm">Como posso ajudar você hoje?</p>
-                  </div>
-                ) : (
-                  allMessages.map((msg) => (
-                    <MessageComponent 
-                      key={msg.id} 
-                      message={msg}
-                      agentName={agent.name}
-                    />
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-
-            {/* Input */}
-            <div className="border-t border-[#4B5563]/20 p-3 sm:p-6">
-              <div className="flex space-x-2 sm:space-x-3">
-                <Textarea
-                  ref={textareaRef}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={`Mensagem para ${agent.name}...`}
-                  className={`flex-1 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none text-sm sm:text-base ${
-                    isMobile ? 'min-h-[60px] max-h-32' : 'min-h-[44px] max-h-32'
-                  }`}
-                  disabled={isLoading || !currentSession || isCreatingSession}
-                />
-                <Button
-                  onClick={handleSend}
-                  disabled={!message.trim() || isLoading || !currentSession || isCreatingSession}
-                  size={isMobile ? "default" : "lg"}
-                  className={`transition-all duration-200 flex-shrink-0 ${
-                    isMobile ? 'px-4 min-h-[60px] min-w-[60px]' : 'px-6'
-                  } ${
-                    isLoading 
-                      ? 'bg-orange-500 hover:bg-orange-600' 
-                      : (message.trim() && currentSession && !isCreatingSession)
-                      ? 'bg-[#3B82F6] hover:bg-[#2563EB]'
-                      : 'bg-gray-500'
-                  } text-white disabled:opacity-50`}
-                >
-                  <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                </Button>
+              )}
+              
+              <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
+              }`}>
+                <agent.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
               </div>
               
-              {(isLoading || isCreatingSession) && (
-                <div className="mt-3 text-sm text-center">
-                  <div className="text-[#3B82F6] flex items-center justify-center">
-                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
-                    {isCreatingSession ? 'Criando nova conversa...' : `${agent.name} está pensando...`}
-                  </div>
-                </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-white text-sm sm:text-base truncate">{agent.name}</h3>
+                <p className="text-xs sm:text-sm text-[#888888]">
+                  {isLoading ? 'Processando...' : isCreatingSession ? 'Criando nova conversa...' : 'Online'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex space-x-1 sm:space-x-2 flex-shrink-0">
+              {!isMobile && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportChat}
+                  disabled={allMessages.length === 0}
+                  className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] text-xs"
+                >
+                  <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
               )}
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="text-[#CCCCCC] hover:text-white w-8 h-8 sm:w-10 sm:h-10"
+              >
+                <X className="w-4 h-4" />
+              </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+
+          {/* Messages */}
+          <ScrollArea className="flex-1 px-3 sm:px-6" ref={scrollAreaRef}>
+            <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
+              {!currentSession ? (
+                <div className="text-center text-[#888888] py-8">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
+                    agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
+                  }`}>
+                    <agent.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-medium text-white mb-2">{agent.name}</h3>
+                  <p className="text-sm sm:text-base text-[#CCCCCC] mb-4 px-4">{agent.description}</p>
+                  <p className="text-xs sm:text-sm">Inicializando conversa...</p>
+                </div>
+              ) : allMessages.length === 0 ? (
+                <div className="text-center text-[#888888] py-8">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
+                    agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
+                  }`}>
+                    <agent.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-medium text-white mb-2">{agent.name}</h3>
+                  <p className="text-sm sm:text-base text-[#CCCCCC] mb-4 px-4">{agent.description}</p>
+                  <p className="text-xs sm:text-sm">Como posso ajudar você hoje?</p>
+                </div>
+              ) : (
+                allMessages.map((msg) => (
+                  <MessageComponent 
+                    key={msg.id} 
+                    message={msg}
+                    agentName={agent.name}
+                  />
+                ))
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Input */}
+          <div className="border-t border-[#4B5563]/20 p-3 sm:p-6">
+            <div className="flex space-x-2 sm:space-x-3">
+              <Textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`Mensagem para ${agent.name}...`}
+                className={`flex-1 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none text-sm sm:text-base ${
+                  isMobile ? 'min-h-[60px] max-h-32' : 'min-h-[44px] max-h-32'
+                }`}
+                disabled={isLoading || !currentSession || isCreatingSession}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!message.trim() || isLoading || !currentSession || isCreatingSession}
+                size={isMobile ? "default" : "lg"}
+                className={`transition-all duration-200 flex-shrink-0 ${
+                  isMobile ? 'px-4 min-h-[60px] min-w-[60px]' : 'px-6'
+                } ${
+                  isLoading 
+                    ? 'bg-orange-500 hover:bg-orange-600' 
+                    : (message.trim() && currentSession && !isCreatingSession)
+                    ? 'bg-[#3B82F6] hover:bg-[#2563EB]'
+                    : 'bg-gray-500'
+                } text-white disabled:opacity-50`}
+              >
+                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Button>
+            </div>
+            
+            {(isLoading || isCreatingSession) && (
+              <div className="mt-3 text-sm text-center">
+                <div className="text-[#3B82F6] flex items-center justify-center">
+                  <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
+                  {isCreatingSession ? 'Criando nova conversa...' : `${agent.name} está pensando...`}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
