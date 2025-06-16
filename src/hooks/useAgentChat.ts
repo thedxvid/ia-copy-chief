@@ -35,7 +35,8 @@ export const useAgentChat = (agentId: string) => {
       agentName,
       isCustomAgent,
       enableStreaming,
-      userId: user.id
+      userId: user.id,
+      agentId
     });
 
     const userMessage: Message = {
@@ -60,49 +61,91 @@ export const useAgentChat = (agentId: string) => {
         streaming: enableStreaming
       };
 
-      console.log('📡 Request body enviado:', requestBody);
+      console.log('📡 Enviando request para edge function:', {
+        ...requestBody,
+        message: requestBody.message.substring(0, 50) + '...',
+        agentPrompt: requestBody.agentPrompt.substring(0, 50) + '...'
+      });
 
       // Usar o cliente Supabase para chamar a edge function
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: requestBody
       });
 
-      console.log('📥 Response data:', data);
-      console.log('📥 Response error:', error);
+      console.log('📥 Resposta da edge function:', {
+        data: data ? Object.keys(data) : 'null',
+        error: error ? error.message : 'null',
+        hasResponse: !!data?.response,
+        dataType: typeof data
+      });
 
+      // Validação detalhada da resposta
       if (error) {
-        console.error('❌ Error response:', error);
-        throw new Error(error.message || 'Erro na requisição');
+        console.error('❌ Erro da edge function:', error);
+        throw new Error(error.message || 'Erro na comunicação com o servidor');
       }
 
       if (!data) {
-        throw new Error('Resposta vazia do servidor');
+        console.error('❌ Resposta vazia da edge function');
+        throw new Error('Resposta vazia do servidor. Verifique se a função está configurada corretamente.');
       }
 
-      // Para streaming, o Supabase client não suporta SSE diretamente
-      // Então vamos fazer fallback para resposta normal
+      // Verificar diferentes formatos de resposta possíveis
+      let assistantResponse = '';
+      
       if (data.response) {
-        const assistantMessage: Message = {
-          id: `assistant-${Date.now()}-${Math.random()}`,
-          role: 'assistant',
-          content: data.response,
-          timestamp: new Date()
-        };
-
-        setMessages(prev => [...prev, assistantMessage]);
-        console.log('✅ Mensagem adicionada com sucesso');
+        assistantResponse = data.response;
+      } else if (data.message) {
+        assistantResponse = data.message;
+      } else if (data.content) {
+        assistantResponse = data.content;
+      } else if (typeof data === 'string') {
+        assistantResponse = data;
       } else {
-        console.error('❌ Resposta sem conteúdo:', data);
-        throw new Error('Resposta sem conteúdo válido');
+        console.error('❌ Formato de resposta inesperado:', data);
+        throw new Error('Formato de resposta inválido. A IA não conseguiu processar sua mensagem.');
       }
+
+      if (!assistantResponse || assistantResponse.trim() === '') {
+        console.error('❌ Resposta da IA vazia');
+        throw new Error('A IA retornou uma resposta vazia. Tente novamente.');
+      }
+
+      const assistantMessage: Message = {
+        id: `assistant-${Date.now()}-${Math.random()}`,
+        role: 'assistant',
+        content: assistantResponse,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+      console.log('✅ Mensagem da IA adicionada com sucesso:', {
+        length: assistantResponse.length,
+        preview: assistantResponse.substring(0, 100) + '...'
+      });
 
     } catch (error) {
-      console.error('❌ Erro ao enviar mensagem:', error);
+      console.error('❌ Erro completo ao enviar mensagem:', {
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        stack: error instanceof Error ? error.stack : 'N/A',
+        agentName,
+        userId: user.id
+      });
+
       const errorMessage = error instanceof Error ? error.message : 'Erro ao processar mensagem';
       
+      // Tratamento específico de diferentes tipos de erro
       if (errorMessage.includes('Tokens insuficientes')) {
         toast.error('❌ Tokens Insuficientes!', {
           description: 'Você não tem tokens suficientes para conversar com o agente.',
+        });
+      } else if (errorMessage.includes('função não encontrada') || errorMessage.includes('404')) {
+        toast.error('❌ Erro de Configuração', {
+          description: 'A função de chat não está configurada corretamente. Contate o suporte.',
+        });
+      } else if (errorMessage.includes('Resposta vazia') || errorMessage.includes('sem conteúdo')) {
+        toast.error('❌ Erro de Comunicação', {
+          description: 'Não foi possível obter resposta da IA. Verifique sua conexão e tente novamente.',
         });
       } else {
         toast.error('❌ Erro no Chat', {
