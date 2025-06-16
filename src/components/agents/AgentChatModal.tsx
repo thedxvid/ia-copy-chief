@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -321,7 +322,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleToggleSidebar = () => {
+  const handleToggleSidebar = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     console.log('🎯 TOGGLE SIDEBAR CHAMADO:', { 
       current: isSidebarOpen, 
       new: !isSidebarOpen, 
