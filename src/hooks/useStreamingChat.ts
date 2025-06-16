@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -32,7 +31,8 @@ export const useStreamingChat = (agentId: string) => {
   const lastMessageIdRef = useRef<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const messageQueueRef = useRef<string[]>([]);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 3;
 
   // Debounce para prevenir envios múltiplos
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -69,6 +69,12 @@ export const useStreamingChat = (agentId: string) => {
   const connectToStream = useCallback(async () => {
     if (!user?.id || eventSourceRef.current) return;
 
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      updateConnectionStatus('error');
+      toast.error('Falha ao conectar após várias tentativas');
+      return;
+    }
+
     updateConnectionStatus('connecting');
 
     try {
@@ -82,6 +88,7 @@ export const useStreamingChat = (agentId: string) => {
       eventSource.onopen = () => {
         updateConnectionStatus('connected');
         setState(prev => ({ ...prev, isConnected: true }));
+        reconnectAttemptsRef.current = 0; // Reset counter on successful connection
         console.log('🔗 Streaming connection established');
       };
 
@@ -90,6 +97,10 @@ export const useStreamingChat = (agentId: string) => {
           const data = JSON.parse(event.data);
           
           switch (data.type) {
+            case 'connection_established':
+              console.log('✅ Connection confirmed');
+              break;
+
             case 'message_start':
               const messageId = addMessage({
                 id: data.messageId,
@@ -109,6 +120,10 @@ export const useStreamingChat = (agentId: string) => {
               setState(prev => ({ ...prev, isTyping: false }));
               break;
 
+            case 'ping':
+              // Keep alive ping, no action needed
+              break;
+
             case 'error':
               console.error('Stream error:', data.error);
               toast.error('Erro no streaming: ' + data.error);
@@ -119,26 +134,38 @@ export const useStreamingChat = (agentId: string) => {
         }
       };
 
-      eventSource.onerror = () => {
+      eventSource.onerror = (error) => {
+        console.error('EventSource error:', error);
         updateConnectionStatus('error');
         setState(prev => ({ ...prev, isConnected: false, isTyping: false }));
         
-        // Tentativa de reconexão automática
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-        }
+        // Close the current connection
+        eventSource.close();
+        eventSourceRef.current = null;
         
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('🔄 Attempting to reconnect...');
-          eventSource.close();
-          eventSourceRef.current = null;
-          connectToStream();
-        }, 3000);
+        // Increment retry counter and attempt reconnection
+        reconnectAttemptsRef.current++;
+        
+        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+          
+          const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000; // Exponential backoff
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log(`🔄 Attempting to reconnect... (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+            connectToStream();
+          }, delay);
+        } else {
+          toast.error('Conexão perdida. Clique em "Reconectar" para tentar novamente.');
+        }
       };
 
     } catch (error) {
       console.error('Failed to connect to stream:', error);
       updateConnectionStatus('error');
+      reconnectAttemptsRef.current++;
       toast.error('Falha ao conectar com o streaming');
     }
   }, [user?.id, agentId, addMessage, updateStreamingMessage, updateConnectionStatus]);
@@ -153,6 +180,8 @@ export const useStreamingChat = (agentId: string) => {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
+
+    reconnectAttemptsRef.current = 0;
 
     setState(prev => ({ 
       ...prev, 
@@ -179,7 +208,6 @@ export const useStreamingChat = (agentId: string) => {
 
     return new Promise<void>((resolve, reject) => {
       debounceRef.current = setTimeout(async () => {
-        // Definir messageId no escopo correto
         const messageId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
         try {
@@ -213,7 +241,7 @@ export const useStreamingChat = (agentId: string) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${user.id}`, // Simplificado para exemplo
+              'Authorization': `Bearer ${user.id}`,
             },
             body: JSON.stringify({
               message,
@@ -227,7 +255,8 @@ export const useStreamingChat = (agentId: string) => {
           });
 
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
           }
 
           console.log('✅ Message sent successfully');
@@ -242,7 +271,7 @@ export const useStreamingChat = (agentId: string) => {
 
           console.error('❌ Error sending message:', error);
           
-          // Remover mensagem do usuário em caso de erro (messageId agora está disponível)
+          // Remover mensagem do usuário em caso de erro
           setState(prev => ({
             ...prev,
             messages: prev.messages.filter(msg => msg.id !== messageId)
@@ -265,6 +294,13 @@ export const useStreamingChat = (agentId: string) => {
     lastMessageIdRef.current = '';
     toast.success('Chat limpo com sucesso!');
   }, []);
+
+  // Reset reconnect attempts and try to reconnect manually
+  const reconnect = useCallback(() => {
+    reconnectAttemptsRef.current = 0;
+    disconnectStream();
+    setTimeout(() => connectToStream(), 1000);
+  }, [connectToStream, disconnectStream]);
 
   // Auto-conectar quando o hook é inicializado
   useEffect(() => {
@@ -294,7 +330,7 @@ export const useStreamingChat = (agentId: string) => {
     connectionStatus: state.connectionStatus,
     sendMessage,
     clearChat,
-    reconnect: connectToStream,
+    reconnect,
     disconnect: disconnectStream
   };
 };

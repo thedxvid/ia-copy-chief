@@ -32,6 +32,31 @@ serve(async (req) => {
   });
 });
 
+async function validateUser(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) return false;
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Verificar se o usuário existe
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+    
+    return !error && !!data;
+  } catch (error) {
+    console.error('Error validating user:', error);
+    return false;
+  }
+}
+
 async function handleStreamingConnection(req: Request, url: URL) {
   const userId = url.searchParams.get('userId');
   const agentId = url.searchParams.get('agentId');
@@ -39,6 +64,15 @@ async function handleStreamingConnection(req: Request, url: URL) {
   if (!userId || !agentId) {
     return new Response('Missing userId or agentId', { 
       status: 400, 
+      headers: corsHeaders 
+    });
+  }
+
+  // Validar usuário para SSE connection
+  const isValidUser = await validateUser(userId);
+  if (!isValidUser) {
+    return new Response('Unauthorized', { 
+      status: 401, 
       headers: corsHeaders 
     });
   }
@@ -102,6 +136,16 @@ async function handleStreamingConnection(req: Request, url: URL) {
 
 async function handleMessageSend(req: Request) {
   try {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({
+        error: 'Missing or invalid authorization header'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { message, agentPrompt, agentName, isCustomAgent, userId, messageId } = await req.json();
 
     console.log('📨 Processing message send:', {
@@ -149,7 +193,7 @@ async function handleMessageSend(req: Request) {
     }
 
     // Get SSE connection for streaming response
-    const streamKey = `stream_${userId}_${agentPrompt.split(' ')[0] || 'agent'}`;
+    const streamKey = `stream_${userId}_${agentName.replace(/\s+/g, '_')}`;
     const streamData = globalThis[streamKey];
 
     if (!streamData) {
