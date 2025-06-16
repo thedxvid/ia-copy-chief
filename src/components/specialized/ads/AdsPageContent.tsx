@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,16 +6,40 @@ import { Plus, Search, Filter, Megaphone, ExternalLink, Edit, Trash2, Copy } fro
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateAdModal } from './CreateAdModal';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 export const AdsPageContent = () => {
-  const { copies, loading, deleteCopy, duplicateCopy } = useSpecializedCopies('ads');
+  const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('ads');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const filteredCopies = copies.filter(copy =>
     copy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     copy.platform?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreateAd = async (briefing: any) => {
+    setIsCreating(true);
+    try {
+      const copyData = {
+        copy_type: 'ads' as const,
+        title: `Anúncio - ${briefing.product_name}`,
+        copy_data: briefing,
+        status: 'draft' as const,
+        platform: briefing.platform
+      };
+
+      await createCopy(copyData);
+      setShowCreateModal(false);
+      toast.success('Anúncio criado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar anúncio:', error);
+      toast.error('Erro ao criar anúncio');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
@@ -162,6 +185,8 @@ export const AdsPageContent = () => {
       <CreateAdModal 
         isOpen={showCreateModal} 
         onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateAd}
+        isLoading={isCreating}
       />
     </div>
   );

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,15 +6,38 @@ import { Plus, Search, Filter, Video, Edit, Trash2, Copy } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateVideoModal } from './CreateVideoModal';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 export const SalesVideosPageContent = () => {
-  const { copies, loading, deleteCopy, duplicateCopy } = useSpecializedCopies('sales-videos');
+  const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('sales-videos');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const filteredCopies = copies.filter(copy =>
     copy.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreateVideo = async (briefing: any) => {
+    setIsCreating(true);
+    try {
+      const copyData = {
+        copy_type: 'sales-videos' as const,
+        title: `VSL - ${briefing.product_name}`,
+        copy_data: briefing,
+        status: 'draft' as const
+      };
+
+      await createCopy(copyData);
+      setShowCreateModal(false);
+      toast.success('Script VSL criado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar vídeo:', error);
+      toast.error('Erro ao criar vídeo');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -148,6 +170,8 @@ export const SalesVideosPageContent = () => {
       <CreateVideoModal 
         isOpen={showCreateModal} 
         onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateVideo}
+        isLoading={isCreating}
       />
     </div>
   );

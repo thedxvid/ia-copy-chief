@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,16 +6,39 @@ import { Plus, Search, Filter, PenTool, Edit, Trash2, Copy } from 'lucide-react'
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateContentModal } from './CreateContentModal';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 export const ContentPageContent = () => {
-  const { copies, loading, deleteCopy, duplicateCopy } = useSpecializedCopies('content');
+  const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('content');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const filteredCopies = copies.filter(copy =>
     copy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     copy.copy_data?.content_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreateContent = async (briefing: any) => {
+    setIsCreating(true);
+    try {
+      const copyData = {
+        copy_type: 'content' as const,
+        title: `${briefing.content_type} - ${briefing.product_name}`,
+        copy_data: briefing,
+        status: 'draft' as const
+      };
+
+      await createCopy(copyData);
+      setShowCreateModal(false);
+      toast.success('Conteúdo criado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar conteúdo:', error);
+      toast.error('Erro ao criar conteúdo');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const getContentTypeIcon = (contentType: string) => {
     switch (contentType) {
@@ -164,6 +186,8 @@ export const ContentPageContent = () => {
       <CreateContentModal 
         isOpen={showCreateModal} 
         onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateContent}
+        isLoading={isCreating}
       />
     </div>
   );

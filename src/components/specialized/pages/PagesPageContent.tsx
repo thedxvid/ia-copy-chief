@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,16 +6,39 @@ import { Plus, Search, Filter, FileText, Edit, Trash2, Copy } from 'lucide-react
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreatePageModal } from './CreatePageModal';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 export const PagesPageContent = () => {
-  const { copies, loading, deleteCopy, duplicateCopy } = useSpecializedCopies('pages');
+  const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('pages');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const filteredCopies = copies.filter(copy =>
     copy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     copy.copy_data?.page_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreatePage = async (briefing: any) => {
+    setIsCreating(true);
+    try {
+      const copyData = {
+        copy_type: 'pages' as const,
+        title: `${briefing.page_type} - ${briefing.product_name}`,
+        copy_data: briefing,
+        status: 'draft' as const
+      };
+
+      await createCopy(copyData);
+      setShowCreateModal(false);
+      toast.success('Página criada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar página:', error);
+      toast.error('Erro ao criar página');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const getPageTypeIcon = (pageType: string) => {
     switch (pageType) {
@@ -162,6 +184,8 @@ export const PagesPageContent = () => {
       <CreatePageModal 
         isOpen={showCreateModal} 
         onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreatePage}
+        isLoading={isCreating}
       />
     </div>
   );
