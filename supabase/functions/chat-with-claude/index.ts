@@ -14,14 +14,25 @@ serve(async (req) => {
   }
 
   try {
-    const { message, agentPrompt, agentName, isCustomAgent, userId, streaming = false } = await req.json();
+    const { 
+      message, 
+      agentPrompt, 
+      agentName, 
+      isCustomAgent, 
+      userId, 
+      sessionId,
+      conversationHistory = [],
+      streaming = false 
+    } = await req.json();
 
     console.log('=== CHAT REQUEST DEBUG ===');
     console.log('User ID:', userId);
+    console.log('Session ID:', sessionId);
     console.log('Agent Name:', agentName);
     console.log('Is Custom Agent:', isCustomAgent);
     console.log('Message Length:', message?.length || 0);
     console.log('Agent Prompt Length:', agentPrompt?.length || 0);
+    console.log('Conversation History Count:', conversationHistory?.length || 0);
     console.log('Streaming enabled:', streaming);
     console.log('Request timestamp:', new Date().toISOString());
 
@@ -97,12 +108,13 @@ serve(async (req) => {
         const userTokens = tokensData?.[0];
         console.log('User tokens:', userTokens);
 
-        // Estimar tokens necessários para Claude
+        // Estimar tokens necessários incluindo histórico
         const systemPromptLength = agentPrompt?.length || 0;
         const messageLength = message.length;
+        const historyLength = conversationHistory.reduce((acc, msg) => acc + (msg.content?.length || 0), 0);
         
-        const estimatedTokens = Math.ceil((systemPromptLength + messageLength) * 1.3) + 1000; // Buffer para resposta
-        console.log('Tokens estimados necessários:', estimatedTokens);
+        const estimatedTokens = Math.ceil((systemPromptLength + messageLength + historyLength) * 1.3) + 1000;
+        console.log('Tokens estimados necessários (com contexto):', estimatedTokens);
 
         if (!userTokens || userTokens.total_available < estimatedTokens) {
           console.error('❌ Tokens insuficientes:', {
@@ -129,22 +141,41 @@ serve(async (req) => {
       }
     }
 
-    // Preparar mensagens para Claude
-    const messages = [{
+    // Preparar mensagens para Claude incluindo histórico
+    console.log('=== PREPARING CONVERSATION CONTEXT ===');
+    
+    const messages = [];
+    
+    // Adicionar histórico da conversa se disponível
+    if (conversationHistory && conversationHistory.length > 0) {
+      console.log('Adding conversation history:', conversationHistory.length, 'messages');
+      
+      for (const historyMessage of conversationHistory) {
+        if (historyMessage.role && historyMessage.content) {
+          messages.push({
+            role: historyMessage.role,
+            content: historyMessage.content
+          });
+        }
+      }
+    }
+    
+    // Adicionar mensagem atual do usuário
+    messages.push({
       role: 'user',
       content: message
-    }];
+    });
 
     console.log('=== CLAUDE API CALL ===');
-    console.log('Messages count:', messages.length);
+    console.log('Total messages to send:', messages.length);
     console.log('System prompt length:', agentPrompt?.length || 0);
 
     const requestBody = {
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 3000,
-      system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil.`,
+      system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil. Mantenha o contexto da conversa anterior.`,
       messages: messages,
-      stream: false // Desabilitar streaming temporariamente para debug
+      stream: false
     };
 
     console.log('Request body structure (Claude):', {
@@ -155,7 +186,7 @@ serve(async (req) => {
       stream: requestBody.stream
     });
 
-    console.log('Calling Claude API...');
+    console.log('Calling Claude API with conversation context...');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -191,7 +222,6 @@ serve(async (req) => {
       });
     }
 
-    // Resposta normal (não-streaming)
     console.log('Claude API call successful');
     const data = await response.json();
     console.log('Claude API response received:', {
@@ -244,7 +274,7 @@ serve(async (req) => {
     }
 
     console.log('=== SUCCESS ===');
-    console.log('Chat processado com sucesso usando Claude');
+    console.log('Chat processado com sucesso usando Claude com contexto de conversa');
 
     return new Response(JSON.stringify({
       response: assistantResponse,
