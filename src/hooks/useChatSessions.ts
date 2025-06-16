@@ -61,7 +61,14 @@ export const useChatSessions = (agentId: string) => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Type assertion para garantir compatibilidade
+      const typedMessages = (data || []).map(msg => ({
+        ...msg,
+        role: msg.role as 'user' | 'assistant'
+      })) as ChatMessage[];
+      
+      setMessages(typedMessages);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       setMessages([]);
@@ -127,7 +134,11 @@ export const useChatSessions = (agentId: string) => {
 
       if (error) throw error;
 
-      const newMessage = data as ChatMessage;
+      const newMessage = {
+        ...data,
+        role: data.role as 'user' | 'assistant'
+      } as ChatMessage;
+      
       setMessages(prev => [...prev, newMessage]);
       
       // Recarregar sessões para atualizar contador
