@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -57,17 +56,6 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     deleteSession
   } = useChatSessions(agent.id);
 
-  const handleMessageComplete = async (messageId: string, content: string) => {
-    debugLog('MESSAGE_COMPLETE', 'Mensagem streaming completa', { 
-      messageId, 
-      contentLength: content.length,
-      sessionId: currentSession?.id 
-    });
-    if (currentSession) {
-      await updateMessage(messageId, content, true);
-    }
-  };
-
   const {
     isConnected,
     isTyping,
@@ -78,7 +66,16 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     canSendMessage,
     sendMessage,
     reconnect
-  } = useOptimizedStreaming(agent.id, handleMessageComplete);
+  } = useOptimizedStreaming(agent.id, async (messageId: string, content: string) => {
+      debugLog('MESSAGE_COMPLETE', 'Mensagem streaming completa recebida pelo modal', { 
+        messageId, 
+        contentLength: content.length,
+        sessionId: currentSession?.id 
+      });
+      if (currentSession) {
+        await updateMessage(messageId, content, true);
+      }
+    });
 
   // Log estado da conexão
   useEffect(() => {
