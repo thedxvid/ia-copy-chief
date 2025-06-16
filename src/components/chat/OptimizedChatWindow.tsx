@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, ArrowLeft, Minus, X, Download, Trash2 } from 'lucide-react';
-import { useStreamingChat } from '@/hooks/useStreamingChat';
+import { useSimpleStreamingChat } from '@/hooks/useSimpleStreamingChat';
 import { StreamingMessage } from './StreamingMessage';
 import { ConnectionStatus } from './ConnectionStatus';
 
@@ -50,7 +50,7 @@ export const OptimizedChatWindow: React.FC<OptimizedChatWindowProps> = ({
     sendMessage,
     clearChat,
     reconnect
-  } = useStreamingChat(agent.id);
+  } = useSimpleStreamingChat(agent.id);
 
   // Auto-scroll otimizado
   const scrollToBottom = useMemo(() => {
