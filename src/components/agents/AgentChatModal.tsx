@@ -1,14 +1,13 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Download, X } from 'lucide-react';
+import { Send, Download, X, Bot, User, Copy, Check } from 'lucide-react';
 import { useChatSessions } from '@/hooks/useChatSessions';
-import { useOptimizedStreaming } from '@/hooks/useOptimizedStreaming';
+import { useAgentChat } from '@/hooks/useAgentChat';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
-import { StreamingMessage } from '@/components/chat/StreamingMessage';
-import { ConnectionStatus } from '@/components/chat/ConnectionStatus';
 import { toast } from 'sonner';
 
 interface Agent {
@@ -26,9 +25,77 @@ interface AgentChatModalProps {
   onClose: () => void;
 }
 
-const debugLog = (category: string, message: string, data?: any) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] 🔍 MODAL_${category}: ${message}`, data || '');
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+const MessageComponent: React.FC<{ message: Message; agentName: string }> = ({ message, agentName }) => {
+  const [copied, setCopied] = useState(false);
+  const isUser = message.role === 'user';
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatTime = (timestamp: Date) => {
+    return timestamp.toLocaleTimeString('pt-BR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  return (
+    <div className={`flex gap-3 animate-fade-in ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {!isUser && (
+        <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+          <Bot className="w-4 h-4 text-white" />
+        </div>
+      )}
+      
+      <div className={`max-w-[70%] ${isUser ? 'order-1' : ''}`}>
+        <div className={`rounded-2xl px-4 py-3 transition-all duration-200 ${
+          isUser 
+            ? 'bg-[#3B82F6] text-white ml-auto' 
+            : 'bg-[#2A2A2A] text-white border border-[#4B5563]/20'
+        }`}>
+          <div className="whitespace-pre-wrap break-words">
+            {message.content}
+          </div>
+        </div>
+        
+        <div className={`flex items-center gap-2 mt-1 text-xs text-[#888888] ${
+          isUser ? 'justify-end' : 'justify-start'
+        }`}>
+          <span>{formatTime(message.timestamp)}</span>
+          {!isUser && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopy}
+              className="h-auto p-1 text-[#888888] hover:text-white transition-colors"
+            >
+              {copied ? (
+                <Check className="w-3 h-3" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+      
+      {isUser && (
+        <div className="w-8 h-8 bg-[#2A2A2A] rounded-full flex items-center justify-center flex-shrink-0 mt-1 border border-[#4B5563]/20">
+          <User className="w-4 h-4 text-white" />
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const AgentChatModal: React.FC<AgentChatModalProps> = ({
@@ -39,66 +106,26 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   const [message, setMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const sessionInitializedRef = useRef(false);
-  
-  debugLog('MODAL_RENDER', `🎯 Modal renderizado para agente: ${agent.name}`, { 
-    agentId: agent.id, 
-    isOpen 
-  });
-  
-  // Memoizar o agentId para evitar recriações do hook
-  const stableAgentId = useMemo(() => agent.id, [agent.id]);
   
   const {
     sessions,
     currentSession,
-    messages,
+    messages: sessionMessages,
     findOrCreateSessionForAgent,
     selectSession,
     addMessage,
-    updateMessage,
     deleteSession
-  } = useChatSessions(stableAgentId);
-
-  // Memoizar o callback para evitar recriações
-  const handleMessageComplete = useMemo(() => {
-    return async (messageId: string, content: string) => {
-      debugLog('MESSAGE_COMPLETE', '✅ Mensagem streaming completa recebida pelo modal', { 
-        messageId, 
-        contentLength: content.length,
-        sessionId: currentSession?.id 
-      });
-      if (currentSession) {
-        await updateMessage(messageId, content, true);
-      }
-    };
-  }, [currentSession, updateMessage]);
+  } = useChatSessions(agent.id);
 
   const {
-    isConnected,
-    isTyping,
-    connectionStatus,
-    isSending,
-    currentStreamingMessage,
-    currentMessageId,
-    canSendMessage,
-    sendMessage,
-    reconnect
-  } = useOptimizedStreaming(stableAgentId, handleMessageComplete);
+    messages: chatMessages,
+    isLoading,
+    sendMessage: sendChatMessage,
+    clearChat
+  } = useAgentChat(agent.id);
 
-  // Efeito para inicializar sessão APENAS uma vez quando o modal abrir
-  useEffect(() => {
-    if (isOpen && agent.id && !sessionInitializedRef.current) {
-      sessionInitializedRef.current = true;
-      debugLog('SESSION_INIT', '🎯 Inicializando sessão para agente', { agentId: agent.id, agentName: agent.name });
-      findOrCreateSessionForAgent(agent.name);
-    }
-    
-    // Reset quando modal fechar
-    if (!isOpen) {
-      sessionInitializedRef.current = false;
-    }
-  }, [isOpen, agent.id, agent.name, findOrCreateSessionForAgent]);
+  // Combinar mensagens da sessão com mensagens do chat
+  const allMessages = [...sessionMessages, ...chatMessages];
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -108,7 +135,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
     }
-  }, [messages, currentStreamingMessage]);
+  }, [allMessages]);
 
   // Focus automático no textarea quando o modal abre
   useEffect(() => {
@@ -117,138 +144,59 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
         textareaRef.current?.focus();
       }, 100);
     }
-  }, [isOpen, currentSession]);
+  }, [isOpen]);
 
-  const handleNewChat = useCallback(async () => {
-    debugLog('NEW_CHAT', '🔄 Criando nova sessão', { agentName: agent.name, agentId: agent.id });
+  // Inicializar sessão quando o modal abrir
+  useEffect(() => {
+    if (isOpen && agent.id) {
+      findOrCreateSessionForAgent(agent.name);
+    }
+  }, [isOpen, agent.id, agent.name, findOrCreateSessionForAgent]);
+
+  const handleNewChat = async () => {
+    clearChat();
     await findOrCreateSessionForAgent(agent.name);
-  }, [agent.name, agent.id, findOrCreateSessionForAgent]);
+  };
 
-  const handleSend = useCallback(async () => {
-    debugLog('SEND_ATTEMPT', '📤 Tentativa de envio', {
-      hasMessage: !!message.trim(),
-      canSendMessage,
-      hasCurrentSession: !!currentSession,
-      agentId: agent.id,
-      connectionStatus,
-      isConnected,
-      isSending,
-      isTyping
-    });
-
-    if (!message.trim() || !canSendMessage || !currentSession) {
-      if (!canSendMessage) {
-        debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: conexão não está pronta', {
-          isConnected,
-          connectionStatus,
-          isSending,
-          isTyping,
-          canSendMessage
-        });
-        
-        // Tentar reconectar se não estiver conectado
-        if (!isConnected && connectionStatus !== 'connecting') {
-          toast.info('Tentando reconectar...');
-          reconnect();
-        }
-      }
-      if (!currentSession) {
-        debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: sem sessão atual');
-      }
-      if (!message.trim()) {
-        debugLog('SEND_BLOCKED', '⚠️ Não é possível enviar: mensagem vazia');
-      }
+  const handleSend = async () => {
+    if (!message.trim() || isLoading || !currentSession) {
       return;
     }
     
     const messageToSend = message;
     setMessage('');
     
-    debugLog('SEND_START', '🚀 Iniciando envio de mensagem', {
-      messageLength: messageToSend.length,
-      sessionId: currentSession.id,
-      agentId: agent.id,
-      agentName: agent.name
-    });
-    
     try {
-      debugLog('USER_MESSAGE', '👤 Adicionando mensagem do usuário');
+      // Adicionar mensagem do usuário na sessão
       await addMessage(currentSession.id, 'user', messageToSend);
-
-      debugLog('ASSISTANT_MESSAGE', '🤖 Criando mensagem placeholder do assistente');
-      const assistantMessage = await addMessage(currentSession.id, 'assistant', '', 0);
-
-      debugLog('STREAMING_SEND', '📡 Enviando para streaming', {
-        sessionId: currentSession.id,
-        agentPrompt: agent.prompt,
-        agentName: agent.name,
-        isCustom: agent.isCustom
-      });
       
-      await sendMessage(
-        currentSession.id,
+      // Enviar para o chat com IA
+      await sendChatMessage(
         messageToSend,
         agent.prompt,
         agent.name,
-        agent.isCustom
+        agent.isCustom,
+        false // Sem streaming
       );
 
-      debugLog('SEND_SUCCESS', '✅ Mensagem enviada com sucesso');
-
     } catch (error) {
-      debugLog('SEND_ERROR', '❌ Erro ao enviar mensagem', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      console.error('Erro ao enviar mensagem:', error);
       setMessage(messageToSend);
-      
-      // Mostrar erro mais específico
-      if (error instanceof Error) {
-        if (error.message.includes('Tokens insuficientes')) {
-          toast.error('Tokens insuficientes para continuar a conversa');
-        } else if (error.message.includes('404') || error.message.includes('NO_ACTIVE_STREAM')) {
-          toast.error('Conexão perdida. Reconectando...');
-          reconnect();
-        } else {
-          toast.error(`Erro: ${error.message}`);
-        }
-      }
     }
-  }, [
-    message,
-    canSendMessage,
-    currentSession,
-    agent.id,
-    agent.name,
-    agent.prompt,
-    agent.isCustom,
-    connectionStatus,
-    isConnected,
-    isSending,
-    isTyping,
-    addMessage,
-    sendMessage,
-    reconnect
-  ]);
+  };
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      debugLog('KEYBOARD_SEND', '⌨️ Enviando via Enter');
       handleSend();
     }
-  }, [handleSend]);
+  };
 
-  const exportChat = useCallback(() => {
-    if (messages.length === 0 || !currentSession) return;
+  const exportChat = () => {
+    if (allMessages.length === 0 || !currentSession) return;
 
-    debugLog('EXPORT_CHAT', '📁 Exportando chat', {
-      messageCount: messages.length,
-      sessionTitle: currentSession.title
-    });
-
-    const chatContent = messages.map(msg => {
-      const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { 
+    const chatContent = allMessages.map(msg => {
+      const time = msg.timestamp.toLocaleTimeString('pt-BR', { 
         hour: '2-digit', 
         minute: '2-digit' 
       });
@@ -265,7 +213,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [messages, currentSession, agent.name]);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -300,11 +248,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               </div>
               <div>
                 <h3 className="font-semibold text-white">{agent.name}</h3>
-                <ConnectionStatus 
-                  status={connectionStatus} 
-                  isTyping={isTyping}
-                  onReconnect={reconnect}
-                />
+                <p className="text-sm text-[#888888]">
+                  {isLoading ? 'Processando...' : 'Online'}
+                </p>
               </div>
             </div>
             <div className="flex space-x-2">
@@ -312,7 +258,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={exportChat}
-                disabled={messages.length === 0}
+                disabled={allMessages.length === 0}
                 className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -341,29 +287,9 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                   </div>
                   <h3 className="text-lg font-medium text-white mb-2">{agent.name}</h3>
                   <p className="text-[#CCCCCC] mb-4">{agent.description}</p>
-                  {connectionStatus === 'connecting' ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
-                      <span className="text-sm ml-2">Conectando...</span>
-                    </div>
-                  ) : connectionStatus === 'error' ? (
-                    <div className="space-y-2">
-                      <p className="text-red-400 text-sm">Erro na conexão</p>
-                      <Button
-                        onClick={reconnect}
-                        size="sm"
-                        className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                      >
-                        Tentar Novamente
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-sm">Inicializando conversa...</p>
-                  )}
+                  <p className="text-sm">Inicializando conversa...</p>
                 </div>
-              ) : messages.length === 0 ? (
+              ) : allMessages.length === 0 ? (
                 <div className="text-center text-[#888888] py-8">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${
                     agent.isCustom ? 'bg-[#10B981]' : 'bg-[#3B82F6]'
@@ -375,35 +301,13 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                   <p className="text-sm">Como posso ajudar você hoje?</p>
                 </div>
               ) : (
-                <>
-                  {messages.map((msg, index) => (
-                    <StreamingMessage 
-                      key={msg.id} 
-                      message={{
-                        id: msg.id,
-                        content: msg.content,
-                        role: msg.role,
-                        timestamp: new Date(msg.created_at),
-                        isStreaming: !msg.streaming_complete
-                      }}
-                      isLast={index === messages.length - 1}
-                    />
-                  ))}
-                  
-                  {/* Mensagem de streaming em tempo real */}
-                  {isTyping && currentMessageId && currentStreamingMessage && (
-                    <StreamingMessage 
-                      message={{
-                        id: currentMessageId,
-                        content: currentStreamingMessage,
-                        role: 'assistant',
-                        timestamp: new Date(),
-                        isStreaming: true
-                      }}
-                      isLast={true}
-                    />
-                  )}
-                </>
+                allMessages.map((msg) => (
+                  <MessageComponent 
+                    key={msg.id} 
+                    message={msg}
+                    agentName={agent.name}
+                  />
+                ))
               )}
             </div>
           </ScrollArea>
@@ -418,16 +322,16 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder={`Mensagem para ${agent.name}...`}
                 className="flex-1 min-h-[44px] max-h-32 bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] resize-none"
-                disabled={!canSendMessage || !currentSession}
+                disabled={isLoading || !currentSession}
               />
               <Button
                 onClick={handleSend}
-                disabled={!message.trim() || !canSendMessage || !currentSession}
+                disabled={!message.trim() || isLoading || !currentSession}
                 size="lg"
                 className={`px-6 transition-all duration-200 ${
-                  isSending 
+                  isLoading 
                     ? 'bg-orange-500 hover:bg-orange-600' 
-                    : (canSendMessage && message.trim())
+                    : (message.trim() && currentSession)
                     ? 'bg-[#3B82F6] hover:bg-[#2563EB]'
                     : 'bg-gray-500'
                 } text-white`}
@@ -436,43 +340,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               </Button>
             </div>
             
-            {/* Status melhorado */}
-            {(!canSendMessage || connectionStatus !== 'connected') && (
-              <div className="mt-3 text-sm flex items-center justify-center">
-                {isSending ? (
-                  <div className="text-[#3B82F6] flex items-center">
-                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
-                    Enviando mensagem...
-                  </div>
-                ) : connectionStatus === 'connecting' ? (
-                  <div className="text-yellow-500 flex items-center">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse mr-2"></div>
-                    Conectando ao assistente...
-                  </div>
-                ) : connectionStatus === 'error' ? (
-                  <div className="text-red-500 flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    <span>Erro de conexão</span>
-                    <Button
-                      onClick={reconnect}
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-xs border-red-500 text-red-400 hover:bg-red-500/10"
-                    >
-                      Reconectar
-                    </Button>
-                  </div>
-                ) : !isConnected ? (
-                  <div className="text-red-500 flex items-center">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mr-2"></div>
-                    Sem conexão - aguarde ou reconecte
-                  </div>
-                ) : isTyping ? (
-                  <div className="text-blue-500 flex items-center">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-2"></div>
-                    Assistente está respondendo...
-                  </div>
-                ) : null}
+            {isLoading && (
+              <div className="mt-3 text-sm text-center">
+                <div className="text-[#3B82F6] flex items-center justify-center">
+                  <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
+                  Processando sua mensagem...
+                </div>
               </div>
             )}
           </div>
