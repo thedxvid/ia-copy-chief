@@ -9,6 +9,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
+// Pool global de streams para evitar múltiplas conexões
+const streamPool = new Map<string, {
+  controller: ReadableStreamDefaultController;
+  encoder: TextEncoder;
+  keepAlive: number;
+  lastActivity: number;
+}>();
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -75,7 +83,22 @@ async function handleStreamingConnection(req: Request, url: URL) {
     });
   }
 
-  console.log(`🔗 SSE connection established for user ${userId}, agent ${agentId}`);
+  const streamKey = `${userId}-${agentId}`;
+  
+  // Verificar se já existe stream ativa
+  if (streamPool.has(streamKey)) {
+    console.log(`🔄 Reutilizando stream existente para ${streamKey}`);
+    const existingStream = streamPool.get(streamKey)!;
+    existingStream.lastActivity = Date.now();
+    
+    // Retornar stream existente (nota: em produção, você pode querer uma abordagem diferente)
+    return new Response('Stream already exists', { 
+      status: 409, 
+      headers: corsHeaders 
+    });
+  }
+
+  console.log(`🔗 Nova conexão SSE estabelecida para ${streamKey}`);
 
   const stream = new ReadableStream({
     start(controller) {
@@ -92,31 +115,49 @@ async function handleStreamingConnection(req: Request, url: URL) {
 
       const keepAlive = setInterval(() => {
         try {
+          const streamData = streamPool.get(streamKey);
+          if (!streamData) {
+            clearInterval(keepAlive);
+            return;
+          }
+          
           const pingData = JSON.stringify({
             type: 'ping',
             timestamp: new Date().toISOString()
           });
           controller.enqueue(encoder.encode(`data: ${pingData}\n\n`));
+          
+          // Verificar timeout (5 minutos sem atividade)
+          if (Date.now() - streamData.lastActivity > 300000) {
+            console.log(`⏰ Timeout para stream ${streamKey}`);
+            streamPool.delete(streamKey);
+            clearInterval(keepAlive);
+            controller.close();
+          }
         } catch (error) {
           console.error('Error sending ping:', error);
+          streamPool.delete(streamKey);
           clearInterval(keepAlive);
           controller.close();
         }
       }, 30000);
 
-      // Use agentId as streamKey for consistency
-      const streamKey = `stream_${userId}_${agentId}`;
-      globalThis[streamKey] = { controller, encoder, keepAlive };
+      // Armazenar no pool
+      streamPool.set(streamKey, {
+        controller,
+        encoder,
+        keepAlive,
+        lastActivity: Date.now()
+      });
     },
 
     cancel() {
-      console.log(`🔌 SSE connection closed for user ${userId}, agent ${agentId}`);
-      const streamKey = `stream_${userId}_${agentId}`;
-      const streamData = globalThis[streamKey];
-      if (streamData?.keepAlive) {
+      console.log(`🔌 Conexão SSE fechada para ${streamKey}`);
+      const streamData = streamPool.get(streamKey);
+      if (streamData) {
         clearInterval(streamData.keepAlive);
+        streamPool.delete(streamKey);
       }
-      delete globalThis[streamKey];
     }
   });
 
@@ -189,26 +230,33 @@ async function handleMessageSend(req: Request) {
       });
     }
 
-    // Use streamKey or fallback to agentId-based key
-    const finalStreamKey = streamKey || `stream_${userId}_${agentName.replace(/\s+/g, '_')}`;
-    const streamData = globalThis[finalStreamKey];
+    // Usar streamKey fornecido ou fallback
+    const finalStreamKey = streamKey || `${userId}-${agentName.replace(/\s+/g, '_')}`;
+    const streamData = streamPool.get(finalStreamKey);
 
     if (!streamData) {
       console.warn(`⚠️ No active stream found for ${finalStreamKey}`);
+      return new Response(JSON.stringify({
+        error: 'No active stream connection'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    // Atualizar atividade do stream
+    streamData.lastActivity = Date.now();
 
     const assistantMessageId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Send message start event
-    if (streamData) {
-      const startData = JSON.stringify({
-        type: 'message_start',
-        messageId: assistantMessageId,
-        agentName,
-        sessionId
-      });
-      streamData.controller.enqueue(streamData.encoder.encode(`data: ${startData}\n\n`));
-    }
+    const startData = JSON.stringify({
+      type: 'message_start',
+      messageId: assistantMessageId,
+      agentName,
+      sessionId
+    });
+    streamData.controller.enqueue(streamData.encoder.encode(`data: ${startData}\n\n`));
 
     // Get conversation history from the session
     let conversationHistory = [];
@@ -219,7 +267,7 @@ async function handleMessageSend(req: Request) {
         .eq('session_id', sessionId)
         .eq('streaming_complete', true)
         .order('created_at', { ascending: true })
-        .limit(20); // Last 20 messages for context
+        .limit(20);
 
       if (!messagesError && messagesData) {
         conversationHistory = messagesData.map(msg => ({
@@ -260,7 +308,7 @@ async function handleMessageSend(req: Request) {
     const decoder = new TextDecoder();
     let fullResponse = '';
 
-    if (reader && streamData) {
+    if (reader) {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -287,6 +335,9 @@ async function handleMessageSend(req: Request) {
                   sessionId
                 });
                 streamData.controller.enqueue(streamData.encoder.encode(`data: ${deltaData}\n\n`));
+                
+                // Atualizar atividade
+                streamData.lastActivity = Date.now();
               }
             } catch (e) {
               // Skip invalid JSON

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -153,7 +153,14 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-[#1E1E1E] border-[#4B5563]/20 text-white max-w-7xl w-full h-[90vh] flex p-0">
+      <DialogContent 
+        className="bg-[#1E1E1E] border-[#4B5563]/20 text-white max-w-7xl w-full h-[90vh] flex p-0"
+        hideCloseButton={true}
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Chat com {agent.name}</DialogTitle>
+        </DialogHeader>
+
         {/* Sidebar */}
         <ChatSidebar
           sessions={sessions}
@@ -218,7 +225,12 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                   </div>
                   <h3 className="text-lg font-medium text-white mb-2">{agent.name}</h3>
                   <p className="text-[#CCCCCC] mb-4">{agent.description}</p>
-                  <p className="text-sm">Criando nova conversa...</p>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
+                    <span className="text-sm ml-2">Preparando conversa...</span>
+                  </div>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center text-[#888888] py-8">
@@ -281,19 +293,30 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 onClick={handleSend}
                 disabled={!message.trim() || isSending || isTyping || !isConnected || !currentSession}
                 size="lg"
-                className={`px-6 ${
+                className={`px-6 transition-all duration-200 ${
                   isSending 
                     ? 'bg-orange-500 hover:bg-orange-600' 
-                    : 'bg-[#3B82F6] hover:bg-[#2563EB]'
-                } text-white transition-all duration-200`}
+                    : isConnected
+                    ? 'bg-[#3B82F6] hover:bg-[#2563EB]'
+                    : 'bg-gray-500'
+                } text-white`}
               >
                 <Send className="w-4 h-4" />
               </Button>
             </div>
-            {isSending && (
-              <div className="mt-3 text-sm text-[#3B82F6] flex items-center">
-                <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
-                Enviando mensagem...
+            {(isSending || !isConnected) && (
+              <div className="mt-3 text-sm flex items-center justify-center">
+                {isSending ? (
+                  <div className="text-[#3B82F6] flex items-center">
+                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
+                    Enviando mensagem...
+                  </div>
+                ) : (
+                  <div className="text-yellow-500 flex items-center">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse mr-2"></div>
+                    Conectando...
+                  </div>
+                )}
               </div>
             )}
           </div>

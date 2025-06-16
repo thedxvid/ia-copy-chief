@@ -10,6 +10,12 @@ interface StreamingState {
   currentMessageId: string | null;
 }
 
+// Pool global de conexões SSE para evitar múltiplas conexões
+const connectionPool = new Map<string, {
+  eventSource: EventSource;
+  callbacks: Map<string, (data: any) => void>;
+}>();
+
 export const useOptimizedStreaming = (
   agentId: string,
   onMessageComplete: (messageId: string, content: string) => void
@@ -23,20 +29,39 @@ export const useOptimizedStreaming = (
   });
 
   const [isSending, setIsSending] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const { user } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 3;
+  const callbackIdRef = useRef<string>(`callback-${Date.now()}-${Math.random()}`);
+  const connectingRef = useRef(false);
 
   const updateConnectionStatus = useCallback((status: StreamingState['connectionStatus']) => {
     setState(prev => ({ ...prev, connectionStatus: status }));
   }, []);
 
-  // Conectar ao SSE com streamKey corrigido
+  // Função para conectar ao SSE com pool de conexões
   const connectToStream = useCallback(async () => {
-    if (!user?.id || eventSourceRef.current) return;
+    if (!user?.id || connectingRef.current) return;
+
+    const poolKey = `${user.id}-${agentId}`;
+    
+    // Verificar se já existe conexão ativa
+    if (connectionPool.has(poolKey)) {
+      const existingConnection = connectionPool.get(poolKey)!;
+      
+      // Registrar callback para esta instância
+      existingConnection.callbacks.set(callbackIdRef.current, (data) => {
+        handleSSEMessage(data);
+      });
+      
+      updateConnectionStatus('connected');
+      setState(prev => ({ ...prev, isConnected: true }));
+      reconnectAttemptsRef.current = 0;
+      console.log('🔗 Reutilizando conexão SSE existente para agente:', agentId);
+      return;
+    }
 
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
       updateConnectionStatus('error');
@@ -44,68 +69,39 @@ export const useOptimizedStreaming = (
       return;
     }
 
+    connectingRef.current = true;
     updateConnectionStatus('connecting');
 
     try {
-      // Usar agentId diretamente como streamKey para consistência
       const url = new URL(`https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/streaming-chat`);
       url.searchParams.set('userId', user.id);
       url.searchParams.set('agentId', agentId);
 
       const eventSource = new EventSource(url.toString());
-      eventSourceRef.current = eventSource;
+      const callbacks = new Map<string, (data: any) => void>();
+      
+      // Registrar este callback
+      callbacks.set(callbackIdRef.current, (data) => {
+        handleSSEMessage(data);
+      });
+
+      // Adicionar ao pool
+      connectionPool.set(poolKey, { eventSource, callbacks });
 
       eventSource.onopen = () => {
         updateConnectionStatus('connected');
         setState(prev => ({ ...prev, isConnected: true }));
         reconnectAttemptsRef.current = 0;
-        console.log('🔗 Streaming connection established for agent:', agentId);
+        connectingRef.current = false;
+        console.log('🔗 Nova conexão SSE estabelecida para agente:', agentId);
       };
 
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           
-          switch (data.type) {
-            case 'connection_established':
-              console.log('✅ Connection confirmed for agent:', agentId);
-              break;
-
-            case 'message_start':
-              setState(prev => ({
-                ...prev,
-                isTyping: true,
-                currentStreamingMessage: '',
-                currentMessageId: data.messageId
-              }));
-              break;
-
-            case 'content_delta':
-              setState(prev => ({
-                ...prev,
-                currentStreamingMessage: data.content
-              }));
-              break;
-
-            case 'message_complete':
-              setState(prev => ({
-                ...prev,
-                isTyping: false,
-                currentStreamingMessage: '',
-                currentMessageId: null
-              }));
-              onMessageComplete(data.messageId, data.content);
-              break;
-
-            case 'ping':
-              // Keep alive ping
-              break;
-
-            case 'error':
-              console.error('Stream error:', data.error);
-              toast.error('Erro no streaming: ' + data.error);
-              break;
-          }
+          // Executar todos os callbacks registrados
+          callbacks.forEach(callback => callback(data));
         } catch (error) {
           console.error('Error parsing stream data:', error);
         }
@@ -113,11 +109,18 @@ export const useOptimizedStreaming = (
 
       eventSource.onerror = (error) => {
         console.error('EventSource error for agent', agentId, ':', error);
+        connectingRef.current = false;
+        
+        // Remover do pool
+        connectionPool.delete(poolKey);
+        
+        // Notificar todos os callbacks sobre o erro
+        callbacks.forEach(callback => {
+          callback({ type: 'error', error: 'Connection lost' });
+        });
+        
         updateConnectionStatus('error');
         setState(prev => ({ ...prev, isConnected: false, isTyping: false }));
-        
-        eventSource.close();
-        eventSourceRef.current = null;
         
         reconnectAttemptsRef.current++;
         
@@ -129,7 +132,7 @@ export const useOptimizedStreaming = (
           const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000;
           
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`🔄 Attempting to reconnect for agent ${agentId}... (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+            console.log(`🔄 Tentativa de reconexão para agente ${agentId}... (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
             connectToStream();
           }, delay);
         } else {
@@ -139,16 +142,71 @@ export const useOptimizedStreaming = (
 
     } catch (error) {
       console.error('Failed to connect to stream for agent', agentId, ':', error);
+      connectingRef.current = false;
       updateConnectionStatus('error');
       reconnectAttemptsRef.current++;
       toast.error('Falha ao conectar com o streaming');
     }
-  }, [user?.id, agentId, updateConnectionStatus, onMessageComplete]);
+  }, [user?.id, agentId, updateConnectionStatus]);
+
+  // Handler para mensagens SSE
+  const handleSSEMessage = useCallback((data: any) => {
+    switch (data.type) {
+      case 'connection_established':
+        console.log('✅ Conexão confirmada para agente:', agentId);
+        break;
+
+      case 'message_start':
+        setState(prev => ({
+          ...prev,
+          isTyping: true,
+          currentStreamingMessage: '',
+          currentMessageId: data.messageId
+        }));
+        break;
+
+      case 'content_delta':
+        setState(prev => ({
+          ...prev,
+          currentStreamingMessage: data.content
+        }));
+        break;
+
+      case 'message_complete':
+        setState(prev => ({
+          ...prev,
+          isTyping: false,
+          currentStreamingMessage: '',
+          currentMessageId: null
+        }));
+        onMessageComplete(data.messageId, data.content);
+        break;
+
+      case 'ping':
+        // Keep alive ping
+        break;
+
+      case 'error':
+        console.error('Stream error:', data.error);
+        toast.error('Erro no streaming: ' + data.error);
+        break;
+    }
+  }, [agentId, onMessageComplete]);
 
   const disconnectStream = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    const poolKey = `${user?.id}-${agentId}`;
+    const connection = connectionPool.get(poolKey);
+    
+    if (connection) {
+      // Remover apenas este callback
+      connection.callbacks.delete(callbackIdRef.current);
+      
+      // Se não há mais callbacks, fechar a conexão
+      if (connection.callbacks.size === 0) {
+        connection.eventSource.close();
+        connectionPool.delete(poolKey);
+        console.log('🔌 Conexão SSE fechada para agente:', agentId);
+      }
     }
     
     if (reconnectTimeoutRef.current) {
@@ -157,6 +215,7 @@ export const useOptimizedStreaming = (
     }
 
     reconnectAttemptsRef.current = 0;
+    connectingRef.current = false;
 
     setState(prev => ({ 
       ...prev, 
@@ -166,7 +225,7 @@ export const useOptimizedStreaming = (
       currentStreamingMessage: '',
       currentMessageId: null
     }));
-  }, []);
+  }, [user?.id, agentId]);
 
   const sendMessage = useCallback(async (
     sessionId: string,
@@ -189,7 +248,6 @@ export const useOptimizedStreaming = (
 
       abortControllerRef.current = new AbortController();
 
-      // Enviar mensagem usando agentId como streamKey para consistência
       const response = await fetch('https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/streaming-chat', {
         method: 'POST',
         headers: {
@@ -203,7 +261,7 @@ export const useOptimizedStreaming = (
           isCustomAgent,
           userId: user.id,
           sessionId,
-          streamKey: agentId // Usar agentId como streamKey
+          streamKey: `${user.id}-${agentId}` // Usar chave consistente com o pool
         }),
         signal: abortControllerRef.current.signal
       });
@@ -213,7 +271,7 @@ export const useOptimizedStreaming = (
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log('✅ Message sent successfully to agent:', agentId);
+      console.log('✅ Mensagem enviada com sucesso para agente:', agentId);
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -221,7 +279,7 @@ export const useOptimizedStreaming = (
         return;
       }
 
-      console.error('❌ Error sending message to agent', agentId, ':', error);
+      console.error('❌ Erro ao enviar mensagem para agente', agentId, ':', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Erro ao enviar mensagem';
       toast.error(errorMessage);
@@ -239,10 +297,14 @@ export const useOptimizedStreaming = (
     setTimeout(() => connectToStream(), 1000);
   }, [connectToStream, disconnectStream]);
 
-  // Auto-conectar
+  // Auto-conectar com debounce
   useEffect(() => {
-    connectToStream();
+    const timer = setTimeout(() => {
+      connectToStream();
+    }, 500); // Debounce de 500ms
+
     return () => {
+      clearTimeout(timer);
       disconnectStream();
     };
   }, [connectToStream, disconnectStream]);
