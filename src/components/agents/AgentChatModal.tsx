@@ -430,10 +430,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     setIsSidebarOpen(false);
   };
 
-  const handleSelectSession = (session: any) => {
+  const handleSelectSession = async (session: any) => {
     modalLogger.log('SESSION_SELECTED', { sessionId: session.id });
     clearChatInterface();
-    selectSession(session);
+    await selectSession(session);
   };
 
   return (
