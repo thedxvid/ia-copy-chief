@@ -2,26 +2,39 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
-import { useAICopyGeneration, ContentBriefing } from '@/hooks/useAICopyGeneration';
-import { Loader2, Sparkles, Edit3 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2 } from 'lucide-react';
 
-interface CreateContentModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface ContentBriefing {
+  copy_type: string;
+  product_name: string;
+  product_benefits: string;
+  target_audience: string;
+  tone: string;
+  objective: string;
+  content_type: string;
+  content_length: string;
+  call_to_action: string;
+  additional_info: string;
 }
 
-export const CreateContentModal = ({ open, onOpenChange }: CreateContentModalProps) => {
-  const { createCopy } = useSpecializedCopies('content');
-  const { generateContentCopy, isGenerating } = useAICopyGeneration();
-  const [activeTab, setActiveTab] = useState('ai');
-  
-  // AI Briefing state
+interface CreateContentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (briefing: ContentBriefing) => Promise<void>;
+  isLoading: boolean;
+}
+
+export const CreateContentModal: React.FC<CreateContentModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  isLoading
+}) => {
   const [briefing, setBriefing] = useState<ContentBriefing>({
+    copy_type: 'content',
     product_name: '',
     product_benefits: '',
     target_audience: '',
@@ -33,73 +46,14 @@ export const CreateContentModal = ({ open, onOpenChange }: CreateContentModalPro
     additional_info: ''
   });
 
-  // Manual form state
-  const [formData, setFormData] = useState({
-    title: '',
-    content_type: '',
-    content_title: '',
-    content: '',
-    hashtags: '',
-    tags: ''
-  });
-
-  const [generatedContent, setGeneratedContent] = useState<any>(null);
-
-  const handleAIGenerate = async () => {
-    const result = await generateContentCopy(briefing);
-    if (result) {
-      setGeneratedContent(result);
-    }
-  };
-
-  const handleSaveAIContent = async () => {
-    if (!generatedContent) return;
-
-    const copyData = {
-      copy_type: 'content' as const,
-      title: `${briefing.product_name} - ${generatedContent.content_type}`,
-      copy_data: {
-        content_type: generatedContent.content_type,
-        title: generatedContent.title,
-        content: generatedContent.content,
-        hashtags: generatedContent.hashtags
-      },
-      tags: [briefing.content_type, briefing.tone]
-    };
-
-    const result = await createCopy(copyData);
-    
-    if (result) {
-      resetForms();
-      onOpenChange(false);
-    }
-  };
-
-  const handleManualSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const copyData = {
-      copy_type: 'content' as const,
-      title: formData.title,
-      copy_data: {
-        content_type: formData.content_type,
-        title: formData.content_title,
-        content: formData.content,
-        hashtags: formData.hashtags
-      },
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-    };
-
-    const result = await createCopy(copyData);
-    
-    if (result) {
-      resetForms();
-      onOpenChange(false);
-    }
+    await onSubmit(briefing);
   };
 
-  const resetForms = () => {
+  const resetForm = () => {
     setBriefing({
+      copy_type: 'content',
       product_name: '',
       product_benefits: '',
       target_audience: '',
@@ -110,339 +64,173 @@ export const CreateContentModal = ({ open, onOpenChange }: CreateContentModalPro
       call_to_action: '',
       additional_info: ''
     });
-    setFormData({
-      title: '',
-      content_type: '',
-      content_title: '',
-      content: '',
-      hashtags: '',
-      tags: ''
-    });
-    setGeneratedContent(null);
-    setActiveTab('ai');
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  const handleInputChange = (field: keyof ContentBriefing, value: string) => {
+    setBriefing(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1E1E1E] border-[#4B5563] text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#1E1E1E] border-[#4B5563]/20 text-white">
         <DialogHeader>
-          <DialogTitle className="text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-blue-500" />
-            Criar Novo Conteúdo
-          </DialogTitle>
+          <DialogTitle className="text-xl text-white">Criar Novo Conteúdo</DialogTitle>
         </DialogHeader>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-[#2A2A2A]">
-            <TabsTrigger value="ai" className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
-              Gerar com IA
-            </TabsTrigger>
-            <TabsTrigger value="manual" className="flex items-center gap-2">
-              <Edit3 className="w-4 h-4" />
-              Criar Manual
-            </TabsTrigger>
-          </TabsList>
 
-          <TabsContent value="ai" className="space-y-6 mt-6">
-            {!generatedContent ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="product_name">Nome do Produto/Serviço</Label>
-                    <Input
-                      id="product_name"
-                      value={briefing.product_name}
-                      onChange={(e) => setBriefing(prev => ({ ...prev, product_name: e.target.value }))}
-                      className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                      placeholder="Ex: Curso de Marketing Digital"
-                      required
-                    />
-                  </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="product_name" className="text-white">Nome do Produto *</Label>
+              <Input
+                id="product_name"
+                value={briefing.product_name}
+                onChange={(e) => handleInputChange('product_name', e.target.value)}
+                placeholder="Ex: Curso de Marketing Digital"
+                className="bg-[#2A2A2A] border-[#4B5563] text-white"
+                required
+              />
+            </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="content_type">Tipo de Conteúdo</Label>
-                    <Select value={briefing.content_type} onValueChange={(value: any) => setBriefing(prev => ({ ...prev, content_type: value }))}>
-                      <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#2A2A2A] border-[#4B5563]">
-                        <SelectItem value="post">Post Redes Sociais</SelectItem>
-                        <SelectItem value="email">Email Marketing</SelectItem>
-                        <SelectItem value="newsletter">Newsletter</SelectItem>
-                        <SelectItem value="blog">Artigo de Blog</SelectItem>
-                        <SelectItem value="caption">Caption/Legenda</SelectItem>
-                        <SelectItem value="story">Stories</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="content_type" className="text-white">Tipo de Conteúdo *</Label>
+              <Select value={briefing.content_type} onValueChange={(value) => handleInputChange('content_type', value)}>
+                <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectItem value="post">Post para Redes Sociais</SelectItem>
+                  <SelectItem value="article">Artigo</SelectItem>
+                  <SelectItem value="caption">Legenda</SelectItem>
+                  <SelectItem value="story">Story</SelectItem>
+                  <SelectItem value="email">E-mail Marketing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="product_benefits">Principais Benefícios</Label>
-                  <Textarea
-                    id="product_benefits"
-                    value={briefing.product_benefits}
-                    onChange={(e) => setBriefing(prev => ({ ...prev, product_benefits: e.target.value }))}
-                    className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                    placeholder="Liste os principais benefícios do seu produto/serviço"
-                    required
-                  />
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="product_benefits" className="text-white">Principais Benefícios *</Label>
+            <Textarea
+              id="product_benefits"
+              value={briefing.product_benefits}
+              onChange={(e) => handleInputChange('product_benefits', e.target.value)}
+              placeholder="Liste os principais benefícios do seu produto..."
+              className="min-h-20 bg-[#2A2A2A] border-[#4B5563] text-white"
+              required
+            />
+          </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="target_audience">Público-Alvo</Label>
-                    <Input
-                      id="target_audience"
-                      value={briefing.target_audience}
-                      onChange={(e) => setBriefing(prev => ({ ...prev, target_audience: e.target.value }))}
-                      className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                      placeholder="Ex: Empreendedores iniciantes, 25-45 anos"
-                      required
-                    />
-                  </div>
+          <div className="space-y-2">
+            <Label htmlFor="target_audience" className="text-white">Público-Alvo *</Label>
+            <Textarea
+              id="target_audience"
+              value={briefing.target_audience}
+              onChange={(e) => handleInputChange('target_audience', e.target.value)}
+              placeholder="Descreva seu público-alvo ideal..."
+              className="min-h-20 bg-[#2A2A2A] border-[#4B5563] text-white"
+              required
+            />
+          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="tone">Tom de Voz</Label>
-                    <Select value={briefing.tone} onValueChange={(value: any) => setBriefing(prev => ({ ...prev, tone: value }))}>
-                      <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#2A2A2A] border-[#4B5563]">
-                        <SelectItem value="professional">Profissional</SelectItem>
-                        <SelectItem value="casual">Casual/Descontraído</SelectItem>
-                        <SelectItem value="urgent">Urgente</SelectItem>
-                        <SelectItem value="emotional">Emocional</SelectItem>
-                        <SelectItem value="educational">Educativo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="tone" className="text-white">Tom de Voz</Label>
+              <Select value={briefing.tone} onValueChange={(value) => handleInputChange('tone', value)}>
+                <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectItem value="professional">Profissional</SelectItem>
+                  <SelectItem value="casual">Casual</SelectItem>
+                  <SelectItem value="enthusiastic">Entusiasmado</SelectItem>
+                  <SelectItem value="educational">Educativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="content_length">Tamanho do Conteúdo</Label>
-                    <Select value={briefing.content_length} onValueChange={(value: any) => setBriefing(prev => ({ ...prev, content_length: value }))}>
-                      <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#2A2A2A] border-[#4B5563]">
-                        <SelectItem value="short">Curto (até 100 palavras)</SelectItem>
-                        <SelectItem value="medium">Médio (100-300 palavras)</SelectItem>
-                        <SelectItem value="long">Longo (300+ palavras)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <div className="space-y-2">
+              <Label htmlFor="content_length" className="text-white">Tamanho do Conteúdo</Label>
+              <Select value={briefing.content_length} onValueChange={(value) => handleInputChange('content_length', value)}>
+                <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectItem value="short">Curto</SelectItem>
+                  <SelectItem value="medium">Médio</SelectItem>
+                  <SelectItem value="long">Longo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="call_to_action">Call to Action</Label>
-                    <Input
-                      id="call_to_action"
-                      value={briefing.call_to_action}
-                      onChange={(e) => setBriefing(prev => ({ ...prev, call_to_action: e.target.value }))}
-                      className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                      placeholder="Ex: Clique no link, Comente abaixo"
-                      required
-                    />
-                  </div>
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="objective" className="text-white">Objetivo do Conteúdo *</Label>
+            <Textarea
+              id="objective"
+              value={briefing.objective}
+              onChange={(e) => handleInputChange('objective', e.target.value)}
+              placeholder="O que você quer alcançar com este conteúdo?"
+              className="min-h-20 bg-[#2A2A2A] border-[#4B5563] text-white"
+              required
+            />
+          </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="objective">Objetivo Principal</Label>
-                  <Input
-                    id="objective"
-                    value={briefing.objective}
-                    onChange={(e) => setBriefing(prev => ({ ...prev, objective: e.target.value }))}
-                    className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                    placeholder="Ex: Gerar leads, Aumentar engajamento, Educar audiência"
-                    required
-                  />
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="call_to_action" className="text-white">Chamada para Ação</Label>
+            <Input
+              id="call_to_action"
+              value={briefing.call_to_action}
+              onChange={(e) => handleInputChange('call_to_action', e.target.value)}
+              placeholder="Ex: Acesse o link na bio, Compre agora"
+              className="bg-[#2A2A2A] border-[#4B5563] text-white"
+            />
+          </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="additional_info">Informações Adicionais</Label>
-                  <Textarea
-                    id="additional_info"
-                    value={briefing.additional_info}
-                    onChange={(e) => setBriefing(prev => ({ ...prev, additional_info: e.target.value }))}
-                    className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                    placeholder="Qualquer informação extra sobre o produto, promoções, etc."
-                  />
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="additional_info" className="text-white">Informações Adicionais</Label>
+            <Textarea
+              id="additional_info"
+              value={briefing.additional_info}
+              onChange={(e) => handleInputChange('additional_info', e.target.value)}
+              placeholder="Outras informações relevantes..."
+              className="min-h-20 bg-[#2A2A2A] border-[#4B5563] text-white"
+            />
+          </div>
 
-                <div className="flex justify-end space-x-3">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => onOpenChange(false)}
-                    className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating || !briefing.product_name || !briefing.product_benefits}
-                    className="bg-[#3B82F6] hover:bg-[#2563EB] text-white disabled:opacity-50"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Gerando...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Gerar Conteúdo
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="p-4 bg-[#2A2A2A] rounded-lg border border-[#4B5563]">
-                  <h3 className="text-lg font-semibold text-white mb-4">Conteúdo Gerado</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-[#CCCCCC]">Título:</Label>
-                      <p className="text-white mt-1 p-2 bg-[#1E1E1E] rounded border">{generatedContent.title}</p>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-[#CCCCCC]">Conteúdo:</Label>
-                      <div className="text-white mt-1 p-3 bg-[#1E1E1E] rounded border whitespace-pre-wrap">
-                        {generatedContent.content}
-                      </div>
-                    </div>
-                    
-                    {generatedContent.hashtags && (
-                      <div>
-                        <Label className="text-[#CCCCCC]">Hashtags:</Label>
-                        <p className="text-blue-400 mt-1 p-2 bg-[#1E1E1E] rounded border">{generatedContent.hashtags}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setGeneratedContent(null)}
-                    className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
-                  >
-                    Gerar Novamente
-                  </Button>
-                  <Button 
-                    onClick={handleSaveAIContent}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    Salvar Conteúdo
-                  </Button>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="manual" className="space-y-6 mt-6">
-            <form onSubmit={handleManualSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Título do Conteúdo</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                    placeholder="Ex: Post Instagram - Dicas Fitness"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="content_type">Tipo de Conteúdo</Label>
-                  <Select value={formData.content_type} onValueChange={(value) => setFormData(prev => ({ ...prev, content_type: value }))}>
-                    <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#2A2A2A] border-[#4B5563]">
-                      <SelectItem value="post">Post Redes Sociais</SelectItem>
-                      <SelectItem value="email">Email Marketing</SelectItem>
-                      <SelectItem value="newsletter">Newsletter</SelectItem>
-                      <SelectItem value="blog">Artigo de Blog</SelectItem>
-                      <SelectItem value="caption">Caption/Legenda</SelectItem>
-                      <SelectItem value="story">Stories</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="content_title">Título/Assunto</Label>
-                <Input
-                  id="content_title"
-                  value={formData.content_title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, content_title: e.target.value }))}
-                  className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                  placeholder="Título do post, assunto do email, etc."
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="content">Conteúdo</Label>
-                <Textarea
-                  id="content"
-                  value={formData.content}
-                  onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  className="bg-[#2A2A2A] border-[#4B5563] text-white min-h-[150px]"
-                  placeholder="Escreva o conteúdo completo..."
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="hashtags">Hashtags/Keywords</Label>
-                <Input
-                  id="hashtags"
-                  value={formData.hashtags}
-                  onChange={(e) => setFormData(prev => ({ ...prev, hashtags: e.target.value }))}
-                  className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                  placeholder="#marketing #vendas #empreendedorismo"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags (separadas por vírgula)</Label>
-                <Input
-                  id="tags"
-                  value={formData.tags}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-                  className="bg-[#2A2A2A] border-[#4B5563] text-white"
-                  placeholder="social media, email, blog"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => onOpenChange(false)}
-                  className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                >
-                  Criar Conteúdo
-                </Button>
-              </div>
-            </form>
-          </TabsContent>
-        </Tabs>
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+              disabled={isLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={isLoading || !briefing.product_name || !briefing.target_audience}
+              className="flex-1 bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                'Gerar Conteúdo'
+              )}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

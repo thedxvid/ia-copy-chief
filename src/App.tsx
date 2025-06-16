@@ -13,7 +13,6 @@ import Products from './pages/Products';
 import Quiz from './pages/Quiz';
 import Tools from './pages/Tools';
 import History from './pages/History';
-import Agents from './pages/Agents';
 import NotFound from './pages/NotFound';
 import Checkout from './pages/Checkout';
 import About from './pages/About';
@@ -95,14 +94,6 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <History />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/agents" 
-                    element={
-                      <ProtectedRoute>
-                        <Agents />
                       </ProtectedRoute>
                     } 
                   />
