@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -61,108 +62,26 @@ export const useAgentChat = (agentId: string) => {
 
       console.log('📡 Request body enviado:', requestBody);
 
-      const response = await fetch('/functions/v1/chat-with-claude', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify(requestBody),
+      // Usar o cliente Supabase para chamar a edge function
+      const { data, error } = await supabase.functions.invoke('chat-with-claude', {
+        body: requestBody
       });
 
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('📥 Response data:', data);
+      console.log('📥 Response error:', error);
 
-      if (!response.ok) {
-        let errorMessage = 'Erro na requisição';
-        
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-          console.error('❌ Error response:', errorData);
-        } catch (parseError) {
-          console.error('❌ Erro ao fazer parse do erro:', parseError);
-          errorMessage = `Erro ${response.status}: ${response.statusText}`;
-        }
-        
-        throw new Error(errorMessage);
+      if (error) {
+        console.error('❌ Error response:', error);
+        throw new Error(error.message || 'Erro na requisição');
       }
 
-      if (enableStreaming && response.body) {
-        console.log('🔄 Iniciando streaming...');
-        // Handle Server-Sent Events (SSE) streaming
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullContent = '';
+      if (!data) {
+        throw new Error('Resposta vazia do servidor');
+      }
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') {
-                  console.log('✅ Streaming concluído');
-                  setIsStreaming(false);
-                  // Add final assistant message
-                  const assistantMessage: Message = {
-                    id: `assistant-${Date.now()}-${Math.random()}`,
-                    role: 'assistant',
-                    content: fullContent,
-                    timestamp: new Date()
-                  };
-                  setMessages(prev => [...prev, assistantMessage]);
-                  setStreamingContent('');
-                  return;
-                }
-
-                try {
-                  const parsed = JSON.parse(data);
-                  if (parsed.text) {
-                    fullContent += parsed.text;
-                    setStreamingContent(fullContent);
-                  }
-                } catch (e) {
-                  console.warn('⚠️ Erro ao fazer parse do chunk SSE:', e);
-                }
-              }
-            }
-          }
-        } catch (streamError) {
-          console.error('❌ Streaming error:', streamError);
-          setIsStreaming(false);
-          throw streamError;
-        }
-      } else {
-        // Handle regular JSON response
-        console.log('📄 Processando resposta não-streaming...');
-        
-        const responseText = await response.text();
-        console.log('📄 Response text:', responseText);
-
-        if (!responseText.trim()) {
-          throw new Error('Resposta vazia do servidor');
-        }
-
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('❌ Erro ao fazer parse do JSON:', parseError);
-          console.error('📄 Response text que causou erro:', responseText);
-          throw new Error('Resposta inválida do servidor');
-        }
-        
-        if (!data.response) {
-          console.error('❌ Resposta sem conteúdo:', data);
-          throw new Error('Resposta sem conteúdo válido');
-        }
-
+      // Para streaming, o Supabase client não suporta SSE diretamente
+      // Então vamos fazer fallback para resposta normal
+      if (data.response) {
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}-${Math.random()}`,
           role: 'assistant',
@@ -172,6 +91,9 @@ export const useAgentChat = (agentId: string) => {
 
         setMessages(prev => [...prev, assistantMessage]);
         console.log('✅ Mensagem adicionada com sucesso');
+      } else {
+        console.error('❌ Resposta sem conteúdo:', data);
+        throw new Error('Resposta sem conteúdo válido');
       }
 
     } catch (error) {
