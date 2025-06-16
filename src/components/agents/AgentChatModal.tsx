@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -130,7 +131,8 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     currentSessionId: currentSession?.id,
     messagesCount: sessionMessages.length,
     isLoading,
-    isMobile
+    isMobile,
+    isSidebarOpen
   });
 
   // Converter mensagens da sessão para o formato Message
@@ -312,6 +314,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleToggleSidebar = () => {
+    console.log('🔄 Toggling sidebar:', { current: isSidebarOpen, new: !isSidebarOpen });
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
@@ -336,7 +343,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
           onSelectSession={selectSession}
           onDeleteSession={deleteSession}
           isOpen={isSidebarOpen}
-          onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+          onToggle={handleToggleSidebar}
           isMobile={isMobile}
         />
 
@@ -349,10 +356,11 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="text-[#CCCCCC] hover:text-white flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10"
+                  onClick={handleToggleSidebar}
+                  className="text-[#CCCCCC] hover:text-white flex-shrink-0 w-10 h-10 min-h-[44px] min-w-[44px] touch-manipulation"
+                  aria-label="Abrir histórico de conversas"
                 >
-                  <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Menu className="w-5 h-5" />
                 </Button>
               )}
               
