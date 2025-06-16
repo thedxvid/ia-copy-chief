@@ -6,9 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Download, X, Bot, User, Copy, Check } from 'lucide-react';
 import { useChatSessions } from '@/hooks/useChatSessions';
-import { useAgentChat } from '@/hooks/useAgentChat';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Agent {
   id: string;
@@ -104,8 +105,10 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   onClose
 }) => {
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { user } = useAuth();
   
   const {
     sessions,
@@ -114,25 +117,25 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
     findOrCreateSessionForAgent,
     selectSession,
     addMessage,
-    deleteSession
+    deleteSession,
+    createNewSession
   } = useChatSessions(agent.id);
 
-  const {
-    messages: chatMessages,
-    isLoading,
-    sendMessage: sendChatMessage,
-    clearChat
-  } = useAgentChat(agent.id);
+  console.log('🔍 AgentChatModal - Estado atual:', {
+    agentId: agent.id,
+    agentName: agent.name,
+    currentSessionId: currentSession?.id,
+    messagesCount: sessionMessages.length,
+    isLoading
+  });
 
-  // Converter ChatMessage para Message format e combinar com mensagens do chat
-  const normalizedSessionMessages: Message[] = sessionMessages.map(msg => ({
+  // Converter mensagens da sessão para o formato Message
+  const allMessages: Message[] = sessionMessages.map(msg => ({
     id: msg.id,
     role: msg.role,
     content: msg.content,
     timestamp: new Date(msg.created_at)
   }));
-
-  const allMessages: Message[] = [...normalizedSessionMessages, ...chatMessages];
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -156,39 +159,112 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
   // Inicializar sessão quando o modal abrir
   useEffect(() => {
     if (isOpen && agent.id) {
+      console.log('🚀 Inicializando sessão para agente:', agent.name);
       findOrCreateSessionForAgent(agent.name);
     }
   }, [isOpen, agent.id, agent.name, findOrCreateSessionForAgent]);
 
   const handleNewChat = async () => {
-    clearChat();
-    await findOrCreateSessionForAgent(agent.name);
+    console.log('🔄 Iniciando nova conversa');
+    try {
+      await createNewSession(agent.name);
+      toast.success('Nova conversa iniciada!');
+    } catch (error) {
+      console.error('❌ Erro ao criar nova conversa:', error);
+      toast.error('Erro ao iniciar nova conversa');
+    }
+  };
+
+  const sendMessageToAI = async (userMessage: string) => {
+    if (!user?.id || !currentSession) {
+      console.error('❌ Usuário ou sessão não disponível');
+      return;
+    }
+
+    console.log('📤 Enviando mensagem para IA:', {
+      message: userMessage.substring(0, 50) + '...',
+      sessionId: currentSession.id,
+      agentName: agent.name
+    });
+
+    try {
+      // Chamar a edge function
+      const { data, error } = await supabase.functions.invoke('chat-with-claude', {
+        body: {
+          message: userMessage,
+          agentPrompt: agent.prompt,
+          agentName: agent.name,
+          userId: user.id,
+          isCustomAgent: agent.isCustom || false,
+          streaming: false
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro da edge function:', error);
+        throw new Error(error.message || 'Erro na comunicação com o servidor');
+      }
+
+      if (!data?.response) {
+        console.error('❌ Resposta vazia da IA');
+        throw new Error('A IA retornou uma resposta vazia');
+      }
+
+      console.log('✅ Resposta da IA recebida:', {
+        length: data.response.length,
+        preview: data.response.substring(0, 100) + '...'
+      });
+
+      // Adicionar resposta da IA na sessão
+      await addMessage(currentSession.id, 'assistant', data.response, data.tokensUsed || 0);
+
+    } catch (error) {
+      console.error('❌ Erro ao processar resposta da IA:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      
+      if (errorMessage.includes('Tokens insuficientes')) {
+        toast.error('❌ Tokens Insuficientes!', {
+          description: 'Você não tem tokens suficientes para conversar com o agente.',
+        });
+      } else {
+        toast.error('❌ Erro no Chat', {
+          description: errorMessage,
+        });
+      }
+      throw error;
+    }
   };
 
   const handleSend = async () => {
     if (!message.trim() || isLoading || !currentSession) {
+      console.log('⚠️ Envio bloqueado:', { 
+        hasMessage: !!message.trim(), 
+        isLoading, 
+        hasSession: !!currentSession 
+      });
       return;
     }
     
-    const messageToSend = message;
+    const messageToSend = message.trim();
     setMessage('');
+    setIsLoading(true);
     
     try {
+      console.log('📝 Adicionando mensagem do usuário');
       // Adicionar mensagem do usuário na sessão
       await addMessage(currentSession.id, 'user', messageToSend);
       
-      // Enviar para o chat com IA
-      await sendChatMessage(
-        messageToSend,
-        agent.prompt,
-        agent.name,
-        agent.isCustom,
-        false // Sem streaming
-      );
+      // Enviar para IA e aguardar resposta
+      await sendMessageToAI(messageToSend);
+      
+      console.log('✅ Fluxo de mensagem completado com sucesso');
 
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
+      console.error('❌ Erro no fluxo de envio:', error);
+      // Restaurar mensagem no campo se houver erro
       setMessage(messageToSend);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -351,7 +427,7 @@ export const AgentChatModal: React.FC<AgentChatModalProps> = ({
               <div className="mt-3 text-sm text-center">
                 <div className="text-[#3B82F6] flex items-center justify-center">
                   <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse mr-2"></div>
-                  Processando sua mensagem...
+                  {agent.name} está pensando...
                 </div>
               </div>
             )}
