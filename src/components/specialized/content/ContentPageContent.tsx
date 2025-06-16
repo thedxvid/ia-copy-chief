@@ -162,8 +162,8 @@ export const ContentPageContent = () => {
       )}
 
       <CreateContentModal 
-        open={showCreateModal} 
-        onOpenChange={setShowCreateModal}
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)}
       />
     </div>
   );

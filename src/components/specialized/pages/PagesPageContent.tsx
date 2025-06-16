@@ -160,8 +160,8 @@ export const PagesPageContent = () => {
       )}
 
       <CreatePageModal 
-        open={showCreateModal} 
-        onOpenChange={setShowCreateModal}
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)}
       />
     </div>
   );

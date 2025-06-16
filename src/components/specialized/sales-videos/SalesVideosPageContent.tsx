@@ -146,8 +146,8 @@ export const SalesVideosPageContent = () => {
       )}
 
       <CreateVideoModal 
-        open={showCreateModal} 
-        onOpenChange={setShowCreateModal}
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)}
       />
     </div>
   );

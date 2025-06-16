@@ -160,8 +160,8 @@ export const AdsPageContent = () => {
       )}
 
       <CreateAdModal 
-        open={showCreateModal} 
-        onOpenChange={setShowCreateModal}
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)}
       />
     </div>
   );
