@@ -1,7 +1,7 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useScrollPosition } from '@/hooks/useScrollPosition';
 import { ModernButton } from '@/components/ui/modern-button';
 import { Menu, X, User, LogOut, Bot, Settings } from 'lucide-react';
 import {
@@ -20,14 +20,12 @@ import {
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ProfileSettings } from '@/components/profile/ProfileSettings';
-import { cn } from '@/lib/utils';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const { isScrolled } = useScrollPosition(10);
 
   const handleSignOut = async () => {
     await signOut();
@@ -60,20 +58,9 @@ export const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
-      <div className={cn(
-        "mx-auto transition-all duration-300 ease-in-out pointer-events-auto",
-        isScrolled
-          ? "mt-4 max-w-6xl w-[90%] rounded-full bg-neutral-900/80 backdrop-blur-md shadow-lg border border-white/10"
-          : "w-full rounded-none bg-[#121212]/90 backdrop-blur-md border-b border-[#4B5563]/50"
-      )}>
-        <div className={cn(
-          "transition-all duration-300 ease-in-out",
-          isScrolled ? "px-6" : "px-3 sm:px-4"
-        )}>
-          <div className={cn(
-            "flex items-center justify-between h-14 sm:h-16 transition-all duration-300 ease-in-out",
-            isScrolled && "gap-2"
-          )}>
+      <div className="mx-auto mt-4 max-w-6xl w-[90%] rounded-full bg-neutral-900/80 backdrop-blur-md shadow-lg border border-white/10 pointer-events-auto">
+        <div className="px-6">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-2">
               <div className="w-7 sm:w-8 h-7 sm:h-8 bg-[#3B82F6] rounded-xl flex items-center justify-center">
@@ -83,10 +70,7 @@ export const Header = () => {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className={cn(
-              "hidden md:flex items-center transition-all duration-300 ease-in-out",
-              isScrolled ? "space-x-4" : "space-x-6 lg:space-x-8"
-            )}>
+            <nav className="hidden md:flex items-center space-x-4">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -99,10 +83,7 @@ export const Header = () => {
             </nav>
 
             {/* Actions */}
-            <div className={cn(
-              "flex items-center transition-all duration-300 ease-in-out",
-              isScrolled ? "space-x-2" : "space-x-2 sm:space-x-4"
-            )}>
+            <div className="flex items-center space-x-2">
               {loading ? (
                 <div className="w-6 sm:w-8 h-6 sm:h-8 animate-spin rounded-full border-b-2 border-[#3B82F6]"></div>
               ) : user ? (
@@ -115,10 +96,7 @@ export const Header = () => {
                             {getInitials(user.user_metadata?.full_name)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className={cn(
-                          "text-white text-sm transition-all duration-300 ease-in-out",
-                          isScrolled ? "hidden xl:block" : "hidden lg:block"
-                        )}>
+                        <span className="text-white text-sm hidden xl:block">
                           {user.user_metadata?.full_name || user.email}
                         </span>
                       </button>
@@ -160,10 +138,7 @@ export const Header = () => {
                   </DropdownMenu>
                 </div>
               ) : (
-                <div className={cn(
-                  "hidden md:flex items-center transition-all duration-300 ease-in-out",
-                  isScrolled ? "space-x-2" : "space-x-2 lg:space-x-3"
-                )}>
+                <div className="hidden md:flex items-center space-x-2">
                   <Link
                     to="/auth"
                     className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 lg:px-4 py-2 text-sm lg:text-base"
