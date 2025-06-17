@@ -13,18 +13,18 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
   ({ className, variant = 'default', width, height, lines = 1, ...props }, ref) => {
     if (variant === 'text' && lines > 1) {
       return (
-        <div className="space-y-2" ref={ref} {...props}>
+        <div className="space-y-2 animate-fade-in" ref={ref} {...props}>
           {Array.from({ length: lines }).map((_, index) => (
             <div
               key={index}
               className={cn(
-                "skeleton h-4",
-                index === lines - 1 && "w-3/4", // Last line shorter
+                "skeleton h-3 bg-[#2A2A2A] rounded animate-pulse",
+                index === lines - 1 && "w-3/4",
                 className
               )}
               style={{
                 width: index === lines - 1 ? '75%' : width,
-                height: height || '1rem'
+                height: height || '0.75rem'
               }}
             />
           ))}
@@ -36,9 +36,9 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
       <div
         ref={ref}
         className={cn(
-          "skeleton",
+          "skeleton bg-[#2A2A2A] animate-pulse",
           {
-            'h-4 w-full': variant === 'text',
+            'h-3 w-full': variant === 'text',
             'rounded-full': variant === 'circular',
             'rounded-lg': variant === 'rectangular' || variant === 'default'
           },
@@ -53,30 +53,30 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
 
 Skeleton.displayName = "Skeleton";
 
-// Pre-built skeleton layouts
+// Skeleton otimizado para cards
 export const CardSkeleton = () => (
-  <div className="modern-card space-y-4">
+  <div className="modern-card space-y-3 animate-fade-in">
     <div className="flex items-center space-x-3">
-      <Skeleton variant="circular" width={40} height={40} />
+      <Skeleton variant="circular" width={32} height={32} />
       <div className="space-y-2 flex-1">
         <Skeleton variant="text" width="60%" />
         <Skeleton variant="text" width="40%" />
       </div>
     </div>
-    <Skeleton variant="text" lines={3} />
+    <Skeleton variant="text" lines={2} />
     <div className="flex justify-between">
-      <Skeleton width={80} height={32} />
-      <Skeleton width={120} height={32} />
+      <Skeleton width={60} height={24} />
+      <Skeleton width={80} height={24} />
     </div>
   </div>
 );
 
-export const TextSkeleton = ({ lines = 3 }: { lines?: number }) => (
-  <div className="space-y-2">
+export const TextSkeleton = ({ lines = 2 }: { lines?: number }) => (
+  <div className="space-y-2 animate-fade-in">
     <Skeleton variant="text" lines={lines} />
   </div>
 );
 
 export const ButtonSkeleton = () => (
-  <Skeleton width={120} height={48} className="rounded-xl" />
+  <Skeleton width={100} height={36} className="rounded-lg" />
 );

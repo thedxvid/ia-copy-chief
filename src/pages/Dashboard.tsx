@@ -13,10 +13,11 @@ import { GoalsProgress } from '@/components/dashboard/GoalsProgress';
 const Dashboard = () => {
   return (
     <DashboardLayout>
-      <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in w-full max-w-full overflow-x-hidden">
+      <div className="space-y-4 sm:space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
         <DashboardHeader />
         
         <MetricsCards />
+        
         <div className="w-full max-w-full overflow-x-hidden">
           <AnalyticsCharts />
         </div>
