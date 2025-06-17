@@ -1,17 +1,9 @@
-
 import React from 'react';
 import { Calendar, Copy, Edit, MoreVertical, Trash2, Target, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 interface Product {
   id: string;
   name: string;
@@ -21,7 +13,6 @@ interface Product {
   created_at: string;
   updated_at: string;
 }
-
 interface ProductCardProps {
   product: Product;
   viewMode: 'grid' | 'list';
@@ -29,13 +20,12 @@ interface ProductCardProps {
   onDuplicate: () => void;
   onDelete: () => void;
 }
-
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   viewMode,
   onEdit,
   onDuplicate,
-  onDelete,
+  onDelete
 }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -51,7 +41,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
-
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'active':
@@ -66,18 +55,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         return status;
     }
   };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
+      year: 'numeric'
     });
   };
-
   if (viewMode === 'list') {
-    return (
-      <Card className="bg-[#1A1A1A] border-[#2A2A2A] hover:border-[#3B82F6]/30 transition-all duration-200">
+    return <Card className="bg-[#1A1A1A] border-[#2A2A2A] hover:border-[#3B82F6]/30 transition-all duration-200">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 flex-1">
@@ -89,12 +75,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <h3 className="text-lg font-semibold text-white mb-1">{product.name}</h3>
                 <div className="flex items-center gap-4 text-sm text-[#888888]">
                   <span>{product.niche}</span>
-                  {product.sub_niche && (
-                    <>
+                  {product.sub_niche && <>
                       <span>•</span>
                       <span>{product.sub_niche}</span>
-                    </>
-                  )}
+                    </>}
                   <span>•</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
@@ -134,15 +118,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>;
   }
-
-  return (
-    <Card className="bg-[#1A1A1A] border-[#2A2A2A] hover:border-[#3B82F6]/30 transition-all duration-200 group">
+  return <Card className="bg-[#1A1A1A] border-[#2A2A2A] hover:border-[#3B82F6]/30 transition-all duration-200 group">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
-          <div className="w-12 h-12 bg-[#3B82F6]/20 rounded-lg flex items-center justify-center">
+          <div className="w-12 h-12 bg-[#3B82F6]/20 flex items-center justify-center rounded-xl">
             <Target className="w-6 h-6 text-[#3B82F6]" />
           </div>
           
@@ -182,12 +163,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <span className="text-sm text-white">{product.niche}</span>
           </div>
           
-          {product.sub_niche && (
-            <div className="flex items-center gap-2">
+          {product.sub_niche && <div className="flex items-center gap-2">
               <span className="text-sm text-[#888888]">Sub-nicho:</span>
               <span className="text-sm text-white">{product.sub_niche}</span>
-            </div>
-          )}
+            </div>}
         </div>
 
         <div className="flex items-center justify-between">
@@ -201,6 +180,5 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </span>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>;
 };
