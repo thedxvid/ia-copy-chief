@@ -3,6 +3,8 @@ import { useState, useCallback } from 'react';
 import { ChatMessage, Agent, ChatState } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useProducts } from './useProducts';
+import { formatProductContext } from '@/utils/productContext';
 
 interface ChatSession {
   id: string;
@@ -16,6 +18,7 @@ export const useChatAgent = (selectedProductId?: string) => {
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { fetchProductDetails } = useProducts();
 
   const createNewSession = useCallback(() => {
     const newSession: ChatSession = {
@@ -69,11 +72,38 @@ export const useChatAgent = (selectedProductId?: string) => {
     setIsLoading(true);
 
     try {
+      // Buscar contexto do produto se selecionado
+      let productContext = '';
+      if (selectedProductId) {
+        const productDetails = await fetchProductDetails(selectedProductId);
+        if (productDetails) {
+          productContext = formatProductContext(productDetails);
+        }
+      }
+
+      // Preparar o prompt do agente com contexto do produto
+      let enhancedPrompt = selectedAgent.prompt;
+      if (productContext) {
+        enhancedPrompt = `${selectedAgent.prompt}
+
+---
+CONTEXTO DO PRODUTO SELECIONADO:
+${productContext}
+
+---
+INSTRUÇÕES IMPORTANTES:
+- Use as informações do produto acima como contexto principal quando relevante
+- Se o usuário perguntar sobre criar conteúdo para "meu produto" ou "esse produto", refira-se ao produto do contexto
+- Não pergunte novamente sobre qual produto quando as informações já estão disponíveis no contexto
+- Mantenha consistência com a estratégia e posicionamento definidos no produto
+`;
+      }
+
       // Call Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: content,
-          agentPrompt: selectedAgent.prompt,
+          agentPrompt: enhancedPrompt,
           chatHistory: activeSession.messages.map(msg => ({
             role: msg.role,
             content: msg.content
@@ -111,7 +141,7 @@ export const useChatAgent = (selectedProductId?: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAgent, activeSession, selectedProductId]);
+  }, [selectedAgent, activeSession, selectedProductId, fetchProductDetails]);
 
   const regenerateLastMessage = useCallback(async () => {
     if (!activeSession || !selectedAgent) return;

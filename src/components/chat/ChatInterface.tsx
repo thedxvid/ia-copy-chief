@@ -5,9 +5,13 @@ import { ChatInput } from './ChatInput';
 import { AgentSelector } from './AgentSelector';
 import { useChatAgent } from '@/hooks/useChatAgent';
 import { ProductSelector } from '@/components/ui/product-selector';
+import { useProducts } from '@/hooks/useProducts';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle } from 'lucide-react';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
+  const { products } = useProducts();
   const {
     sessions,
     activeSession,
@@ -19,6 +23,8 @@ export const ChatInterface = () => {
     selectedAgent,
     setSelectedAgent
   } = useChatAgent(selectedProductId);
+
+  const selectedProduct = products.find(p => p.id === selectedProductId);
 
   // Create a custom ChatMessages component that receives messages directly
   const ChatMessagesWithData = () => {
@@ -118,6 +124,15 @@ export const ChatInterface = () => {
             showPreview={false}
             className="mb-4"
           />
+
+          {selectedProduct && (
+            <Alert className="bg-green-500/10 border-green-500/20 mb-4">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <AlertDescription className="text-green-200">
+                ✅ Contexto ativo: {selectedProduct.name}
+              </AlertDescription>
+            </Alert>
+          )}
           
           <AgentSelector
             selectedAgent={selectedAgent}
