@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Package, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProductSelectorProps {
   value?: string;
@@ -58,7 +59,16 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
           <label className="text-sm font-medium text-white">
             Produto para Contexto IA
           </label>
-          <Info className="w-3 h-3 text-[#CCCCCC]" title="Selecione um produto para que a IA use suas informações como contexto" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-3 h-3 text-[#CCCCCC] cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Selecione um produto para que a IA use suas informações como contexto</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         
         <Select value={value || 'none'} onValueChange={handleValueChange} disabled={loading}>
