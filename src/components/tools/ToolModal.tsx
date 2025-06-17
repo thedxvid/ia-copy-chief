@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +11,14 @@ import { Copy, Download, RefreshCw } from 'lucide-react';
 import { useN8nIntegration } from '@/hooks/useN8nIntegration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTokens } from '@/hooks/useTokens';
+import { useProducts } from '@/hooks/useProducts';
 import { toast } from 'sonner';
 import { TemplateSelector } from './TemplateSelector';
 
 interface ToolModalProps {
   isOpen: boolean;
   onClose: () => void;
+  selectedProductId?: string;
   tool: {
     title: string;
     type: 'headlines' | 'ads' | 'sales' | 'cta';
@@ -24,7 +27,7 @@ interface ToolModalProps {
   };
 }
 
-export const ToolModal = ({ isOpen, onClose, tool }: ToolModalProps) => {
+export const ToolModal = ({ isOpen, onClose, tool, selectedProductId }: ToolModalProps) => {
   const [formData, setFormData] = useState({
     productName: '',
     niche: '',
@@ -36,10 +39,46 @@ export const ToolModal = ({ isOpen, onClose, tool }: ToolModalProps) => {
   });
   const [generatedContent, setGeneratedContent] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasPrefilledData, setHasPrefilledData] = useState(false);
   
   const { generateCopyWithN8n, isLoading } = useN8nIntegration();
   const { user } = useAuth();
   const { tokens, canAffordFeature } = useTokens();
+  const { fetchProductDetails } = useProducts();
+
+  // Pré-preencher dados do produto selecionado
+  useEffect(() => {
+    if (selectedProductId && !hasPrefilledData) {
+      fetchProductDetails(selectedProductId).then(productDetails => {
+        if (productDetails) {
+          setFormData(prev => ({
+            ...prev,
+            productName: productDetails.name || prev.productName,
+            niche: productDetails.niche || prev.niche,
+            targetAudience: productDetails.strategy?.target_audience 
+              ? (typeof productDetails.strategy.target_audience === 'string' 
+                  ? productDetails.strategy.target_audience 
+                  : JSON.stringify(productDetails.strategy.target_audience))
+              : prev.targetAudience,
+            benefits: productDetails.strategy?.value_proposition || prev.benefits
+          }));
+          setHasPrefilledData(true);
+        }
+      });
+    }
+  }, [selectedProductId, fetchProductDetails, hasPrefilledData]);
+
+  // Reset preenchimento quando modal abre/fecha ou produto muda
+  useEffect(() => {
+    if (!isOpen) {
+      setHasPrefilledData(false);
+      setGeneratedContent([]);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setHasPrefilledData(false);
+  }, [selectedProductId]);
 
   const handleGenerate = async () => {
     if (!user?.id) {
@@ -135,6 +174,11 @@ export const ToolModal = ({ isOpen, onClose, tool }: ToolModalProps) => {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#1E1E1E] border-[#4B5563]/20">
         <DialogHeader>
           <DialogTitle className="text-white text-xl">{tool.title}</DialogTitle>
+          {selectedProductId && (
+            <p className="text-[#3B82F6] text-sm">
+              ✓ Contexto do produto ativo - campos foram pré-preenchidos
+            </p>
+          )}
         </DialogHeader>
 
         <div className="grid lg:grid-cols-2 gap-6">

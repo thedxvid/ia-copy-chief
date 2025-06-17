@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Zap, FileText, MessageSquare, Target } from 'lucide-react';
 import { ToolModal } from '@/components/tools/ToolModal';
 import { CopyPlayground } from '@/components/tools/CopyPlayground';
+import { ProductSelector } from '@/components/ui/product-selector';
 import { useTokens } from '@/hooks/useTokens';
 
 const Tools = () => {
   const [selectedTool, setSelectedTool] = useState<any>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const { tokens } = useTokens();
 
   const tools = [
@@ -51,6 +53,10 @@ const Tools = () => {
     setSelectedTool(tool);
   };
 
+  const handleProductChange = (productId: string | undefined) => {
+    setSelectedProductId(productId);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -62,6 +68,16 @@ const Tools = () => {
           <div className="mt-4 text-sm text-[#CCCCCC]">
             Tokens disponíveis: {tokens?.total_available?.toLocaleString() || 0}
           </div>
+        </div>
+
+        {/* Product Context Selector */}
+        <div className="max-w-2xl">
+          <ProductSelector
+            value={selectedProductId}
+            onValueChange={handleProductChange}
+            showPreview={true}
+            placeholder="Selecione um produto para contextualizar as ferramentas"
+          />
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -102,6 +118,7 @@ const Tools = () => {
             isOpen={!!selectedTool}
             onClose={() => setSelectedTool(null)}
             tool={selectedTool}
+            selectedProductId={selectedProductId}
           />
         )}
       </div>
