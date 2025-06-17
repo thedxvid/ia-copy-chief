@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -98,9 +99,19 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
         throw error;
       }
 
+      // Properly type the returned data to match our SpecializedCopy interface
+      const typedData: SpecializedCopy = {
+        ...data,
+        copy_type: data.copy_type as CopyType,
+        status: data.status as CopyStatus,
+        platform: data.platform || undefined,
+        tags: data.tags || undefined,
+        parent_copy_id: data.parent_copy_id || undefined
+      };
+
       toast.success('Copy criada com sucesso!');
-      setCopies(prev => [data, ...prev]);
-      return data;
+      setCopies(prev => [typedData, ...prev]);
+      return typedData;
     } catch (err) {
       console.error('Erro ao criar copy:', err);
       toast.error('Erro ao criar copy');
