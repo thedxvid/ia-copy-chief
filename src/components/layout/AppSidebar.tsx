@@ -141,8 +141,8 @@ export function AppSidebar() {
                     }`}
                   >
                     <Link to={item.url}>
-                      <item.icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base font-medium">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -159,8 +159,8 @@ export function AppSidebar() {
                     }`}
                   >
                     <Link to="/admin">
-                      <Shield className="w-4 h-4 flex-shrink-0" />
-                      <span className="group-data-[collapsible=icon]:hidden">Admin</span>
+                      <Shield className="w-5 h-5 flex-shrink-0" />
+                      <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base font-medium">Admin</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -212,7 +212,7 @@ export function AppSidebar() {
                 className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0"
               >
                 <Settings className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
-                <span className="group-data-[collapsible=icon]:hidden">Configurações</span>
+                <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base">Configurações</span>
               </Button>
             </SheetTrigger>
           </Sheet>
@@ -224,7 +224,7 @@ export function AppSidebar() {
             className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0"
           >
             <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2" />
-            <span className="group-data-[collapsible=icon]:hidden">Sair</span>
+            <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base">Sair</span>
           </Button>
         </div>
       </SidebarFooter>
