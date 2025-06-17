@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -25,11 +24,11 @@ export interface SpecializedCopy {
 
 export const useSpecializedCopies = (copyType?: CopyType) => {
   const [copies, setCopies] = useState<SpecializedCopy[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const fetchCopies = async () => {
+  const fetchCopies = useCallback(async () => {
     if (!user) {
       setLoading(false);
       return;
@@ -43,7 +42,8 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
         .from('specialized_copies')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (copyType) {
         query = query.eq('copy_type', copyType);
@@ -55,7 +55,6 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
         throw fetchError;
       }
 
-      // Type cast the data to match our interface
       const typedData = (data || []).map(item => ({
         ...item,
         copy_type: item.copy_type as CopyType,
@@ -72,7 +71,7 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, copyType]);
 
   const createCopy = async (copyData: Partial<SpecializedCopy>) => {
     if (!user?.id) {
@@ -100,7 +99,7 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
       }
 
       toast.success('Copy criada com sucesso!');
-      fetchCopies();
+      setCopies(prev => [data, ...prev]);
       return data;
     } catch (err) {
       console.error('Erro ao criar copy:', err);
@@ -121,7 +120,9 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
       }
 
       toast.success('Copy atualizada com sucesso!');
-      fetchCopies();
+      setCopies(prev => prev.map(copy => 
+        copy.id === id ? { ...copy, ...updates } : copy
+      ));
     } catch (err) {
       console.error('Erro ao atualizar copy:', err);
       toast.error('Erro ao atualizar copy');
@@ -140,7 +141,7 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
       }
 
       toast.success('Copy deletada com sucesso!');
-      fetchCopies();
+      setCopies(prev => prev.filter(copy => copy.id !== id));
     } catch (err) {
       console.error('Erro ao deletar copy:', err);
       toast.error('Erro ao deletar copy');
@@ -164,8 +165,10 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
   };
 
   useEffect(() => {
-    fetchCopies();
-  }, [user, copyType]);
+    if (user) {
+      fetchCopies();
+    }
+  }, [fetchCopies]);
 
   return {
     copies,

@@ -8,16 +8,23 @@ import { AppProvider } from "./contexts/AppContext";
 import { TutorialProvider } from "./contexts/TutorialContext";
 import { TutorialOverlay } from "./components/tutorial/TutorialOverlay";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { ChatLoading } from "./components/chat/ChatLoading";
+import { Skeleton } from "./components/ui/loading-skeleton";
 
-// Lazy load pages
+// Import principais páginas diretamente (sem lazy loading)
+import Dashboard from "./pages/Dashboard";
+import Quiz from "./pages/Quiz";
+import History from "./pages/History";
+import Products from "./pages/Products";
+import Tools from "./pages/Tools";
+import Ads from "./pages/Ads";
+import Content from "./pages/Content";
+import Pages from "./pages/Pages";
+import SalesVideos from "./pages/SalesVideos";
+import Chat from "./pages/Chat";
+
+// Lazy load apenas páginas menos utilizadas
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Quiz = lazy(() => import("./pages/Quiz"));
-const History = lazy(() => import("./pages/History"));
-const Products = lazy(() => import("./pages/Products"));
-const Tools = lazy(() => import("./pages/Tools"));
 const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -27,24 +34,24 @@ const EmailConfirmation = lazy(() => import("./pages/EmailConfirmation"));
 const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
 const Admin = lazy(() => import("./pages/Admin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Ads = lazy(() => import("./pages/Ads"));
-const Content = lazy(() => import("./pages/Content"));
-const Pages = lazy(() => import("./pages/Pages"));
-const SalesVideos = lazy(() => import("./pages/SalesVideos"));
-const Chat = lazy(() => import("./pages/Chat"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-const LoadingFallback = ({ isChat = false }: { isChat?: boolean }) => {
-  if (isChat) {
-    return <ChatLoading />;
-  }
-  return (
-    <div className="min-h-screen bg-background font-inter flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+const FastLoading = () => (
+  <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+    <div className="flex flex-col items-center space-y-4">
+      <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin"></div>
+      <div className="text-[#CCCCCC] text-sm">Carregando...</div>
     </div>
-  );
-};
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -55,110 +62,90 @@ const App = () => (
             <div className="min-h-screen bg-background font-inter">
               <Routes>
                 <Route path="/" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <Index />
                   </Suspense>
                 } />
                 <Route path="/auth" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <Auth />
                   </Suspense>
                 } />
                 <Route path="/about" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <About />
                   </Suspense>
                 } />
                 <Route path="/contact" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <Contact />
                   </Suspense>
                 } />
                 <Route path="/privacy" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <Privacy />
                   </Suspense>
                 } />
                 <Route path="/terms" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <Terms />
                   </Suspense>
                 } />
                 <Route path="/checkout" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <Checkout />
                   </Suspense>
                 } />
                 <Route path="/email-confirmation" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <EmailConfirmation />
                   </Suspense>
                 } />
                 <Route path="/email-confirmed" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <EmailConfirmed />
                   </Suspense>
                 } />
                 
-                {/* Protected Routes */}
+                {/* Protected Routes - Carregamento direto para melhor performance */}
                 <Route path="/dashboard" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Dashboard /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><Dashboard /></ProtectedRoute>
                 } />
                 <Route path="/quiz" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Quiz /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><Quiz /></ProtectedRoute>
                 } />
                 <Route path="/history" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><History /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><History /></ProtectedRoute>
                 } />
                 <Route path="/products" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Products /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><Products /></ProtectedRoute>
                 } />
                 <Route path="/tools" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Tools /></ProtectedRoute>
-                  </Suspense>
-                } />
-                <Route path="/admin" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Admin /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><Tools /></ProtectedRoute>
                 } />
                 <Route path="/ads" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Ads /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><Ads /></ProtectedRoute>
                 } />
                 <Route path="/content" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Content /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><Content /></ProtectedRoute>
                 } />
                 <Route path="/pages" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><Pages /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><Pages /></ProtectedRoute>
                 } />
                 <Route path="/sales-videos" element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ProtectedRoute><SalesVideos /></ProtectedRoute>
-                  </Suspense>
+                  <ProtectedRoute><SalesVideos /></ProtectedRoute>
                 } />
                 <Route path="/chat" element={
-                  <Suspense fallback={<LoadingFallback isChat={true} />}>
-                    <ProtectedRoute><Chat /></ProtectedRoute>
+                  <ProtectedRoute><Chat /></ProtectedRoute>
+                } />
+                <Route path="/admin" element={
+                  <Suspense fallback={<FastLoading />}>
+                    <ProtectedRoute><Admin /></ProtectedRoute>
                   </Suspense>
                 } />
                 
                 <Route path="*" element={
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<FastLoading />}>
                     <NotFound />
                   </Suspense>
                 } />

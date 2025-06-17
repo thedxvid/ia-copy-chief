@@ -6,6 +6,7 @@ import { Plus, Search, Filter, PenTool, Edit, Trash2, Copy } from 'lucide-react'
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateContentModal } from './CreateContentModal';
 import { Input } from '@/components/ui/input';
+import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { toast } from 'sonner';
 
 export const ContentPageContent = () => {
@@ -58,11 +59,7 @@ export const ContentPageContent = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white">Carregando conteúdos...</div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
