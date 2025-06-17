@@ -1,12 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
-import { useProducts, type Product, type ProductDetails } from '@/hooks/useProducts';
+import React from 'react';
+import { useProducts, type Product } from '@/hooks/useProducts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Package, Info } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProductSelectorProps {
@@ -24,22 +22,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
   showPreview = true,
   className
 }) => {
-  const { products, loading, fetchProductDetails } = useProducts();
-  const [selectedProductDetails, setSelectedProductDetails] = useState<ProductDetails | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-
-  useEffect(() => {
-    if (value && showPreview) {
-      setLoadingDetails(true);
-      fetchProductDetails(value).then((details) => {
-        setSelectedProductDetails(details);
-        setLoadingDetails(false);
-      });
-    } else {
-      setSelectedProductDetails(null);
-    }
-  }, [value, showPreview, fetchProductDetails]);
+  const { products, loading } = useProducts();
 
   const handleValueChange = (newValue: string) => {
     if (newValue === 'none') {
@@ -72,7 +55,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
         </div>
         
         <Select value={value || 'none'} onValueChange={handleValueChange} disabled={loading}>
-          <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
+          <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white rounded-2xl">
             <SelectValue placeholder={loading ? "Carregando produtos..." : placeholder} />
           </SelectTrigger>
           <SelectContent className="bg-[#2A2A2A] border-[#4B5563] text-white">
@@ -92,7 +75,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
       </div>
 
       {selectedProduct && showPreview && (
-        <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
+        <Card className="bg-[#1E1E1E] border-[#4B5563]/20 rounded-2xl">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
@@ -107,55 +90,16 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
             </div>
           </CardHeader>
           
-          {selectedProductDetails && (
-            <CardContent className="pt-0">
-              <Collapsible open={showDetails} onOpenChange={setShowDetails}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="w-full justify-between text-[#CCCCCC] hover:text-white">
-                    {showDetails ? 'Ocultar detalhes' : 'Ver detalhes do contexto'}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 mt-3">
-                  {selectedProductDetails.strategy?.value_proposition && (
-                    <div>
-                      <h4 className="text-xs font-medium text-[#CCCCCC] mb-1">Proposta de Valor:</h4>
-                      <p className="text-xs text-white">{selectedProductDetails.strategy.value_proposition}</p>
-                    </div>
-                  )}
-                  
-                  {selectedProductDetails.strategy?.target_audience && (
-                    <div>
-                      <h4 className="text-xs font-medium text-[#CCCCCC] mb-1">Público-Alvo:</h4>
-                      <p className="text-xs text-white">
-                        {typeof selectedProductDetails.strategy.target_audience === 'string' 
-                          ? selectedProductDetails.strategy.target_audience 
-                          : JSON.stringify(selectedProductDetails.strategy.target_audience)}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {selectedProductDetails.meta?.tags && selectedProductDetails.meta.tags.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-medium text-[#CCCCCC] mb-1">Tags:</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedProductDetails.meta.tags.map((tag, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            </CardContent>
-          )}
-          
-          {loadingDetails && (
-            <CardContent className="pt-0">
-              <div className="text-xs text-[#CCCCCC]">Carregando detalhes...</div>
-            </CardContent>
-          )}
+          <CardContent className="pt-0">
+            <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#3B82F6]"></div>
+                <span className="text-[#3B82F6] text-sm font-medium">
+                  Contexto ativo - A IA usará as informações deste produto
+                </span>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       )}
     </div>

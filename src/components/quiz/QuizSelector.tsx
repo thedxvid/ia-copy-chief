@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Video, Package, MousePointer, Megaphone, Clock, ArrowRight } from 'lucide-react';
 import { ProductSelector } from '@/components/ui/product-selector';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle } from 'lucide-react';
+import { useProducts } from '@/hooks/useProducts';
 
 interface QuizOption {
   id: string;
@@ -70,10 +73,13 @@ interface QuizSelectorProps {
 
 export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
   const [selectedProductId, setSelectedProductId] = React.useState<string | undefined>(undefined);
+  const { products } = useProducts();
 
   const handleQuizSelect = (quizType: string) => {
     onSelectQuiz(quizType, selectedProductId);
   };
+
+  const selectedProduct = products.find(p => p.id === selectedProductId);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -91,16 +97,25 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
         <ProductSelector
           value={selectedProductId}
           onValueChange={setSelectedProductId}
-          showPreview={true}
+          showPreview={false}
           placeholder="Selecione um produto para contextualizar o quiz"
         />
+        
+        {selectedProduct && (
+          <Alert className="bg-green-500/10 border-green-500/20 mt-4 rounded-2xl">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            <AlertDescription className="text-green-200">
+              ✅ Contexto ativo: O quiz será personalizado para <strong>{selectedProduct.name}</strong>
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {quizOptions.map((option) => (
           <Card
             key={option.id}
-            className={`${option.bgColor} border-2 hover:scale-105 transition-all duration-300 cursor-pointer group`}
+            className={`${option.bgColor} border-2 hover:scale-105 transition-all duration-300 cursor-pointer group rounded-2xl`}
             onClick={() => handleQuizSelect(option.id)}
           >
             <CardHeader className="text-center pb-4">
@@ -128,7 +143,7 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
               </div>
               
               <Button 
-                className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white group-hover:bg-[#2563EB] transition-all duration-200"
+                className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white group-hover:bg-[#2563EB] transition-all duration-200 rounded-2xl"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleQuizSelect(option.id);

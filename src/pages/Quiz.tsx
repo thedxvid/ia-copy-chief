@@ -10,10 +10,12 @@ import { Copy, Download, RotateCcw, History, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useProducts } from '@/hooks/useProducts';
 
 const Quiz = () => {
   const [currentStep, setCurrentStep] = useState<'selector' | 'quiz' | 'result'>('selector');
   const [selectedQuizType, setSelectedQuizType] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const [generatedCopy, setGeneratedCopy] = useState<{ title: string; content: string } | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -22,10 +24,12 @@ const Quiz = () => {
   const { user } = useAuth();
   const { saveQuizCopy, isSaving } = useQuizCopySave();
   const { triggerN8nWorkflow } = useN8nIntegration();
+  const { fetchProductDetails } = useProducts();
   const navigate = useNavigate();
 
-  const handleSelectQuiz = (quizType: string) => {
+  const handleSelectQuiz = (quizType: string, productId?: string) => {
     setSelectedQuizType(quizType);
+    setSelectedProductId(productId);
     setCurrentStep('quiz');
   };
 
@@ -33,6 +37,7 @@ const Quiz = () => {
     console.log('🎯 Quiz completed with answers:', answers);
     console.log('👤 Current user:', user);
     console.log('📝 Selected quiz type:', selectedQuizType);
+    console.log('📦 Selected product ID:', selectedProductId);
     
     // Verificar se o usuário está autenticado
     if (!user?.id) {
@@ -43,14 +48,20 @@ const Quiz = () => {
     }
 
     console.log('✅ User authenticated, proceeding with copy generation');
-    console.log('🆔 User ID:', user.id);
 
     setQuizAnswers(answers);
     setIsGenerating(true);
     
     try {
-      // Construir prompt baseado nas respostas do quiz
-      const prompt = buildQuizPrompt(answers, selectedQuizType);
+      // Buscar informações do produto se selecionado
+      let productInfo = null;
+      if (selectedProductId) {
+        productInfo = await fetchProductDetails(selectedProductId);
+        console.log('📦 Product info loaded:', productInfo?.name);
+      }
+
+      // Construir prompt baseado nas respostas do quiz e informações do produto
+      const prompt = await buildQuizPrompt(answers, selectedQuizType, productInfo);
       console.log('📝 Built prompt for quiz:', prompt.substring(0, 200) + '...');
       
       // Preparar dados estruturados para o N8n - com tipos explícitos
@@ -131,20 +142,85 @@ const Quiz = () => {
     }
   };
 
-  const buildQuizPrompt = (answers: Record<string, string>, quizType: string): string => {
+  const buildQuizPrompt = async (answers: Record<string, string>, quizType: string, productInfo?: any): Promise<string> => {
     const answersText = Object.entries(answers)
       .map(([key, value]) => `${key}: ${value}`)
       .join('\n');
 
+    let productContext = '';
+    if (productInfo) {
+      productContext = `
+INFORMAÇÕES DO PRODUTO SELECIONADO:
+- Nome: ${productInfo.name}
+- Nicho: ${productInfo.niche}${productInfo.sub_niche ? ` > ${productInfo.sub_niche}` : ''}
+- Status: ${productInfo.status}`;
+
+      if (productInfo.strategy?.value_proposition) {
+        productContext += `\n- Proposta de Valor: ${productInfo.strategy.value_proposition}`;
+      }
+      
+      if (productInfo.strategy?.target_audience) {
+        const audience = typeof productInfo.strategy.target_audience === 'string' 
+          ? productInfo.strategy.target_audience 
+          : JSON.stringify(productInfo.strategy.target_audience);
+        productContext += `\n- Público-Alvo: ${audience}`;
+      }
+
+      if (productInfo.offer?.main_offer) {
+        const mainOffer = typeof productInfo.offer.main_offer === 'string'
+          ? productInfo.offer.main_offer
+          : JSON.stringify(productInfo.offer.main_offer);
+        productContext += `\n- Oferta Principal: ${mainOffer}`;
+      }
+
+      if (productInfo.offer?.pricing_strategy) {
+        const pricing = typeof productInfo.offer.pricing_strategy === 'string'
+          ? productInfo.offer.pricing_strategy
+          : JSON.stringify(productInfo.offer.pricing_strategy);
+        productContext += `\n- Estratégia de Preço: ${pricing}`;
+      }
+    }
+
     const typePrompts = {
-      vsl: `Crie um roteiro completo de VSL (Video Sales Letter) baseado nas seguintes informações:\n\n${answersText}\n\nEstruture em: Hook, Desenvolvimento (problema/agitação/solução), Oferta e CTA final.`,
-      product: `Crie uma estrutura de oferta completa baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Proposta de valor, benefícios, bônus, garantia e urgência.`,
-      landing: `Crie uma copy completa para landing page baseada nas seguintes informações:\n\n${answersText}\n\nInclua: Headline, subheadline, benefícios, prova social e CTA.`,
-      ads: `Crie múltiplas variações de anúncios pagos baseado nas seguintes informações:\n\n${answersText}\n\nGere pelo menos 3 variações com diferentes abordagens.`
+      vsl: `Crie um roteiro completo de VSL (Video Sales Letter) baseado nas seguintes informações:
+
+${productContext ? `${productContext}\n` : ''}
+RESPOSTAS DO QUIZ:
+${answersText}
+
+Estruture em: Hook, Desenvolvimento (problema/agitação/solução), Oferta e CTA final.${productContext ? ' Use as informações do produto acima como base principal para criar um VSL personalizado e específico.' : ''}`,
+      
+      product: `Crie uma estrutura de oferta completa baseada nas seguintes informações:
+
+${productContext ? `${productContext}\n` : ''}
+RESPOSTAS DO QUIZ:
+${answersText}
+
+Inclua: Proposta de valor, benefícios, bônus, garantia e urgência.${productContext ? ' Use as informações do produto acima como base para criar uma oferta irresistível.' : ''}`,
+      
+      landing: `Crie uma copy completa para landing page baseada nas seguintes informações:
+
+${productContext ? `${productContext}\n` : ''}
+RESPOSTAS DO QUIZ:
+${answersText}
+
+Inclua: Headline, subheadline, benefícios, prova social e CTA.${productContext ? ' Use as informações do produto acima para criar uma landing page altamente convertedora.' : ''}`,
+      
+      ads: `Crie múltiplas variações de anúncios pagos baseado nas seguintes informações:
+
+${productContext ? `${productContext}\n` : ''}
+RESPOSTAS DO QUIZ:
+${answersText}
+
+Gere pelo menos 3 variações com diferentes abordagens.${productContext ? ' Use as informações do produto acima para criar anúncios específicos e segmentados.' : ''}`
     };
 
     return typePrompts[quizType as keyof typeof typePrompts] || 
-           `Crie uma copy profissional baseada nas seguintes informações:\n\n${answersText}`;
+           `Crie uma copy profissional baseada nas seguintes informações:
+
+${productContext ? `${productContext}\n` : ''}
+RESPOSTAS DO QUIZ:
+${answersText}${productContext ? '\n\nUse as informações do produto acima como contexto principal.' : ''}`;
   };
 
   const getQuizTitle = (quizType: string): string => {
