@@ -31,6 +31,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   const [currentAnswer, setCurrentAnswer] = useState('');
   const { fetchProductDetails } = useProducts();
   const [productDetails, setProductDetails] = useState<any>(null);
+  const [hasPrefilledData, setHasPrefilledData] = useState(false);
 
   const questions = getQuizQuestions(quizType);
   const quizTitle = getQuizTitle(quizType);
@@ -38,7 +39,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
 
   // Carregar detalhes do produto se ID foi fornecido
   useEffect(() => {
-    if (productId) {
+    if (productId && !hasPrefilledData) {
       fetchProductDetails(productId).then(details => {
         if (details) {
           setProductDetails(details);
@@ -72,21 +73,33 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
             prefilledAnswers['price'] = pricing;
           }
           
-          setAnswers(prefilledAnswers);
+          // Só aplicar as respostas pré-preenchidas se ainda não foram definidas
+          setAnswers(prevAnswers => {
+            const newAnswers = { ...prevAnswers };
+            Object.keys(prefilledAnswers).forEach(key => {
+              if (!newAnswers[key]) {
+                newAnswers[key] = prefilledAnswers[key];
+              }
+            });
+            return newAnswers;
+          });
           
           // Se a primeira pergunta tem resposta pré-preenchida, definir como resposta atual
-          if (questions[0] && prefilledAnswers[questions[0].id]) {
+          if (questions[0] && prefilledAnswers[questions[0].id] && !currentAnswer) {
             setCurrentAnswer(prefilledAnswers[questions[0].id]);
           }
+          
+          setHasPrefilledData(true);
         }
       });
     }
-  }, [productId, fetchProductDetails, questions]);
+  }, [productId, fetchProductDetails, questions, hasPrefilledData, currentAnswer]);
 
   // Atualizar resposta atual quando mudar de pergunta
   useEffect(() => {
     if (questions[currentQuestion]) {
-      setCurrentAnswer(answers[questions[currentQuestion].id] || '');
+      const questionId = questions[currentQuestion].id;
+      setCurrentAnswer(answers[questionId] || '');
     }
   }, [currentQuestion, answers, questions]);
 
@@ -98,7 +111,9 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
       
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(currentQuestion + 1);
-        setCurrentAnswer(newAnswers[questions[currentQuestion + 1]?.id] || '');
+        // Definir a resposta atual para a próxima pergunta
+        const nextQuestionId = questions[currentQuestion + 1]?.id;
+        setCurrentAnswer(newAnswers[nextQuestionId] || '');
       } else {
         onComplete(newAnswers);
       }
@@ -108,15 +123,22 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   const handlePrevious = () => {
     if (currentQuestion > 0) {
       setCurrentQuestion(currentQuestion - 1);
-      setCurrentAnswer(answers[questions[currentQuestion - 1].id] || '');
+      const prevQuestionId = questions[currentQuestion - 1].id;
+      setCurrentAnswer(answers[prevQuestionId] || '');
     }
   };
 
   const handleAnswerChange = (value: string) => {
     setCurrentAnswer(value);
+    // Atualizar imediatamente no estado de respostas
+    const newAnswers = { ...answers };
+    newAnswers[questions[currentQuestion].id] = value;
+    setAnswers(newAnswers);
   };
 
   const renderQuestionInput = (question: QuizQuestion) => {
+    const isPrefilledField = productDetails && answers[question.id] && hasPrefilledData;
+    
     switch (question.type) {
       case 'radio':
         return (
@@ -141,33 +163,54 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
         
       case 'textarea':
         return (
-          <Textarea
-            value={currentAnswer}
-            onChange={(e) => handleAnswerChange(e.target.value)}
-            placeholder={question.placeholder}
-            className="min-h-[120px] bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base"
-          />
+          <div className="space-y-2">
+            <Textarea
+              value={currentAnswer}
+              onChange={(e) => handleAnswerChange(e.target.value)}
+              placeholder={question.placeholder}
+              className="min-h-[120px] bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base focus:border-[#3B82F6] focus:ring-[#3B82F6]"
+            />
+            {isPrefilledField && (
+              <p className="text-xs text-[#3B82F6]">
+                ✓ Campo pré-preenchido baseado no produto selecionado - você pode editar
+              </p>
+            )}
+          </div>
         );
         
       case 'text':
         return (
-          <Input
-            value={currentAnswer}
-            onChange={(e) => handleAnswerChange(e.target.value)}
-            placeholder={question.placeholder}
-            className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base"
-          />
+          <div className="space-y-2">
+            <Input
+              value={currentAnswer}
+              onChange={(e) => handleAnswerChange(e.target.value)}
+              placeholder={question.placeholder}
+              className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base focus:border-[#3B82F6] focus:ring-[#3B82F6]"
+            />
+            {isPrefilledField && (
+              <p className="text-xs text-[#3B82F6]">
+                ✓ Campo pré-preenchido baseado no produto selecionado - você pode editar
+              </p>
+            )}
+          </div>
         );
         
       case 'number':
         return (
-          <Input
-            type="number"
-            value={currentAnswer}
-            onChange={(e) => handleAnswerChange(e.target.value)}
-            placeholder={question.placeholder}
-            className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base"
-          />
+          <div className="space-y-2">
+            <Input
+              type="number"
+              value={currentAnswer}
+              onChange={(e) => handleAnswerChange(e.target.value)}
+              placeholder={question.placeholder}
+              className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base focus:border-[#3B82F6] focus:ring-[#3B82F6]"
+            />
+            {isPrefilledField && (
+              <p className="text-xs text-[#3B82F6]">
+                ✓ Campo pré-preenchido baseado no produto selecionado - você pode editar
+              </p>
+            )}
+          </div>
         );
         
       default:
@@ -237,11 +280,6 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
               Selecione a opção que melhor descreve sua situação
             </CardDescription>
           )}
-          {productDetails && currentAnswer && (
-            <CardDescription className="text-[#3B82F6] text-sm">
-              ✓ Informação pré-preenchida baseada no produto selecionado
-            </CardDescription>
-          )}
         </CardHeader>
         
         <CardContent className="space-y-6">
@@ -304,7 +342,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
         💡 Responda com o máximo de detalhes possível para obter copies mais precisas via Claude AI
         {productDetails && (
           <div className="mt-2 text-[#3B82F6]">
-            🎯 Algumas respostas foram pré-preenchidas baseadas no produto "{productDetails.name}"
+            🎯 Algumas respostas foram pré-preenchidas baseadas no produto "{productDetails.name}" - você pode editá-las
           </div>
         )}
       </div>
