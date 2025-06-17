@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { ProductSelector } from '@/components/ui/product-selector';
 import { useProducts } from '@/hooks/useProducts';
-import { createProductPromptContext } from '@/utils/productContext';
+import { useAICopyGeneration } from '@/hooks/useAICopyGeneration';
 
 interface AdsBriefing {
   copy_type: string;
@@ -28,7 +27,7 @@ interface AdsBriefing {
 interface CreateAdModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (briefing: AdsBriefing) => Promise<void>;
+  onSubmit: (briefing: AdsBriefing, generatedCopy?: any) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -39,6 +38,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({
   isLoading
 }) => {
   const { fetchProductDetails } = useProducts();
+  const { generateAdsCopy, isGenerating } = useAICopyGeneration();
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const [briefing, setBriefing] = useState<AdsBriefing>({
     copy_type: 'ad',
@@ -76,7 +76,16 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(briefing);
+    
+    // Gerar a copy primeiro
+    const generatedCopy = await generateAdsCopy({
+      ...briefing,
+      copy_type: 'ads'
+    });
+
+    if (generatedCopy) {
+      await onSubmit(briefing, generatedCopy);
+    }
   };
 
   const resetForm = () => {
@@ -232,19 +241,19 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({
               variant="outline"
               onClick={handleClose}
               className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
-              disabled={isLoading}
+              disabled={isLoading || isGenerating}
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || !briefing.product_name || !briefing.target_audience}
+              disabled={isLoading || isGenerating || !briefing.product_name || !briefing.target_audience}
               className="flex-1 bg-[#3B82F6] hover:bg-[#2563EB] text-white"
             >
-              {isLoading ? (
+              {isGenerating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Gerando...
+                  Gerando Copy...
                 </>
               ) : (
                 'Gerar Anúncio'

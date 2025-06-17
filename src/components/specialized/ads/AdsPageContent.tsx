@@ -1,33 +1,46 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Megaphone, ExternalLink, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, Filter, Megaphone, ExternalLink, Edit, Trash2, Copy, LayoutGrid, List, Eye } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateAdModal } from './CreateAdModal';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 export const AdsPageContent = () => {
   const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('ads');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [previewCopy, setPreviewCopy] = useState<any>(null);
 
   const filteredCopies = copies.filter(copy =>
     copy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     copy.platform?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateAd = async (briefing: any) => {
+  const handleCreateAd = async (briefing: any, generatedCopy?: any) => {
     setIsCreating(true);
     try {
       const copyData = {
         copy_type: 'ads' as const,
         title: `Anúncio - ${briefing.product_name}`,
-        copy_data: briefing,
+        copy_data: {
+          briefing,
+          generated_copy: generatedCopy,
+          headline: generatedCopy?.headline || '',
+          content: generatedCopy?.content || '',
+          cta: generatedCopy?.cta || '',
+          variations: generatedCopy?.variations || []
+        },
         status: 'draft' as const,
-        platform: briefing.platform
+        platform: briefing.platform,
+        product_id: briefing.product_id
       };
 
       await createCopy(copyData);
@@ -55,6 +68,143 @@ export const AdsPageContent = () => {
         return '📢';
     }
   };
+
+  const renderGridView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {filteredCopies.map((copy) => (
+        <Card key={copy.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-2xl">{getPlatformIcon(copy.platform || '')}</span>
+                <div>
+                  <CardTitle className="text-white text-lg truncate">{copy.title}</CardTitle>
+                  <p className="text-[#CCCCCC] text-sm">{copy.platform || 'Geral'}</p>
+                </div>
+              </div>
+              <Badge 
+                variant="secondary" 
+                className={`${
+                  copy.status === 'published' 
+                    ? 'bg-green-500/20 text-green-500' 
+                    : copy.status === 'draft'
+                    ? 'bg-yellow-500/20 text-yellow-500'
+                    : 'bg-gray-500/20 text-gray-500'
+                }`}
+              >
+                {copy.status}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-[#CCCCCC] text-sm line-clamp-3">
+              {copy.copy_data?.generated_copy?.headline || copy.copy_data?.headline || 'Copy gerada'}
+            </div>
+            
+            <div className="flex items-center justify-between text-xs text-[#CCCCCC]">
+              <span>Criado: {new Date(copy.created_at).toLocaleDateString('pt-BR')}</span>
+              {copy.tags && copy.tags.length > 0 && (
+                <span>{copy.tags.length} tag(s)</span>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setPreviewCopy(copy)}
+                className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                Ver
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => duplicateCopy(copy)}
+                className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => deleteCopy(copy.id)}
+                className="border-red-500/20 text-red-500 hover:bg-red-500/10"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  const renderListView = () => (
+    <div className="space-y-4">
+      {filteredCopies.map((copy) => (
+        <Card key={copy.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4 flex-1">
+                <span className="text-2xl">{getPlatformIcon(copy.platform || '')}</span>
+                <div className="flex-1">
+                  <h3 className="text-white font-medium">{copy.title}</h3>
+                  <p className="text-[#CCCCCC] text-sm mt-1">
+                    {copy.copy_data?.generated_copy?.headline || copy.copy_data?.headline || 'Copy gerada'}
+                  </p>
+                  <div className="flex items-center space-x-4 mt-2 text-xs text-[#CCCCCC]">
+                    <span>{copy.platform || 'Geral'}</span>
+                    <span>•</span>
+                    <span>{new Date(copy.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Badge 
+                  variant="secondary" 
+                  className={`${
+                    copy.status === 'published' 
+                      ? 'bg-green-500/20 text-green-500' 
+                      : copy.status === 'draft'
+                      ? 'bg-yellow-500/20 text-yellow-500'
+                      : 'bg-gray-500/20 text-gray-500'
+                  }`}
+                >
+                  {copy.status}
+                </Badge>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setPreviewCopy(copy)}
+                  className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => duplicateCopy(copy)}
+                  className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => deleteCopy(copy.id)}
+                  className="border-red-500/20 text-red-500 hover:bg-red-500/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
 
   if (loading) {
     return (
@@ -90,6 +240,24 @@ export const AdsPageContent = () => {
             className="pl-10 bg-[#1E1E1E] border-[#4B5563] text-white"
           />
         </div>
+        <div className="flex gap-2">
+          <Button 
+            variant={viewMode === 'grid' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setViewMode('grid')}
+            className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant={viewMode === 'list' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+          >
+            <List className="w-4 h-4" />
+          </Button>
+        </div>
         <Button variant="outline" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]">
           <Filter className="w-4 h-4 mr-2" />
           Filtros
@@ -116,70 +284,7 @@ export const AdsPageContent = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCopies.map((copy) => (
-            <Card key={copy.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-2xl">{getPlatformIcon(copy.platform || '')}</span>
-                    <div>
-                      <CardTitle className="text-white text-lg truncate">{copy.title}</CardTitle>
-                      <p className="text-[#CCCCCC] text-sm">{copy.platform || 'Geral'}</p>
-                    </div>
-                  </div>
-                  <Badge 
-                    variant="secondary" 
-                    className={`${
-                      copy.status === 'published' 
-                        ? 'bg-green-500/20 text-green-500' 
-                        : copy.status === 'draft'
-                        ? 'bg-yellow-500/20 text-yellow-500'
-                        : 'bg-gray-500/20 text-gray-500'
-                    }`}
-                  >
-                    {copy.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-[#CCCCCC] text-sm line-clamp-3">
-                  {copy.copy_data?.headline || copy.copy_data?.content || 'Sem conteúdo'}
-                </div>
-                
-                <div className="flex items-center justify-between text-xs text-[#CCCCCC]">
-                  <span>Criado: {new Date(copy.created_at).toLocaleDateString('pt-BR')}</span>
-                  {copy.tags && copy.tags.length > 0 && (
-                    <span>{copy.tags.length} tag(s)</span>
-                  )}
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Button size="sm" variant="outline" className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]">
-                    <Edit className="w-4 h-4 mr-1" />
-                    Editar
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => duplicateCopy(copy)}
-                    className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => deleteCopy(copy.id)}
-                    className="border-red-500/20 text-red-500 hover:bg-red-500/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        viewMode === 'grid' ? renderGridView() : renderListView()
       )}
 
       <CreateAdModal 
@@ -188,6 +293,73 @@ export const AdsPageContent = () => {
         onSubmit={handleCreateAd}
         isLoading={isCreating}
       />
+
+      {/* Preview Modal */}
+      <Dialog open={!!previewCopy} onOpenChange={() => setPreviewCopy(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#1E1E1E] border-[#4B5563]/20 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-white">
+              {previewCopy?.title}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {previewCopy && (
+            <div className="space-y-6">
+              {previewCopy.copy_data?.generated_copy?.headline && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Headline</h3>
+                  <div className="bg-[#2A2A2A] p-4 rounded-lg">
+                    <p className="text-[#CCCCCC]">{previewCopy.copy_data.generated_copy.headline}</p>
+                  </div>
+                </div>
+              )}
+              
+              {previewCopy.copy_data?.generated_copy?.content && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Conteúdo</h3>
+                  <div className="bg-[#2A2A2A] p-4 rounded-lg">
+                    <p className="text-[#CCCCCC] whitespace-pre-wrap">{previewCopy.copy_data.generated_copy.content}</p>
+                  </div>
+                </div>
+              )}
+              
+              {previewCopy.copy_data?.generated_copy?.cta && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Call to Action</h3>
+                  <div className="bg-[#2A2A2A] p-4 rounded-lg">
+                    <p className="text-[#CCCCCC]">{previewCopy.copy_data.generated_copy.cta}</p>
+                  </div>
+                </div>
+              )}
+              
+              {previewCopy.copy_data?.generated_copy?.variations && previewCopy.copy_data.generated_copy.variations.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Variações</h3>
+                  <div className="space-y-3">
+                    {previewCopy.copy_data.generated_copy.variations.map((variation: string, index: number) => (
+                      <div key={index} className="bg-[#2A2A2A] p-4 rounded-lg">
+                        <p className="text-xs text-[#CCCCCC] mb-2">Variação {index + 1}</p>
+                        <p className="text-[#CCCCCC]">{variation}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {previewCopy.copy_data?.generated_copy?.fullContent && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Copy Completa</h3>
+                  <Textarea
+                    value={previewCopy.copy_data.generated_copy.fullContent}
+                    readOnly
+                    className="min-h-48 bg-[#2A2A2A] border-[#4B5563] text-white"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
