@@ -39,6 +39,17 @@ export const useChatAgent = (selectedProductId?: string) => {
     }
   }, [sessions]);
 
+  const deleteSession = useCallback((sessionId: string) => {
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    
+    // Se a sessão ativa foi deletada, limpar a sessão ativa
+    if (activeSession?.id === sessionId) {
+      setActiveSession(null);
+    }
+    
+    toast.success('Conversa excluída com sucesso');
+  }, [activeSession]);
+
   const selectAgent = useCallback((agent: Agent) => {
     setSelectedAgent(agent);
   }, []);
@@ -164,7 +175,7 @@ INSTRUÇÕES IMPORTANTES:
     
     // Re-send the last user message
     await sendMessage(lastUserMessage.content);
-  }, [activeSession, selectedAgent, sendMessage]);
+  }, [activeSession, selectedAgent]);
 
   const clearChat = useCallback(() => {
     if (activeSession) {
@@ -182,6 +193,7 @@ INSTRUÇÕES IMPORTANTES:
     activeSession,
     createNewSession,
     selectSession,
+    deleteSession,
     sendMessage,
     regenerateLastMessage,
     isLoading,

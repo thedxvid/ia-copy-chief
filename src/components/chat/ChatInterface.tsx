@@ -7,7 +7,7 @@ import { useChatAgent } from '@/hooks/useChatAgent';
 import { ProductSelector } from '@/components/ui/product-selector';
 import { useProducts } from '@/hooks/useProducts';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Trash2 } from 'lucide-react';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
@@ -17,6 +17,7 @@ export const ChatInterface = () => {
     activeSession,
     createNewSession,
     selectSession,
+    deleteSession,
     sendMessage,
     regenerateLastMessage,
     isLoading,
@@ -59,13 +60,13 @@ export const ChatInterface = () => {
                 }`}
               >
                 {message.role === 'assistant' && (
-                  <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
                     <span className="text-white text-sm">🤖</span>
                   </div>
                 )}
                 
                 <div
-                  className={`max-w-[80%] p-4 rounded-lg ${
+                  className={`max-w-[80%] p-4 rounded-2xl ${
                     message.role === 'user'
                       ? 'bg-[#3B82F6] text-white'
                       : 'bg-[#1E1E1E] text-white border border-[#4B5563]'
@@ -81,7 +82,7 @@ export const ChatInterface = () => {
                 </div>
 
                 {message.role === 'user' && (
-                  <div className="flex-shrink-0 w-8 h-8 bg-[#4B5563] rounded-full flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 bg-[#4B5563] rounded-2xl flex items-center justify-center">
                     <span className="text-white text-sm">👤</span>
                   </div>
                 )}
@@ -90,10 +91,10 @@ export const ChatInterface = () => {
             
             {isLoading && (
               <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
+                <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
                   <span className="text-white text-sm">🤖</span>
                 </div>
-                <div className="bg-[#1E1E1E] text-white border border-[#4B5563] p-4 rounded-lg">
+                <div className="bg-[#1E1E1E] text-white border border-[#4B5563] p-4 rounded-2xl">
                   <div className="flex items-center space-x-2">
                     <div className="flex space-x-1">
                       <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
@@ -112,7 +113,7 @@ export const ChatInterface = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] bg-[#0A0A0A] text-white">
+    <div className="flex h-[calc(100vh-2rem)] bg-[#0A0A0A] text-white rounded-3xl overflow-hidden">
       {/* Sidebar com sessões */}
       <div className="w-80 bg-[#1A1A1A] border-r border-[#333333] flex flex-col">
         <div className="p-4 border-b border-[#333333]">
@@ -126,7 +127,7 @@ export const ChatInterface = () => {
           />
 
           {selectedProduct && (
-            <Alert className="bg-green-500/10 border-green-500/20 mb-4">
+            <Alert className="bg-green-500/10 border-green-500/20 mb-4 rounded-2xl">
               <CheckCircle className="h-4 w-4 text-green-500" />
               <AlertDescription className="text-green-200">
                 ✅ Contexto ativo: {selectedProduct.name}
@@ -141,7 +142,7 @@ export const ChatInterface = () => {
           
           <button
             onClick={createNewSession}
-            className="w-full mt-4 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-lg transition-colors"
+            className="w-full mt-4 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-2xl transition-colors"
           >
             Nova Conversa
           </button>
@@ -151,19 +152,34 @@ export const ChatInterface = () => {
           {sessions.map((session) => (
             <div
               key={session.id}
-              onClick={() => selectSession(session.id)}
-              className={`p-3 mb-2 rounded-lg cursor-pointer transition-colors ${
+              className={`group relative p-3 mb-2 rounded-2xl cursor-pointer transition-colors ${
                 activeSession?.id === session.id
                   ? 'bg-[#3B82F6] text-white'
                   : 'bg-[#2A2A2A] text-[#CCCCCC] hover:bg-[#333333]'
               }`}
             >
-              <div className="font-medium text-sm">
-                {session.title || 'Nova conversa'}
+              <div
+                onClick={() => selectSession(session.id)}
+                className="flex-1"
+              >
+                <div className="font-medium text-sm pr-8">
+                  {session.title || 'Nova conversa'}
+                </div>
+                <div className="text-xs opacity-70 mt-1">
+                  {new Date(session.created_at).toLocaleDateString('pt-BR')}
+                </div>
               </div>
-              <div className="text-xs opacity-70 mt-1">
-                {new Date(session.created_at).toLocaleDateString('pt-BR')}
-              </div>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteSession(session.id);
+                }}
+                className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-xl transition-all duration-200"
+                title="Excluir conversa"
+              >
+                <Trash2 className="h-3 w-3 text-red-400 hover:text-red-300" />
+              </button>
             </div>
           ))}
         </div>
