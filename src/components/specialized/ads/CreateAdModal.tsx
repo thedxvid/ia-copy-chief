@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ interface AdsBriefing {
   tone: string;
   objective: string;
   platform: string;
-  campaign_objective: string;
+  campaign_objective: 'sales' | 'leads' | 'traffic' | 'awareness';
   budget_range: string;
   additional_info: string;
   product_id?: string;
@@ -116,6 +117,13 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({
     }));
   };
 
+  const handleCampaignObjectiveChange = (value: 'sales' | 'leads' | 'traffic' | 'awareness') => {
+    setBriefing(prev => ({
+      ...prev,
+      campaign_objective: value
+    }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#1E1E1E] border-[#4B5563]/20 text-white">
@@ -201,15 +209,30 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="budget_range" className="text-white">Faixa de Orçamento</Label>
-              <Input
-                id="budget_range"
-                value={briefing.budget_range}
-                onChange={(e) => handleInputChange('budget_range', e.target.value)}
-                placeholder="Ex: R$ 1.000 - R$ 5.000"
-                className="bg-[#2A2A2A] border-[#4B5563] text-white"
-              />
+              <Label htmlFor="campaign_objective" className="text-white">Objetivo da Campanha</Label>
+              <Select value={briefing.campaign_objective} onValueChange={handleCampaignObjectiveChange}>
+                <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#2A2A2A] border-[#4B5563] text-white">
+                  <SelectItem value="sales">Vendas</SelectItem>
+                  <SelectItem value="leads">Geração de Leads</SelectItem>
+                  <SelectItem value="traffic">Tráfego</SelectItem>
+                  <SelectItem value="awareness">Reconhecimento</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="budget_range" className="text-white">Faixa de Orçamento</Label>
+            <Input
+              id="budget_range"
+              value={briefing.budget_range}
+              onChange={(e) => handleInputChange('budget_range', e.target.value)}
+              placeholder="Ex: R$ 1.000 - R$ 5.000"
+              className="bg-[#2A2A2A] border-[#4B5563] text-white"
+            />
           </div>
 
           <div className="space-y-2">
