@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import {
@@ -33,6 +32,24 @@ interface ProductModalProps {
   onClose: () => void;
   product?: Product | null;
   onSuccess: () => void;
+}
+
+// Type interfaces for JSONB data
+interface TargetAudience {
+  description?: string;
+}
+
+interface LandingPageCopy {
+  headline?: string;
+  subtitle?: string;
+  benefits?: string;
+  social_proof?: string;
+}
+
+interface MainOffer {
+  promise?: string;
+  description?: string;
+  price?: string;
 }
 
 export const ProductModal: React.FC<ProductModalProps> = ({
@@ -83,11 +100,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       // Carregar dados de estratégia
       if (strategyResult.data) {
         const strategy = strategyResult.data;
-        setTargetAudience(
-          typeof strategy.target_audience === 'string' 
-            ? strategy.target_audience 
-            : strategy.target_audience?.description || ''
-        );
+        const targetAudienceData = strategy.target_audience as TargetAudience | null;
+        setTargetAudience(targetAudienceData?.description || '');
         setMarketPositioning(strategy.market_positioning || '');
         setValueProposition(strategy.value_proposition || '');
       }
@@ -96,20 +110,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       if (copyResult.data) {
         const copy = copyResult.data;
         setVslScript(copy.vsl_script || '');
-        const landingPageCopy = copy.landing_page_copy || {};
-        setHeadline(landingPageCopy.headline || '');
-        setSubtitle(landingPageCopy.subtitle || '');
-        setBenefits(landingPageCopy.benefits || '');
-        setSocialProof(landingPageCopy.social_proof || '');
+        const landingPageCopy = copy.landing_page_copy as LandingPageCopy | null;
+        setHeadline(landingPageCopy?.headline || '');
+        setSubtitle(landingPageCopy?.subtitle || '');
+        setBenefits(landingPageCopy?.benefits || '');
+        setSocialProof(landingPageCopy?.social_proof || '');
       }
 
       // Carregar dados de oferta
       if (offerResult.data) {
         const offer = offerResult.data;
-        const mainOffer = offer.main_offer || {};
-        setMainOfferPromise(mainOffer.promise || '');
-        setMainOfferDescription(mainOffer.description || '');
-        setMainOfferPrice(mainOffer.price || '');
+        const mainOffer = offer.main_offer as MainOffer | null;
+        setMainOfferPromise(mainOffer?.promise || '');
+        setMainOfferDescription(mainOffer?.description || '');
+        setMainOfferPrice(mainOffer?.price || '');
       }
     } catch (error) {
       console.error('Erro ao carregar dados existentes:', error);
@@ -205,7 +219,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           .from('product_strategy')
           .upsert(strategyData, { onConflict: 'product_id' });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error upserting strategy:', error);
+          // Tente inserir se falhar o upsert
+          const { error: insertError } = await supabase
+            .from('product_strategy')
+            .insert(strategyData);
+          
+          if (insertError) throw insertError;
+        }
       }
 
       // Update copy - sempre fazer upsert se há dados preenchidos
@@ -225,7 +247,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           .from('product_copy')
           .upsert(copyData, { onConflict: 'product_id' });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error upserting copy:', error);
+          // Tente inserir se falhar o upsert
+          const { error: insertError } = await supabase
+            .from('product_copy')
+            .insert(copyData);
+          
+          if (insertError) throw insertError;
+        }
       }
 
       // Update offer - sempre fazer upsert se há dados preenchidos
@@ -243,7 +273,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           .from('product_offer')
           .upsert(offerData, { onConflict: 'product_id' });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error upserting offer:', error);
+          // Tente inserir se falhar o upsert
+          const { error: insertError } = await supabase
+            .from('product_offer')
+            .insert(offerData);
+          
+          if (insertError) throw insertError;
+        }
       }
 
       toast({
