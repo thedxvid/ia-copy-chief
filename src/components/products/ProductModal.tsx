@@ -44,6 +44,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingExistingData, setLoadingExistingData] = useState(false);
   
   // Basic Info
   const [name, setName] = useState('');
@@ -67,13 +68,65 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [mainOfferPromise, setMainOfferPromise] = useState('');
   const [mainOfferDescription, setMainOfferDescription] = useState('');
   const [mainOfferPrice, setMainOfferPrice] = useState('');
-  
+
+  // Load existing data when editing
+  const loadExistingData = async (productId: string) => {
+    setLoadingExistingData(true);
+    try {
+      // Buscar dados relacionados
+      const [strategyResult, copyResult, offerResult] = await Promise.all([
+        supabase.from('product_strategy').select('*').eq('product_id', productId).maybeSingle(),
+        supabase.from('product_copy').select('*').eq('product_id', productId).maybeSingle(),
+        supabase.from('product_offer').select('*').eq('product_id', productId).maybeSingle(),
+      ]);
+
+      // Carregar dados de estratégia
+      if (strategyResult.data) {
+        const strategy = strategyResult.data;
+        setTargetAudience(
+          typeof strategy.target_audience === 'string' 
+            ? strategy.target_audience 
+            : strategy.target_audience?.description || ''
+        );
+        setMarketPositioning(strategy.market_positioning || '');
+        setValueProposition(strategy.value_proposition || '');
+      }
+
+      // Carregar dados de copy
+      if (copyResult.data) {
+        const copy = copyResult.data;
+        setVslScript(copy.vsl_script || '');
+        const landingPageCopy = copy.landing_page_copy || {};
+        setHeadline(landingPageCopy.headline || '');
+        setSubtitle(landingPageCopy.subtitle || '');
+        setBenefits(landingPageCopy.benefits || '');
+        setSocialProof(landingPageCopy.social_proof || '');
+      }
+
+      // Carregar dados de oferta
+      if (offerResult.data) {
+        const offer = offerResult.data;
+        const mainOffer = offer.main_offer || {};
+        setMainOfferPromise(mainOffer.promise || '');
+        setMainOfferDescription(mainOffer.description || '');
+        setMainOfferPrice(mainOffer.price || '');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados existentes:', error);
+    } finally {
+      setLoadingExistingData(false);
+    }
+  };
+
   useEffect(() => {
     if (product) {
       setName(product.name);
       setNiche(product.niche);
       setSubNiche(product.sub_niche || '');
       setStatus(product.status);
+      
+      // Carregar dados relacionados
+      loadExistingData(product.id);
     } else {
       // Reset form
       setName('');
@@ -139,50 +192,56 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         productId = newProduct.id;
       }
 
-      // Update strategy if provided
-      if (targetAudience || marketPositioning || valueProposition) {
+      // Update strategy - sempre fazer upsert se há dados preenchidos
+      if (targetAudience.trim() || marketPositioning.trim() || valueProposition.trim()) {
+        const strategyData = {
+          product_id: productId,
+          target_audience: targetAudience.trim() ? { description: targetAudience.trim() } : null,
+          market_positioning: marketPositioning.trim() || null,
+          value_proposition: valueProposition.trim() || null,
+        };
+
         const { error } = await supabase
           .from('product_strategy')
-          .upsert({
-            product_id: productId,
-            target_audience: targetAudience ? { description: targetAudience } : null,
-            market_positioning: marketPositioning || null,
-            value_proposition: valueProposition || null,
-          });
+          .upsert(strategyData, { onConflict: 'product_id' });
 
         if (error) throw error;
       }
 
-      // Update copy if provided
-      if (vslScript || headline || subtitle || benefits || socialProof) {
+      // Update copy - sempre fazer upsert se há dados preenchidos
+      if (vslScript.trim() || headline.trim() || subtitle.trim() || benefits.trim() || socialProof.trim()) {
+        const copyData = {
+          product_id: productId,
+          vsl_script: vslScript.trim() || null,
+          landing_page_copy: {
+            headline: headline.trim() || null,
+            subtitle: subtitle.trim() || null,
+            benefits: benefits.trim() || null,
+            social_proof: socialProof.trim() || null,
+          },
+        };
+
         const { error } = await supabase
           .from('product_copy')
-          .upsert({
-            product_id: productId,
-            vsl_script: vslScript || null,
-            landing_page_copy: {
-              headline: headline || null,
-              subtitle: subtitle || null,
-              benefits: benefits || null,
-              social_proof: socialProof || null,
-            },
-          });
+          .upsert(copyData, { onConflict: 'product_id' });
 
         if (error) throw error;
       }
 
-      // Update offer if provided
-      if (mainOfferPromise || mainOfferDescription || mainOfferPrice) {
+      // Update offer - sempre fazer upsert se há dados preenchidos
+      if (mainOfferPromise.trim() || mainOfferDescription.trim() || mainOfferPrice.trim()) {
+        const offerData = {
+          product_id: productId,
+          main_offer: {
+            promise: mainOfferPromise.trim() || null,
+            description: mainOfferDescription.trim() || null,
+            price: mainOfferPrice.trim() || null,
+          },
+        };
+
         const { error } = await supabase
           .from('product_offer')
-          .upsert({
-            product_id: productId,
-            main_offer: {
-              promise: mainOfferPromise || null,
-              description: mainOfferDescription || null,
-              price: mainOfferPrice || null,
-            },
-          });
+          .upsert(offerData, { onConflict: 'product_id' });
 
         if (error) throw error;
       }
@@ -215,6 +274,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             {product ? 'Editar Produto' : 'Novo Produto'}
           </DialogTitle>
         </DialogHeader>
+
+        {loadingExistingData && (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3B82F6]"></div>
+            <span className="ml-2 text-[#CCCCCC]">Carregando dados...</span>
+          </div>
+        )}
 
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-4 bg-[#2A2A2A]">
@@ -450,7 +516,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isLoading || !name.trim() || !niche.trim()}
+            disabled={isLoading || loadingExistingData || !name.trim() || !niche.trim()}
             className="bg-[#3B82F6] hover:bg-[#2563EB] text-white gap-2"
           >
             {isLoading ? (
