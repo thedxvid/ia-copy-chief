@@ -68,24 +68,26 @@ body {
   transform: translateY(-1px);
 }
 
-/* Arredondar bordas de elementos retangulares */
+/* Arredondar bordas de elementos retangulares - exceto sidebar */
 .glass-card {
   @apply bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl p-6;
 }
 
-/* Componentes de interface com bordas arredondadas */
-.recharts-wrapper,
-.recharts-surface {
+/* Componentes de interface com bordas arredondadas - exceto sidebar */
+.recharts-wrapper:not([data-sidebar]),
+.recharts-surface:not([data-sidebar]) {
   border-radius: 1rem !important;
 }
 
-/* Cards de métricas e gráficos */
-[class*="bg-"][class*="border"] {
+/* Cards de métricas e gráficos - exceto elementos da sidebar */
+[class*="bg-"][class*="border"]:not([data-sidebar]):not([data-sidebar] *) {
   border-radius: 1rem !important;
 }
 
-/* Botões e inputs com bordas mais arredondadas */
-.ui-button, .ui-input, .ui-card {
+/* Botões e inputs com bordas mais arredondadas - exceto sidebar */
+.ui-button:not([data-sidebar] *), 
+.ui-input:not([data-sidebar] *), 
+.ui-card:not([data-sidebar] *) {
   border-radius: 0.75rem !important;
 }
 
