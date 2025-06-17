@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Bot, FileText } from 'lucide-react';
+import { Plus, Bot, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -46,9 +46,11 @@ export const DashboardHeader = () => {
               </Link>
             </Button>
             
-            <Button variant="outline" size="sm" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 px-3 py-2 rounded-xl">
-              <FileText className="w-4 h-4" />
-              <span>Templates</span>
+            <Button variant="outline" asChild size="sm" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 px-3 py-2 rounded-xl">
+              <Link to="/quiz" className="flex items-center gap-2">
+                <Play className="w-4 h-4" />
+                <span>Quiz Copy</span>
+              </Link>
             </Button>
           </div>
         </div>
@@ -79,9 +81,11 @@ export const DashboardHeader = () => {
               </Link>
             </Button>
             
-            <Button variant="outline" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 w-full rounded-xl text-base py-3">
-              <FileText className="w-5 h-5" />
-              <span>Templates</span>
+            <Button variant="outline" asChild className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 w-full rounded-xl text-base py-3">
+              <Link to="/quiz" className="flex items-center justify-center gap-2">
+                <Play className="w-5 h-5" />
+                <span>Quiz Copy</span>
+              </Link>
             </Button>
           </div>
         </div>
