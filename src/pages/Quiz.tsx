@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { QuizFlow } from '@/components/quiz/QuizFlow';
@@ -280,7 +281,7 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
   if (!user) {
     return (
       <DashboardLayout>
-        <div className="max-w-4xl mx-auto text-center py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-16">
           <div className="bg-[#1E1E1E] border border-[#4B5563]/20 rounded-lg p-8">
             <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-4">
@@ -316,20 +317,22 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
   if (currentStep === 'quiz') {
     return (
       <DashboardLayout>
-        <QuizFlow
-          quizType={selectedQuizType}
-          productId={selectedProductId}
-          onComplete={handleQuizComplete}
-          onBack={handleBackToSelector}
-          isLoading={isGenerating}
-        />
+        <div className="px-4 sm:px-6 lg:px-8">
+          <QuizFlow
+            quizType={selectedQuizType}
+            productId={selectedProductId}
+            onComplete={handleQuizComplete}
+            onBack={handleBackToSelector}
+            isLoading={isGenerating}
+          />
+        </div>
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
