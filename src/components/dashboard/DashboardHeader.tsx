@@ -32,21 +32,21 @@ export const DashboardHeader = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button asChild size="sm" className="bg-[#3B82F6] hover:bg-[#2563EB] hover:shadow-sm transition-all duration-200 px-3 py-2">
+            <Button asChild size="sm" className="bg-[#3B82F6] hover:bg-[#2563EB] hover:shadow-sm transition-all duration-200 px-3 py-2 rounded-xl">
               <Link to="/quiz" className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 <span>Novo Projeto</span>
               </Link>
             </Button>
             
-            <Button variant="outline" asChild size="sm" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 px-3 py-2">
+            <Button variant="outline" asChild size="sm" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 px-3 py-2 rounded-xl">
               <Link to="/agents" className="flex items-center gap-2">
                 <Bot className="w-4 h-4" />
                 <span>Agente IA</span>
               </Link>
             </Button>
             
-            <Button variant="outline" size="sm" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 px-3 py-2">
+            <Button variant="outline" size="sm" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 px-3 py-2 rounded-xl">
               <FileText className="w-4 h-4" />
               <span>Templates</span>
             </Button>
@@ -65,21 +65,21 @@ export const DashboardHeader = () => {
           </div>
           
           <div className="flex flex-col space-y-2">
-            <Button asChild className="bg-[#3B82F6] hover:bg-[#2563EB] hover:shadow-sm transition-all duration-200 w-full rounded-lg text-base py-3">
+            <Button asChild className="bg-[#3B82F6] hover:bg-[#2563EB] hover:shadow-sm transition-all duration-200 w-full rounded-xl text-base py-3">
               <Link to="/quiz" className="flex items-center justify-center gap-2">
                 <Plus className="w-5 h-5" />
                 <span>Novo Projeto</span>
               </Link>
             </Button>
             
-            <Button variant="outline" asChild className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 w-full rounded-lg text-base py-3">
+            <Button variant="outline" asChild className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 w-full rounded-xl text-base py-3">
               <Link to="/agents" className="flex items-center justify-center gap-2">
                 <Bot className="w-5 h-5" />
                 <span>Agente IA</span>
               </Link>
             </Button>
             
-            <Button variant="outline" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 w-full rounded-lg text-base py-3">
+            <Button variant="outline" className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:shadow-sm transition-all duration-200 w-full rounded-xl text-base py-3">
               <FileText className="w-5 h-5" />
               <span>Templates</span>
             </Button>

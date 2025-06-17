@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
 import { ProfileSettings } from '@/components/profile/ProfileSettings';
+
 const menuItems = [{
   title: "Dashboard",
   url: "/dashboard",
@@ -48,6 +49,7 @@ const menuItems = [{
   url: "/chat",
   icon: Bot
 }];
+
 export function AppSidebar() {
   const location = useLocation();
   const {
@@ -68,7 +70,7 @@ export function AppSidebar() {
       backgroundColor: '#0a0a0a'
     }}>
         <div className="flex items-center gap-2 sm:gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] flex items-center justify-center flex-shrink-0 rounded">
+          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] flex items-center justify-center flex-shrink-0 rounded-xl">
             <Bot className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">

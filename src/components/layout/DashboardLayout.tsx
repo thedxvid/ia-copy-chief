@@ -42,7 +42,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 
                 {/* Logo centralizada no mobile */}
                 <div className="flex items-center gap-2 md:hidden">
-                  <div className="w-7 h-7 bg-[#3B82F6] rounded-lg flex items-center justify-center">
+                  <div className="w-7 h-7 bg-[#3B82F6] rounded-xl flex items-center justify-center">
                     <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div>
