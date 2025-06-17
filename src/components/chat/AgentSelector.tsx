@@ -12,12 +12,12 @@ import {
 
 interface AgentSelectorProps {
   selectedAgent: Agent | null;
-  onSelectAgent: (agent: Agent) => void;
+  onAgentChange: (agent: Agent) => void;
 }
 
 export const AgentSelector: React.FC<AgentSelectorProps> = ({
   selectedAgent,
-  onSelectAgent
+  onAgentChange
 }) => {
   return (
     <div className="w-full max-w-md">
@@ -28,7 +28,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
         value={selectedAgent?.id || ''}
         onValueChange={(value) => {
           const agent = chatAgents.find(a => a.id === value);
-          if (agent) onSelectAgent(agent);
+          if (agent) onAgentChange(agent);
         }}
       >
         <SelectTrigger className="bg-[#1E1E1E] border-[#4B5563] text-white w-full">

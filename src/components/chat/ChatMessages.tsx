@@ -4,11 +4,20 @@ import { ChatMessage } from '@/types/chat';
 import { User, Bot } from 'lucide-react';
 
 interface ChatMessagesProps {
-  messages: ChatMessage[];
+  sessionId: string;
+  onRegenerate: () => void;
   isLoading: boolean;
 }
 
-export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
+export const ChatMessages: React.FC<ChatMessagesProps> = ({ 
+  sessionId, 
+  onRegenerate, 
+  isLoading 
+}) => {
+  // For now, we'll get messages from the active session via props
+  // In a real implementation, you might fetch messages based on sessionId
+  const messages: ChatMessage[] = [];
+
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-4">
       {messages.length === 0 ? (

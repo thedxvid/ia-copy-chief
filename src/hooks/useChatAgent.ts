@@ -4,24 +4,50 @@ import { ChatMessage, Agent, ChatState } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export const useChatAgent = () => {
-  const [chatState, setChatState] = useState<ChatState>({
-    messages: [],
-    selectedAgent: null,
-    isLoading: false
-  });
+interface ChatSession {
+  id: string;
+  title: string;
+  created_at: string;
+  messages: ChatMessage[];
+}
+
+export const useChatAgent = (selectedProductId?: string) => {
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const createNewSession = useCallback(() => {
+    const newSession: ChatSession = {
+      id: Date.now().toString(),
+      title: 'Nova conversa',
+      created_at: new Date().toISOString(),
+      messages: []
+    };
+    
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSession(newSession);
+  }, []);
+
+  const selectSession = useCallback((sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      setActiveSession(session);
+    }
+  }, [sessions]);
 
   const selectAgent = useCallback((agent: Agent) => {
-    setChatState(prev => ({
-      ...prev,
-      selectedAgent: agent,
-      messages: [] // Reset messages when switching agents
-    }));
+    setSelectedAgent(agent);
   }, []);
 
   const sendMessage = useCallback(async (content: string) => {
-    if (!chatState.selectedAgent) {
+    if (!selectedAgent) {
       toast.error('Selecione um agente antes de enviar uma mensagem');
+      return;
+    }
+
+    if (!activeSession) {
+      toast.error('Nenhuma sessão ativa');
       return;
     }
 
@@ -32,25 +58,29 @@ export const useChatAgent = () => {
       timestamp: new Date()
     };
 
-    // Add user message and set loading
-    setChatState(prev => ({
-      ...prev,
-      messages: [...prev.messages, userMessage],
-      isLoading: true
-    }));
+    // Update session with user message
+    const updatedSession = {
+      ...activeSession,
+      messages: [...activeSession.messages, userMessage]
+    };
+    
+    setActiveSession(updatedSession);
+    setSessions(prev => prev.map(s => s.id === activeSession.id ? updatedSession : s));
+    setIsLoading(true);
 
     try {
       // Call Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: content,
-          agentPrompt: chatState.selectedAgent.prompt,
-          chatHistory: chatState.messages.map(msg => ({
+          agentPrompt: selectedAgent.prompt,
+          chatHistory: activeSession.messages.map(msg => ({
             role: msg.role,
             content: msg.content
           })),
-          agentName: chatState.selectedAgent.name,
-          isCustomAgent: false
+          agentName: selectedAgent.name,
+          isCustomAgent: false,
+          productId: selectedProductId
         }
       });
 
@@ -66,34 +96,67 @@ export const useChatAgent = () => {
         timestamp: new Date()
       };
 
-      setChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, assistantMessage],
-        isLoading: false
-      }));
+      // Update session with assistant message
+      const finalSession = {
+        ...updatedSession,
+        messages: [...updatedSession.messages, assistantMessage]
+      };
+      
+      setActiveSession(finalSession);
+      setSessions(prev => prev.map(s => s.id === activeSession.id ? finalSession : s));
 
     } catch (error) {
       console.error('Chat error:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao enviar mensagem');
-      
-      setChatState(prev => ({
-        ...prev,
-        isLoading: false
-      }));
+    } finally {
+      setIsLoading(false);
     }
-  }, [chatState.selectedAgent, chatState.messages]);
+  }, [selectedAgent, activeSession, selectedProductId]);
+
+  const regenerateLastMessage = useCallback(async () => {
+    if (!activeSession || !selectedAgent) return;
+    
+    const messages = activeSession.messages;
+    if (messages.length < 2) return;
+    
+    const lastUserMessage = messages[messages.length - 2];
+    if (lastUserMessage.role !== 'user') return;
+    
+    // Remove the last assistant message and regenerate
+    const updatedMessages = messages.slice(0, -1);
+    const updatedSession = {
+      ...activeSession,
+      messages: updatedMessages
+    };
+    
+    setActiveSession(updatedSession);
+    setSessions(prev => prev.map(s => s.id === activeSession.id ? updatedSession : s));
+    
+    // Re-send the last user message
+    await sendMessage(lastUserMessage.content);
+  }, [activeSession, selectedAgent, sendMessage]);
 
   const clearChat = useCallback(() => {
-    setChatState(prev => ({
-      ...prev,
-      messages: []
-    }));
-  }, []);
+    if (activeSession) {
+      const clearedSession = {
+        ...activeSession,
+        messages: []
+      };
+      setActiveSession(clearedSession);
+      setSessions(prev => prev.map(s => s.id === activeSession.id ? clearedSession : s));
+    }
+  }, [activeSession]);
 
   return {
-    chatState,
-    selectAgent,
+    sessions,
+    activeSession,
+    createNewSession,
+    selectSession,
     sendMessage,
+    regenerateLastMessage,
+    isLoading,
+    selectedAgent,
+    setSelectedAgent: selectAgent,
     clearChat
   };
 };
