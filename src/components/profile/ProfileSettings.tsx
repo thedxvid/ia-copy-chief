@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,14 +60,17 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
     setUploadingAvatar(true);
 
     try {
+      // Processar a imagem para garantir proporções adequadas
+      const processedFile = await processImageFile(file);
+      
       // Criar nome único para o arquivo
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/avatar.${fileExt}`;
 
-      // Fazer upload do arquivo
+      // Fazer upload do arquivo processado
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, {
+        .upload(fileName, processedFile, {
           cacheControl: '3600',
           upsert: true
         });
@@ -108,6 +110,46 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
     }
   };
 
+  // Função para processar a imagem e manter proporções
+  const processImageFile = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      img.onload = () => {
+        // Definir tamanho quadrado (400x400 para boa qualidade)
+        const size = 400;
+        canvas.width = size;
+        canvas.height = size;
+
+        if (ctx) {
+          // Calcular dimensões para crop centralizado
+          const scale = Math.max(size / img.width, size / img.height);
+          const scaledWidth = img.width * scale;
+          const scaledHeight = img.height * scale;
+          
+          // Centralizar a imagem
+          const x = (size - scaledWidth) / 2;
+          const y = (size - scaledHeight) / 2;
+
+          // Preencher fundo branco
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, size, size);
+          
+          // Desenhar imagem redimensionada e centralizada
+          ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+        }
+
+        canvas.toBlob((blob) => {
+          resolve(blob || file);
+        }, 'image/jpeg', 0.9);
+      };
+
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleUpdateProfile = async () => {
     setLoading(true);
     try {
@@ -145,7 +187,10 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
       <div className="text-center space-y-4">
         <div className="relative inline-block">
           <Avatar className="w-24 h-24 mx-auto">
-            <AvatarImage src={user?.user_metadata?.avatar_url} />
+            <AvatarImage 
+              src={user?.user_metadata?.avatar_url} 
+              className="object-cover"
+            />
             <AvatarFallback className="bg-[#3B82F6] text-white text-2xl">
               {getInitials(user?.user_metadata?.full_name)}
             </AvatarFallback>
