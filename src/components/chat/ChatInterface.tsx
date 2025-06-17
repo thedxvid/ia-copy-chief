@@ -7,11 +7,15 @@ import { useChatAgent } from '@/hooks/useChatAgent';
 import { ProductSelector } from '@/components/ui/product-selector';
 import { useProducts } from '@/hooks/useProducts';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Trash2 } from 'lucide-react';
+import { CheckCircle, Trash2, MessageSquare, Menu, X } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Button } from '@/components/ui/button';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
+  const [showSidebar, setShowSidebar] = useState(false);
   const { products } = useProducts();
+  const isMobile = useIsMobile();
   const {
     sessions,
     activeSession,
@@ -26,6 +30,22 @@ export const ChatInterface = () => {
   } = useChatAgent(selectedProductId);
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
+
+  // Função para fechar sidebar no mobile ao selecionar sessão
+  const handleSelectSession = (sessionId: string) => {
+    selectSession(sessionId);
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+  };
+
+  // Função para criar nova sessão e fechar sidebar no mobile
+  const handleCreateNewSession = () => {
+    createNewSession();
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+  };
 
   // Create a custom ChatMessages component that receives messages directly
   const ChatMessagesWithData = () => {
@@ -112,81 +132,135 @@ export const ChatInterface = () => {
     );
   };
 
-  return (
-    <div className="flex h-[calc(100vh-2rem)] bg-[#0A0A0A] text-white rounded-3xl overflow-hidden">
-      {/* Sidebar com sessões */}
-      <div className="w-80 bg-[#1A1A1A] border-r border-[#333333] flex flex-col">
-        <div className="p-4 border-b border-[#333333]">
-          <h2 className="text-xl font-semibold text-white mb-4">Conversas</h2>
-          
-          <ProductSelector
-            value={selectedProductId}
-            onValueChange={setSelectedProductId}
-            showPreview={false}
-            className="mb-4"
-          />
-
-          {selectedProduct && (
-            <Alert className="bg-green-500/10 border-green-500/20 mb-4 rounded-2xl">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <AlertDescription className="text-green-200">
-                ✅ Contexto ativo: {selectedProduct.name}
-              </AlertDescription>
-            </Alert>
+  // Sidebar Component
+  const Sidebar = () => (
+    <div className={`${
+      isMobile 
+        ? `fixed inset-0 z-50 bg-[#1A1A1A] transform transition-transform duration-300 ${
+            showSidebar ? 'translate-x-0' : '-translate-x-full'
+          }`
+        : 'w-80 bg-[#1A1A1A] border-r border-[#333333]'
+    } flex flex-col`}>
+      {/* Header da Sidebar */}
+      <div className="p-4 border-b border-[#333333]">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-white">Conversas</h2>
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSidebar(false)}
+              className="text-white hover:bg-[#2A2A2A] p-1"
+            >
+              <X className="h-5 w-5" />
+            </Button>
           )}
-          
-          <AgentSelector
-            selectedAgent={selectedAgent}
-            onAgentChange={setSelectedAgent}
-          />
-          
-          <button
-            onClick={createNewSession}
-            className="w-full mt-4 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-2xl transition-colors"
-          >
-            Nova Conversa
-          </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2">
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              className={`group relative p-3 mb-2 rounded-2xl cursor-pointer transition-colors ${
-                activeSession?.id === session.id
-                  ? 'bg-[#3B82F6] text-white'
-                  : 'bg-[#2A2A2A] text-[#CCCCCC] hover:bg-[#333333]'
-              }`}
-            >
-              <div
-                onClick={() => selectSession(session.id)}
-                className="flex-1"
-              >
-                <div className="font-medium text-sm pr-8">
-                  {session.title || 'Nova conversa'}
-                </div>
-                <div className="text-xs opacity-70 mt-1">
-                  {new Date(session.created_at).toLocaleDateString('pt-BR')}
-                </div>
-              </div>
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteSession(session.id);
-                }}
-                className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-xl transition-all duration-200"
-                title="Excluir conversa"
-              >
-                <Trash2 className="h-3 w-3 text-red-400 hover:text-red-300" />
-              </button>
-            </div>
-          ))}
-        </div>
+        <ProductSelector
+          value={selectedProductId}
+          onValueChange={setSelectedProductId}
+          showPreview={false}
+          className="mb-4"
+        />
+
+        {selectedProduct && (
+          <Alert className="bg-green-500/10 border-green-500/20 mb-4 rounded-2xl">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            <AlertDescription className="text-green-200">
+              ✅ Contexto ativo: {selectedProduct.name}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <AgentSelector
+          selectedAgent={selectedAgent}
+          onAgentChange={setSelectedAgent}
+        />
+        
+        <button
+          onClick={handleCreateNewSession}
+          className="w-full mt-4 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-2xl transition-colors"
+        >
+          Nova Conversa
+        </button>
       </div>
+      
+      {/* Lista de Sessões */}
+      <div className="flex-1 overflow-y-auto p-2">
+        {sessions.map((session) => (
+          <div
+            key={session.id}
+            className={`group relative p-3 mb-2 rounded-2xl cursor-pointer transition-colors ${
+              activeSession?.id === session.id
+                ? 'bg-[#3B82F6] text-white'
+                : 'bg-[#2A2A2A] text-[#CCCCCC] hover:bg-[#333333]'
+            }`}
+          >
+            <div
+              onClick={() => handleSelectSession(session.id)}
+              className="flex-1"
+            >
+              <div className="font-medium text-sm pr-8">
+                {session.title || 'Nova conversa'}
+              </div>
+              <div className="text-xs opacity-70 mt-1">
+                {new Date(session.created_at).toLocaleDateString('pt-BR')}
+              </div>
+            </div>
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteSession(session.id);
+              }}
+              className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-xl transition-all duration-200"
+              title="Excluir conversa"
+            >
+              <Trash2 className="h-3 w-3 text-red-400 hover:text-red-300" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-[calc(100vh-2rem)] bg-[#0A0A0A] text-white rounded-3xl overflow-hidden relative">
+      {/* Sidebar */}
+      <Sidebar />
+
+      {/* Overlay para mobile */}
+      {isMobile && showSidebar && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
 
       {/* Área principal do chat */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${isMobile ? 'w-full' : ''}`}>
+        {/* Header do chat para mobile */}
+        {isMobile && (
+          <div className="flex items-center justify-between p-4 border-b border-[#333333]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSidebar(true)}
+              className="text-white hover:bg-[#2A2A2A] p-2"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-[#3B82F6]" />
+              <span className="text-white font-medium">
+                {activeSession?.title || 'Chat IA'}
+              </span>
+            </div>
+            <div className="w-8" />
+          </div>
+        )}
+
         <ChatMessagesWithData />
         {activeSession && (
           <ChatInput
