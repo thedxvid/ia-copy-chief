@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,22 @@ export const PagesPageContent = () => {
       default:
         return '📄';
     }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusMap = {
+      'published': { color: 'bg-green-500/20 text-green-500', label: 'Publicado' },
+      'draft': { color: 'bg-yellow-500/20 text-yellow-500', label: 'Rascunho' },
+      'archived': { color: 'bg-gray-500/20 text-gray-500', label: 'Arquivado' }
+    };
+    
+    const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.draft;
+    
+    return (
+      <Badge variant="secondary" className={`${statusInfo.color} text-xs`}>
+        {statusInfo.label}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -120,25 +137,16 @@ export const PagesPageContent = () => {
             <Card key={copy.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 flex-1">
                     <span className="text-2xl">{getPageTypeIcon(copy.copy_data?.page_type || '')}</span>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <CardTitle className="text-white text-lg truncate">{copy.title}</CardTitle>
-                      <p className="text-[#CCCCCC] text-sm">{copy.copy_data?.page_type || 'Página'}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-[#CCCCCC] text-sm">{copy.copy_data?.page_type || 'Página'}</p>
+                        {getStatusBadge(copy.status)}
+                      </div>
                     </div>
                   </div>
-                  <Badge 
-                    variant="secondary" 
-                    className={`${
-                      copy.status === 'published' 
-                        ? 'bg-green-500/20 text-green-500' 
-                        : copy.status === 'draft'
-                        ? 'bg-yellow-500/20 text-yellow-500'
-                        : 'bg-gray-500/20 text-gray-500'
-                    }`}
-                  >
-                    {copy.status}
-                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

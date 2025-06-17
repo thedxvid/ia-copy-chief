@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Video, Edit, Trash2, Copy, Package } from 'lucide-react';
+import { Plus, Search, Filter, Play, Edit, Trash2, Copy } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateVideoModal } from './CreateVideoModal';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,8 @@ export const SalesVideosPageContent = () => {
   const [isCreating, setIsCreating] = useState(false);
 
   const filteredCopies = copies.filter(copy =>
-    copy.title.toLowerCase().includes(searchTerm.toLowerCase())
+    copy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    copy.copy_data?.video_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleCreateVideo = async (briefing: any) => {
@@ -24,15 +25,14 @@ export const SalesVideosPageContent = () => {
     try {
       const copyData = {
         copy_type: 'sales-videos' as const,
-        title: `VSL - ${briefing.product_name}`,
+        title: `${briefing.video_type} - ${briefing.product_name}`,
         copy_data: briefing,
-        status: 'draft' as const,
-        product_id: briefing.product_id
+        status: 'draft' as const
       };
 
       await createCopy(copyData);
       setShowCreateModal(false);
-      toast.success('Script VSL criado com sucesso!');
+      toast.success('Vídeo de vendas criado com sucesso!');
     } catch (error) {
       console.error('Erro ao criar vídeo:', error);
       toast.error('Erro ao criar vídeo');
@@ -41,10 +41,41 @@ export const SalesVideosPageContent = () => {
     }
   };
 
+  const getVideoTypeIcon = (videoType: string) => {
+    switch (videoType) {
+      case 'vsl':
+        return '🎬';
+      case 'webinar':
+        return '📺';
+      case 'demo':
+        return '💻';
+      case 'testimonial':
+        return '💬';
+      default:
+        return '🎥';
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusMap = {
+      'published': { color: 'bg-green-500/20 text-green-500', label: 'Publicado' },
+      'draft': { color: 'bg-yellow-500/20 text-yellow-500', label: 'Rascunho' },
+      'archived': { color: 'bg-gray-500/20 text-gray-500', label: 'Arquivado' }
+    };
+    
+    const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.draft;
+    
+    return (
+      <Badge variant="secondary" className={`${statusInfo.color} text-xs`}>
+        {statusInfo.label}
+      </Badge>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Carregando vídeos de venda...</div>
+        <div className="text-white">Carregando vídeos...</div>
       </div>
     );
   }
@@ -53,15 +84,15 @@ export const SalesVideosPageContent = () => {
     <div className="space-y-6 p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Vídeos de Venda</h1>
-          <p className="text-[#CCCCCC]">Crie scripts e roteiros para VSLs de alta conversão</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Vídeos de Vendas</h1>
+          <p className="text-[#CCCCCC]">Crie roteiros para VSLs, webinars e vídeos de demonstração</p>
         </div>
         <Button 
           onClick={() => setShowCreateModal(true)}
           className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Criar Script VSL
+          Criar Vídeo
         </Button>
       </div>
 
@@ -69,7 +100,7 @@ export const SalesVideosPageContent = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#CCCCCC] w-4 h-4" />
           <Input
-            placeholder="Buscar scripts..."
+            placeholder="Buscar vídeos..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 bg-[#1E1E1E] border-[#4B5563] text-white"
@@ -84,10 +115,10 @@ export const SalesVideosPageContent = () => {
       {filteredCopies.length === 0 ? (
         <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Video className="w-12 h-12 text-[#4B5563] mb-4" />
-            <h3 className="text-white text-lg font-medium mb-2">Nenhum script encontrado</h3>
+            <Play className="w-12 h-12 text-[#4B5563] mb-4" />
+            <h3 className="text-white text-lg font-medium mb-2">Nenhum vídeo encontrado</h3>
             <p className="text-[#CCCCCC] text-center mb-4">
-              {searchTerm ? 'Tente ajustar sua busca' : 'Comece criando seu primeiro script de VSL'}
+              {searchTerm ? 'Tente ajustar sua busca' : 'Comece criando seu primeiro vídeo de vendas'}
             </p>
             {!searchTerm && (
               <Button 
@@ -95,59 +126,38 @@ export const SalesVideosPageContent = () => {
                 className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Criar Primeiro Script
+                Criar Primeiro Vídeo
               </Button>
             )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCopies.map((copy) => (
             <Card key={copy.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Video className="w-6 h-6 text-[#3B82F6]" />
-                    <div>
-                      <CardTitle className="text-white text-lg">{copy.title}</CardTitle>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-[#CCCCCC] text-sm">
-                          {copy.copy_data?.duration ? `${copy.copy_data.duration} min` : 'Duração não definida'}
-                        </p>
-                        {(copy as any).products && (
-                          <div className="flex items-center gap-1">
-                            <Package className="w-3 h-3 text-[#3B82F6]" />
-                            <span className="text-xs text-[#3B82F6]">
-                              {(copy as any).products.name}
-                            </span>
-                          </div>
-                        )}
+                  <div className="flex items-center space-x-2 flex-1">
+                    <span className="text-2xl">{getVideoTypeIcon(copy.copy_data?.video_type || '')}</span>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-white text-lg truncate">{copy.title}</CardTitle>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-[#CCCCCC] text-sm">{copy.copy_data?.video_type || 'Vídeo'}</p>
+                        {getStatusBadge(copy.status)}
                       </div>
                     </div>
                   </div>
-                  <Badge 
-                    variant="secondary" 
-                    className={`${
-                      copy.status === 'published' 
-                        ? 'bg-green-500/20 text-green-500' 
-                        : copy.status === 'draft'
-                        ? 'bg-yellow-500/20 text-yellow-500'
-                        : 'bg-gray-500/20 text-gray-500'
-                    }`}
-                  >
-                    {copy.status}
-                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-[#CCCCCC] text-sm line-clamp-3">
-                  {copy.copy_data?.hook || copy.copy_data?.script?.substring(0, 150) || 'Sem conteúdo'}...
+                  {copy.copy_data?.hook || copy.copy_data?.content || 'Roteiro gerado'}
                 </div>
                 
                 <div className="flex items-center justify-between text-xs text-[#CCCCCC]">
                   <span>Criado: {new Date(copy.created_at).toLocaleDateString('pt-BR')}</span>
-                  {copy.copy_data?.script && (
-                    <span>{Math.ceil(copy.copy_data.script.length / 1000)}k caracteres</span>
+                  {copy.tags && copy.tags.length > 0 && (
+                    <span>{copy.tags.length} tag(s)</span>
                   )}
                 </div>
 

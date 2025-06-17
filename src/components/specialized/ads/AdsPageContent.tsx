@@ -79,7 +79,7 @@ export const AdsPageContent = () => {
     const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.draft;
     
     return (
-      <Badge variant="secondary" className={statusInfo.color}>
+      <Badge variant="secondary" className={`${statusInfo.color} text-xs`}>
         {statusInfo.label}
       </Badge>
     );
@@ -95,11 +95,11 @@ export const AdsPageContent = () => {
                 <span className="text-2xl">{getPlatformIcon(copy.platform || '')}</span>
                 <div className="flex-1 min-w-0">
                   <CardTitle className="text-white text-lg truncate">{copy.title}</CardTitle>
-                  <p className="text-[#CCCCCC] text-sm">{copy.platform || 'Geral'}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[#CCCCCC] text-sm">{copy.platform || 'Geral'}</p>
+                    {getStatusBadge(copy.status)}
+                  </div>
                 </div>
-              </div>
-              <div className="ml-2">
-                {getStatusBadge(copy.status)}
               </div>
             </div>
           </CardHeader>
@@ -157,7 +157,10 @@ export const AdsPageContent = () => {
               <div className="flex items-center space-x-4 flex-1">
                 <span className="text-2xl">{getPlatformIcon(copy.platform || '')}</span>
                 <div className="flex-1">
-                  <h3 className="text-white font-medium">{copy.title}</h3>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-white font-medium">{copy.title}</h3>
+                    {getStatusBadge(copy.status)}
+                  </div>
                   <p className="text-[#CCCCCC] text-sm mt-1">
                     {copy.copy_data?.generated_copy?.headline || copy.copy_data?.headline || 'Copy gerada'}
                   </p>
@@ -169,7 +172,6 @@ export const AdsPageContent = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                {getStatusBadge(copy.status)}
                 <Button 
                   size="sm" 
                   variant="outline" 
