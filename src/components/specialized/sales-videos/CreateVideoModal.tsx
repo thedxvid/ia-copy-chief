@@ -6,6 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { ProductSelector } from '@/components/ui/product-selector';
+import { useProducts } from '@/hooks/useProducts';
+import { createProductPromptContext } from '@/utils/productContext';
 
 interface SalesVideoBriefing {
   copy_type: string;
@@ -18,6 +21,7 @@ interface SalesVideoBriefing {
   offer_details: string;
   price_strategy: string;
   additional_info: string;
+  product_id?: string;
 }
 
 interface CreateVideoModalProps {
@@ -33,6 +37,8 @@ export const CreateVideoModal: React.FC<CreateVideoModalProps> = ({
   onSubmit,
   isLoading
 }) => {
+  const { fetchProductDetails } = useProducts();
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>();
   const [briefing, setBriefing] = useState<SalesVideoBriefing>({
     copy_type: 'sales_video',
     product_name: '',
@@ -48,7 +54,41 @@ export const CreateVideoModal: React.FC<CreateVideoModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(briefing);
+    
+    let enhancedBriefing = { ...briefing };
+    
+    // Se um produto foi selecionado, incluir seu contexto
+    if (selectedProductId) {
+      const productDetails = await fetchProductDetails(selectedProductId);
+      if (productDetails) {
+        enhancedBriefing.product_id = selectedProductId;
+        
+        // Pré-preencher campos se estiverem vazios
+        if (!briefing.product_name) {
+          enhancedBriefing.product_name = productDetails.name;
+        }
+        
+        if (!briefing.target_audience && productDetails.strategy?.target_audience) {
+          const audience = typeof productDetails.strategy.target_audience === 'string'
+            ? productDetails.strategy.target_audience
+            : JSON.stringify(productDetails.strategy.target_audience);
+          enhancedBriefing.target_audience = audience;
+        }
+        
+        if (!briefing.product_benefits && productDetails.strategy?.value_proposition) {
+          enhancedBriefing.product_benefits = productDetails.strategy.value_proposition;
+        }
+        
+        if (!briefing.offer_details && productDetails.offer?.main_offer) {
+          const offer = typeof productDetails.offer.main_offer === 'string'
+            ? productDetails.offer.main_offer
+            : JSON.stringify(productDetails.offer.main_offer);
+          enhancedBriefing.offer_details = offer;
+        }
+      }
+    }
+    
+    await onSubmit(enhancedBriefing);
   };
 
   const resetForm = () => {
@@ -64,6 +104,7 @@ export const CreateVideoModal: React.FC<CreateVideoModalProps> = ({
       price_strategy: '',
       additional_info: ''
     });
+    setSelectedProductId(undefined);
   };
 
   const handleClose = () => {
@@ -86,6 +127,13 @@ export const CreateVideoModal: React.FC<CreateVideoModalProps> = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <ProductSelector
+            value={selectedProductId}
+            onValueChange={setSelectedProductId}
+            placeholder="Selecione um produto para usar como contexto"
+            showPreview={true}
+          />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="product_name" className="text-white">Nome do Produto *</Label>

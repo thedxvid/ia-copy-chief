@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +18,7 @@ export interface SpecializedCopy {
   tags?: string[] | null;
   version: number;
   parent_copy_id?: string | null;
+  product_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,7 +41,15 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
 
       let query = supabase
         .from('specialized_copies')
-        .select('*')
+        .select(`
+          *,
+          products (
+            id,
+            name,
+            niche,
+            sub_niche
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -62,7 +70,8 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
         status: item.status as CopyStatus,
         platform: item.platform || undefined,
         tags: item.tags || undefined,
-        parent_copy_id: item.parent_copy_id || undefined
+        parent_copy_id: item.parent_copy_id || undefined,
+        product_id: item.product_id || undefined
       }));
 
       setCopies(typedData);
@@ -90,23 +99,32 @@ export const useSpecializedCopies = (copyType?: CopyType) => {
           copy_data: copyData.copy_data || {},
           status: copyData.status || 'draft',
           platform: copyData.platform,
-          tags: copyData.tags || []
+          tags: copyData.tags || [],
+          product_id: copyData.product_id
         })
-        .select()
+        .select(`
+          *,
+          products (
+            id,
+            name,
+            niche,
+            sub_niche
+          )
+        `)
         .single();
 
       if (error) {
         throw error;
       }
 
-      // Properly type the returned data to match our SpecializedCopy interface
       const typedData: SpecializedCopy = {
         ...data,
         copy_type: data.copy_type as CopyType,
         status: data.status as CopyStatus,
         platform: data.platform || undefined,
         tags: data.tags || undefined,
-        parent_copy_id: data.parent_copy_id || undefined
+        parent_copy_id: data.parent_copy_id || undefined,
+        product_id: data.product_id || undefined
       };
 
       toast.success('Copy criada com sucesso!');

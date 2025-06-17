@@ -96,6 +96,7 @@ export type Database = {
           id: string
           is_active: boolean
           message_count: number
+          product_id: string | null
           title: string | null
           updated_at: string
           user_id: string
@@ -107,6 +108,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           message_count?: number
+          product_id?: string | null
           title?: string | null
           updated_at?: string
           user_id: string
@@ -118,11 +120,20 @@ export type Database = {
           id?: string
           is_active?: boolean
           message_count?: number
+          product_id?: string | null
           title?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_sessions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_agents: {
         Row: {
@@ -591,6 +602,7 @@ export type Database = {
           created_at: string
           generated_copy: Json
           id: string
+          product_id: string | null
           quiz_answers: Json
           quiz_type: string
           title: string
@@ -601,6 +613,7 @@ export type Database = {
           created_at?: string
           generated_copy: Json
           id?: string
+          product_id?: string | null
           quiz_answers: Json
           quiz_type: string
           title: string
@@ -611,13 +624,22 @@ export type Database = {
           created_at?: string
           generated_copy?: Json
           id?: string
+          product_id?: string | null
           quiz_answers?: Json
           quiz_type?: string
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quiz_copies_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       specialized_copies: {
         Row: {
@@ -628,6 +650,7 @@ export type Database = {
           parent_copy_id: string | null
           performance_metrics: Json | null
           platform: string | null
+          product_id: string | null
           status: string
           tags: string[] | null
           title: string
@@ -643,6 +666,7 @@ export type Database = {
           parent_copy_id?: string | null
           performance_metrics?: Json | null
           platform?: string | null
+          product_id?: string | null
           status?: string
           tags?: string[] | null
           title: string
@@ -658,6 +682,7 @@ export type Database = {
           parent_copy_id?: string | null
           performance_metrics?: Json | null
           platform?: string | null
+          product_id?: string | null
           status?: string
           tags?: string[] | null
           title?: string
@@ -671,6 +696,13 @@ export type Database = {
             columns: ["parent_copy_id"]
             isOneToOne: false
             referencedRelation: "specialized_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialized_copies_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]

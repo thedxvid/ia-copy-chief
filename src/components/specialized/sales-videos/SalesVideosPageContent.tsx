@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Video, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, Filter, Video, Edit, Trash2, Copy, Package } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateVideoModal } from './CreateVideoModal';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,8 @@ export const SalesVideosPageContent = () => {
         copy_type: 'sales-videos' as const,
         title: `VSL - ${briefing.product_name}`,
         copy_data: briefing,
-        status: 'draft' as const
+        status: 'draft' as const,
+        product_id: briefing.product_id
       };
 
       await createCopy(copyData);
@@ -108,9 +110,19 @@ export const SalesVideosPageContent = () => {
                     <Video className="w-6 h-6 text-[#3B82F6]" />
                     <div>
                       <CardTitle className="text-white text-lg">{copy.title}</CardTitle>
-                      <p className="text-[#CCCCCC] text-sm">
-                        {copy.copy_data?.duration ? `${copy.copy_data.duration} min` : 'Duração não definida'}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-[#CCCCCC] text-sm">
+                          {copy.copy_data?.duration ? `${copy.copy_data.duration} min` : 'Duração não definida'}
+                        </p>
+                        {(copy as any).products && (
+                          <div className="flex items-center gap-1">
+                            <Package className="w-3 h-3 text-[#3B82F6]" />
+                            <span className="text-xs text-[#3B82F6]">
+                              {(copy as any).products.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <Badge 
