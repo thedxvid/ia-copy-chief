@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,22 +9,86 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
 import { QuizQuestion, getQuizQuestions, getQuizTitle } from '@/data/quizQuestions';
+import { useProducts } from '@/hooks/useProducts';
 
 interface QuizFlowProps {
   quizType: string;
+  productId?: string;
   onComplete: (answers: Record<string, string>) => void;
   onBack: () => void;
   isLoading?: boolean;
 }
 
-export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack, isLoading = false }) => {
+export const QuizFlow: React.FC<QuizFlowProps> = ({ 
+  quizType, 
+  productId, 
+  onComplete, 
+  onBack, 
+  isLoading = false 
+}) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentAnswer, setCurrentAnswer] = useState('');
+  const { fetchProductDetails } = useProducts();
+  const [productDetails, setProductDetails] = useState<any>(null);
 
   const questions = getQuizQuestions(quizType);
   const quizTitle = getQuizTitle(quizType);
   const progress = ((currentQuestion + 1) / questions.length) * 100;
+
+  // Carregar detalhes do produto se ID foi fornecido
+  useEffect(() => {
+    if (productId) {
+      fetchProductDetails(productId).then(details => {
+        if (details) {
+          setProductDetails(details);
+          
+          // Pré-preencher respostas baseadas no produto
+          const prefilledAnswers: Record<string, string> = {};
+          
+          // Preencher nome do produto
+          if (details.name) {
+            prefilledAnswers['product'] = details.name;
+          }
+          
+          // Preencher público-alvo se disponível
+          if (details.strategy?.target_audience) {
+            const audience = typeof details.strategy.target_audience === 'string' 
+              ? details.strategy.target_audience 
+              : JSON.stringify(details.strategy.target_audience);
+            prefilledAnswers['target'] = audience;
+          }
+          
+          // Preencher proposta de valor
+          if (details.strategy?.value_proposition) {
+            prefilledAnswers['benefit'] = details.strategy.value_proposition;
+          }
+          
+          // Preencher preço se disponível
+          if (details.offer?.pricing_strategy) {
+            const pricing = typeof details.offer.pricing_strategy === 'string'
+              ? details.offer.pricing_strategy
+              : JSON.stringify(details.offer.pricing_strategy);
+            prefilledAnswers['price'] = pricing;
+          }
+          
+          setAnswers(prefilledAnswers);
+          
+          // Se a primeira pergunta tem resposta pré-preenchida, definir como resposta atual
+          if (questions[0] && prefilledAnswers[questions[0].id]) {
+            setCurrentAnswer(prefilledAnswers[questions[0].id]);
+          }
+        }
+      });
+    }
+  }, [productId, fetchProductDetails, questions]);
+
+  // Atualizar resposta atual quando mudar de pergunta
+  useEffect(() => {
+    if (questions[currentQuestion]) {
+      setCurrentAnswer(answers[questions[currentQuestion].id] || '');
+    }
+  }, [currentQuestion, answers, questions]);
 
   const handleNext = () => {
     if (currentAnswer.trim() || !questions[currentQuestion].required) {
@@ -142,6 +207,11 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack
           <h1 className="text-2xl font-bold text-white">{quizTitle}</h1>
           <p className="text-[#CCCCCC]">
             Pergunta {currentQuestion + 1} de {questions.length}
+            {productDetails && (
+              <span className="ml-2 text-[#3B82F6]">
+                • Contexto: {productDetails.name}
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -165,6 +235,11 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack
           {currentQ.type === 'radio' && (
             <CardDescription className="text-[#CCCCCC]">
               Selecione a opção que melhor descreve sua situação
+            </CardDescription>
+          )}
+          {productDetails && currentAnswer && (
+            <CardDescription className="text-[#3B82F6] text-sm">
+              ✓ Informação pré-preenchida baseada no produto selecionado
             </CardDescription>
           )}
         </CardHeader>
@@ -227,6 +302,11 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({ quizType, onComplete, onBack
       {/* Help text */}
       <div className="text-center text-[#888888] text-sm">
         💡 Responda com o máximo de detalhes possível para obter copies mais precisas via Claude AI
+        {productDetails && (
+          <div className="mt-2 text-[#3B82F6]">
+            🎯 Algumas respostas foram pré-preenchidas baseadas no produto "{productDetails.name}"
+          </div>
+        )}
       </div>
     </div>
   );

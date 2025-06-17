@@ -33,6 +33,10 @@ const Quiz = () => {
     setCurrentStep('quiz');
   };
 
+  const handleProductChange = (productId: string | undefined) => {
+    setSelectedProductId(productId);
+  };
+
   const handleQuizComplete = async (answers: Record<string, string>) => {
     console.log('🎯 Quiz completed with answers:', answers);
     console.log('👤 Current user:', user);
@@ -239,6 +243,7 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
     setGeneratedCopy(null);
     setQuizAnswers({});
     setSavedCopyId(null);
+    // Manter o produto selecionado para facilitar a experiência do usuário
   };
 
   const handleBackToQuiz = () => {
@@ -299,7 +304,11 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
   if (currentStep === 'selector') {
     return (
       <DashboardLayout>
-        <QuizSelector onSelectQuiz={handleSelectQuiz} />
+        <QuizSelector 
+          onSelectQuiz={handleSelectQuiz} 
+          selectedProductId={selectedProductId}
+          onProductChange={handleProductChange}
+        />
       </DashboardLayout>
     );
   }
@@ -309,6 +318,7 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
       <DashboardLayout>
         <QuizFlow
           quizType={selectedQuizType}
+          productId={selectedProductId}
           onComplete={handleQuizComplete}
           onBack={handleBackToSelector}
           isLoading={isGenerating}

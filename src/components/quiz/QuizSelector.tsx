@@ -69,10 +69,15 @@ const quizOptions: QuizOption[] = [
 
 interface QuizSelectorProps {
   onSelectQuiz: (quizType: string, productId?: string) => void;
+  selectedProductId?: string;
+  onProductChange?: (productId: string | undefined) => void;
 }
 
-export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
-  const [selectedProductId, setSelectedProductId] = React.useState<string | undefined>(undefined);
+export const QuizSelector: React.FC<QuizSelectorProps> = ({ 
+  onSelectQuiz, 
+  selectedProductId,
+  onProductChange 
+}) => {
   const { products } = useProducts();
 
   const handleQuizSelect = (quizType: string) => {
@@ -96,7 +101,7 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
       <div className="max-w-2xl mx-auto">
         <ProductSelector
           value={selectedProductId}
-          onValueChange={setSelectedProductId}
+          onValueChange={onProductChange}
           showPreview={false}
           placeholder="Selecione um produto para contextualizar o quiz"
         />
