@@ -16,7 +16,7 @@ interface AdsBriefing {
   product_name: string;
   product_benefits: string;
   target_audience: string;
-  tone: string;
+  tone: 'professional' | 'casual' | 'urgent' | 'emotional' | 'educational';
   objective: string;
   platform: string;
   campaign_objective: 'sales' | 'leads' | 'traffic' | 'awareness';
@@ -117,6 +117,13 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({
     }));
   };
 
+  const handleToneChange = (value: 'professional' | 'casual' | 'urgent' | 'emotional' | 'educational') => {
+    setBriefing(prev => ({
+      ...prev,
+      tone: value
+    }));
+  };
+
   const handleCampaignObjectiveChange = (value: 'sales' | 'leads' | 'traffic' | 'awareness') => {
     setBriefing(prev => ({
       ...prev,
@@ -195,15 +202,16 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="tone" className="text-white">Tom de Voz</Label>
-              <Select value={briefing.tone} onValueChange={(value) => handleInputChange('tone', value)}>
+              <Select value={briefing.tone} onValueChange={handleToneChange}>
                 <SelectTrigger className="bg-[#2A2A2A] border-[#4B5563] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#2A2A2A] border-[#4B5563] text-white">
                   <SelectItem value="professional">Profissional</SelectItem>
                   <SelectItem value="casual">Casual</SelectItem>
-                  <SelectItem value="enthusiastic">Entusiasmado</SelectItem>
                   <SelectItem value="urgent">Urgente</SelectItem>
+                  <SelectItem value="emotional">Emocional</SelectItem>
+                  <SelectItem value="educational">Educacional</SelectItem>
                 </SelectContent>
               </Select>
             </div>

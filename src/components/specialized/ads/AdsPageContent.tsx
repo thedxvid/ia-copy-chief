@@ -69,31 +69,38 @@ export const AdsPageContent = () => {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const statusMap = {
+      'published': { color: 'bg-green-500/20 text-green-500', label: 'Publicado' },
+      'draft': { color: 'bg-yellow-500/20 text-yellow-500', label: 'Rascunho' },
+      'archived': { color: 'bg-gray-500/20 text-gray-500', label: 'Arquivado' }
+    };
+    
+    const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.draft;
+    
+    return (
+      <Badge variant="secondary" className={statusInfo.color}>
+        {statusInfo.label}
+      </Badge>
+    );
+  };
+
   const renderGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {filteredCopies.map((copy) => (
         <Card key={copy.id} className="bg-[#1E1E1E] border-[#4B5563]/20 hover:border-[#4B5563]/40 transition-all">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-1">
                 <span className="text-2xl">{getPlatformIcon(copy.platform || '')}</span>
-                <div>
+                <div className="flex-1 min-w-0">
                   <CardTitle className="text-white text-lg truncate">{copy.title}</CardTitle>
                   <p className="text-[#CCCCCC] text-sm">{copy.platform || 'Geral'}</p>
                 </div>
               </div>
-              <Badge 
-                variant="secondary" 
-                className={`${
-                  copy.status === 'published' 
-                    ? 'bg-green-500/20 text-green-500' 
-                    : copy.status === 'draft'
-                    ? 'bg-yellow-500/20 text-yellow-500'
-                    : 'bg-gray-500/20 text-gray-500'
-                }`}
-              >
-                {copy.status}
-              </Badge>
+              <div className="ml-2">
+                {getStatusBadge(copy.status)}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -162,18 +169,7 @@ export const AdsPageContent = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <Badge 
-                  variant="secondary" 
-                  className={`${
-                    copy.status === 'published' 
-                      ? 'bg-green-500/20 text-green-500' 
-                      : copy.status === 'draft'
-                      ? 'bg-yellow-500/20 text-yellow-500'
-                      : 'bg-gray-500/20 text-gray-500'
-                  }`}
-                >
-                  {copy.status}
-                </Badge>
+                {getStatusBadge(copy.status)}
                 <Button 
                   size="sm" 
                   variant="outline" 
