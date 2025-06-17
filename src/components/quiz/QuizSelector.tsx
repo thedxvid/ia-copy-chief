@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Video, Package, MousePointer, Megaphone, Clock, ArrowRight } from 'lucide-react';
+import { ProductSelector } from '@/components/ui/product-selector';
 
 interface QuizOption {
   id: string;
@@ -64,10 +65,16 @@ const quizOptions: QuizOption[] = [
 ];
 
 interface QuizSelectorProps {
-  onSelectQuiz: (quizType: string) => void;
+  onSelectQuiz: (quizType: string, productId?: string) => void;
 }
 
 export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
+  const [selectedProductId, setSelectedProductId] = React.useState<string | undefined>(undefined);
+
+  const handleQuizSelect = (quizType: string) => {
+    onSelectQuiz(quizType, selectedProductId);
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="text-center">
@@ -80,12 +87,21 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
         </p>
       </div>
 
+      <div className="max-w-2xl mx-auto">
+        <ProductSelector
+          value={selectedProductId}
+          onValueChange={setSelectedProductId}
+          showPreview={true}
+          placeholder="Selecione um produto para contextualizar o quiz"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {quizOptions.map((option) => (
           <Card
             key={option.id}
             className={`${option.bgColor} border-2 hover:scale-105 transition-all duration-300 cursor-pointer group`}
-            onClick={() => onSelectQuiz(option.id)}
+            onClick={() => handleQuizSelect(option.id)}
           >
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-4 p-4 rounded-2xl bg-[#1A1A1A] w-fit">
@@ -115,7 +131,7 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({ onSelectQuiz }) => {
                 className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white group-hover:bg-[#2563EB] transition-all duration-200"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSelectQuiz(option.id);
+                  handleQuizSelect(option.id);
                 }}
               >
                 Começar Quiz

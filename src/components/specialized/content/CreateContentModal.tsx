@@ -6,6 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { ProductSelector } from '@/components/ui/product-selector';
+import { useProducts } from '@/hooks/useProducts';
 
 interface ContentBriefing {
   copy_type: string;
@@ -18,6 +20,7 @@ interface ContentBriefing {
   content_length: string;
   call_to_action: string;
   additional_info: string;
+  product_id?: string;
 }
 
 interface CreateContentModalProps {
@@ -33,6 +36,8 @@ export const CreateContentModal: React.FC<CreateContentModalProps> = ({
   onSubmit,
   isLoading
 }) => {
+  const { fetchProductDetails } = useProducts();
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const [briefing, setBriefing] = useState<ContentBriefing>({
     copy_type: 'content',
     product_name: '',
@@ -45,6 +50,27 @@ export const CreateContentModal: React.FC<CreateContentModalProps> = ({
     call_to_action: '',
     additional_info: ''
   });
+
+  const handleProductChange = async (productId: string | undefined) => {
+    setSelectedProductId(productId);
+    
+    if (productId) {
+      const productDetails = await fetchProductDetails(productId);
+      if (productDetails) {
+        setBriefing(prev => ({
+          ...prev,
+          product_id: productId,
+          product_name: productDetails.name || prev.product_name,
+          product_benefits: productDetails.strategy?.value_proposition || prev.product_benefits,
+          target_audience: typeof productDetails.strategy?.target_audience === 'string' 
+            ? productDetails.strategy.target_audience 
+            : JSON.stringify(productDetails.strategy?.target_audience) || prev.target_audience
+        }));
+      }
+    } else {
+      setBriefing(prev => ({ ...prev, product_id: undefined }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +90,7 @@ export const CreateContentModal: React.FC<CreateContentModalProps> = ({
       call_to_action: '',
       additional_info: ''
     });
+    setSelectedProductId(undefined);
   };
 
   const handleClose = () => {
@@ -86,6 +113,12 @@ export const CreateContentModal: React.FC<CreateContentModalProps> = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <ProductSelector
+            value={selectedProductId}
+            onValueChange={handleProductChange}
+            showPreview={true}
+          />
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="product_name" className="text-white">Nome do Produto *</Label>

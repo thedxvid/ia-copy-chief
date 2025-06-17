@@ -1,70 +1,98 @@
 
-import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AgentSelector } from './AgentSelector';
+import React, { useState } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
+import { AgentSelector } from './AgentSelector';
 import { useChatAgent } from '@/hooks/useChatAgent';
-import { Trash2 } from 'lucide-react';
+import { ProductSelector } from '@/components/ui/product-selector';
 
-export const ChatInterface: React.FC = () => {
-  const { chatState, selectAgent, sendMessage, clearChat } = useChatAgent();
+export const ChatInterface = () => {
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
+  const {
+    sessions,
+    activeSession,
+    createNewSession,
+    selectSession,
+    sendMessage,
+    regenerateLastMessage,
+    isLoading,
+    selectedAgent,
+    setSelectedAgent
+  } = useChatAgent(selectedProductId);
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6">
-      {/* Header */}
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Chat com Agentes de IA</h1>
-        <p className="text-[#CCCCCC] text-sm sm:text-base px-4">Converse com especialistas em copywriting e marketing digital</p>
-      </div>
-
-      {/* Agent Selector */}
-      <div className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <AgentSelector
-          selectedAgent={chatState.selectedAgent}
-          onSelectAgent={selectAgent}
-        />
-        
-        {chatState.messages.length > 0 && (
-          <Button
-            onClick={clearChat}
-            variant="outline"
-            className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A] flex-shrink-0"
+    <div className="flex h-[calc(100vh-2rem)] bg-[#0A0A0A] text-white">
+      {/* Sidebar com sessões */}
+      <div className="w-80 bg-[#1A1A1A] border-r border-[#333333] flex flex-col">
+        <div className="p-4 border-b border-[#333333]">
+          <h2 className="text-xl font-semibold text-white mb-4">Conversas</h2>
+          
+          <ProductSelector
+            value={selectedProductId}
+            onValueChange={setSelectedProductId}
+            showPreview={false}
+            className="mb-4"
+          />
+          
+          <AgentSelector
+            selectedAgent={selectedAgent}
+            onAgentChange={setSelectedAgent}
+          />
+          
+          <button
+            onClick={createNewSession}
+            className="w-full mt-4 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-lg transition-colors"
           >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Limpar Chat
-          </Button>
-        )}
-      </div>
-
-      {/* Selected Agent Info */}
-      {chatState.selectedAgent && (
-        <Card className="bg-[#1E1E1E] border-[#4B5563] mb-6">
-          <div className="p-4">
-            <div className="flex items-start space-x-3">
-              <span className="text-2xl flex-shrink-0">{chatState.selectedAgent.icon}</span>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-white font-medium text-sm sm:text-base truncate">{chatState.selectedAgent.name}</h3>
-                <p className="text-[#CCCCCC] text-xs sm:text-sm mt-1 break-words">{chatState.selectedAgent.description}</p>
+            Nova Conversa
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-2">
+          {sessions.map((session) => (
+            <div
+              key={session.id}
+              onClick={() => selectSession(session.id)}
+              className={`p-3 mb-2 rounded-lg cursor-pointer transition-colors ${
+                activeSession?.id === session.id
+                  ? 'bg-[#3B82F6] text-white'
+                  : 'bg-[#2A2A2A] text-[#CCCCCC] hover:bg-[#333333]'
+              }`}
+            >
+              <div className="font-medium text-sm">
+                {session.title || 'Nova conversa'}
+              </div>
+              <div className="text-xs opacity-70 mt-1">
+                {new Date(session.created_at).toLocaleDateString('pt-BR')}
               </div>
             </div>
-          </div>
-        </Card>
-      )}
+          ))}
+        </div>
+      </div>
 
-      {/* Chat Area */}
-      <Card className="bg-[#0F0F0F] border-[#4B5563] h-[500px] sm:h-[600px] flex flex-col">
-        <ChatMessages 
-          messages={chatState.messages} 
-          isLoading={chatState.isLoading}
-        />
-        <ChatInput
-          onSendMessage={sendMessage}
-          isLoading={chatState.isLoading}
-          disabled={!chatState.selectedAgent}
-        />
-      </Card>
+      {/* Área principal do chat */}
+      <div className="flex-1 flex flex-col">
+        {activeSession ? (
+          <>
+            <ChatMessages
+              sessionId={activeSession.id}
+              onRegenerate={regenerateLastMessage}
+              isLoading={isLoading}
+            />
+            <ChatInput
+              onSendMessage={sendMessage}
+              isLoading={isLoading}
+              disabled={!activeSession}
+            />
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-[#666666]">
+              <h3 className="text-xl font-medium mb-2">Bem-vindo ao Chat IA</h3>
+              <p>Selecione um agente e crie uma nova conversa para começar</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
