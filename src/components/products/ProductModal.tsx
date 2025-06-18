@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import {
@@ -90,7 +91,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const loadExistingData = async (productId: string) => {
     setLoadingExistingData(true);
     try {
-      console.log('Carregando dados para produto:', productId);
+      console.log('🔄 Carregando dados existentes para produto:', productId);
       
       // Buscar dados relacionados
       const [strategyResult, copyResult, offerResult] = await Promise.all([
@@ -99,40 +100,87 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         supabase.from('product_offer').select('*').eq('product_id', productId).maybeSingle(),
       ]);
 
-      console.log('Dados de estratégia:', strategyResult.data);
-      console.log('Dados de copy:', copyResult.data);
-      console.log('Dados de oferta:', offerResult.data);
+      console.log('📊 Dados carregados:', {
+        strategy: strategyResult.data,
+        copy: copyResult.data,
+        offer: offerResult.data
+      });
 
       // Carregar dados de estratégia
       if (strategyResult.data) {
         const strategy = strategyResult.data;
         const targetAudienceData = strategy.target_audience as TargetAudience | null;
+        
         setTargetAudience(targetAudienceData?.description || '');
         setMarketPositioning(strategy.market_positioning || '');
         setValueProposition(strategy.value_proposition || '');
+        
+        console.log('✅ Estratégia carregada:', {
+          targetAudience: targetAudienceData?.description || '',
+          marketPositioning: strategy.market_positioning || '',
+          valueProposition: strategy.value_proposition || ''
+        });
+      } else {
+        console.log('⚠️ Nenhum dado de estratégia encontrado');
+        setTargetAudience('');
+        setMarketPositioning('');
+        setValueProposition('');
       }
 
       // Carregar dados de copy
       if (copyResult.data) {
         const copy = copyResult.data;
-        setVslScript(copy.vsl_script || '');
         const landingPageCopy = copy.landing_page_copy as LandingPageCopy | null;
+        
+        setVslScript(copy.vsl_script || '');
         setHeadline(landingPageCopy?.headline || '');
         setSubtitle(landingPageCopy?.subtitle || '');
         setBenefits(landingPageCopy?.benefits || '');
         setSocialProof(landingPageCopy?.social_proof || '');
+        
+        console.log('✅ Copy carregado:', {
+          vslScript: copy.vsl_script || '',
+          headline: landingPageCopy?.headline || '',
+          subtitle: landingPageCopy?.subtitle || '',
+          benefits: landingPageCopy?.benefits || '',
+          socialProof: landingPageCopy?.social_proof || ''
+        });
+      } else {
+        console.log('⚠️ Nenhum dado de copy encontrado');
+        setVslScript('');
+        setHeadline('');
+        setSubtitle('');
+        setBenefits('');
+        setSocialProof('');
       }
 
       // Carregar dados de oferta
       if (offerResult.data) {
         const offer = offerResult.data;
         const mainOffer = offer.main_offer as MainOffer | null;
+        
         setMainOfferPromise(mainOffer?.promise || '');
         setMainOfferDescription(mainOffer?.description || '');
         setMainOfferPrice(mainOffer?.price || '');
+        
+        console.log('✅ Oferta carregada:', {
+          promise: mainOffer?.promise || '',
+          description: mainOffer?.description || '',
+          price: mainOffer?.price || ''
+        });
+      } else {
+        console.log('⚠️ Nenhum dado de oferta encontrado');
+        setMainOfferPromise('');
+        setMainOfferDescription('');
+        setMainOfferPrice('');
       }
     } catch (error) {
-      console.error('Erro ao carregar dados existentes:', error);
+      console.error('❌ Erro ao carregar dados existentes:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar dados do produto.",
+        variant: "destructive",
+      });
     } finally {
       setLoadingExistingData(false);
     }
@@ -140,6 +188,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   useEffect(() => {
     if (product) {
+      console.log('🔄 Produto selecionado para edição:', product);
       setName(product.name);
       setNiche(product.niche);
       setSubNiche(product.sub_niche || '');
@@ -148,6 +197,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       // Carregar dados relacionados
       loadExistingData(product.id);
     } else {
+      console.log('🆕 Criando novo produto - resetando formulário');
       // Reset form
       setName('');
       setNiche('');
@@ -178,14 +228,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
 
     setIsLoading(true);
-    console.log('Iniciando salvamento...');
+    console.log('💾 Iniciando processo de salvamento...');
 
     try {
       let productId = product?.id;
 
       // Create or update product
       if (product) {
-        console.log('Atualizando produto existente:', product.id);
+        console.log('🔄 Atualizando produto existente:', product.id);
         const { error } = await supabase
           .from('products')
           .update({
@@ -197,8 +247,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           .eq('id', product.id);
 
         if (error) throw error;
+        console.log('✅ Produto atualizado com sucesso');
       } else {
-        console.log('Criando novo produto');
+        console.log('🆕 Criando novo produto');
         const { data: newProduct, error } = await supabase
           .from('products')
           .insert({
@@ -213,113 +264,86 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
         if (error) throw error;
         productId = newProduct.id;
+        console.log('✅ Novo produto criado com ID:', productId);
       }
 
-      console.log('Produto salvo, ID:', productId);
-
-      // Salvar estratégia
+      // Preparar dados para salvar
       const strategyData = {
         product_id: productId,
-        target_audience: targetAudience.trim() ? { description: targetAudience.trim() } : {},
-        market_positioning: marketPositioning.trim() || '',
-        value_proposition: valueProposition.trim() || '',
+        target_audience: { description: targetAudience || '' },
+        market_positioning: marketPositioning || '',
+        value_proposition: valueProposition || '',
       };
 
-      console.log('Salvando estratégia:', strategyData);
-
-      // Verificar se já existe um registro de estratégia
-      const { data: existingStrategy } = await supabase
-        .from('product_strategy')
-        .select('id')
-        .eq('product_id', productId)
-        .maybeSingle();
-
-      if (existingStrategy) {
-        const { error: strategyError } = await supabase
-          .from('product_strategy')
-          .update(strategyData)
-          .eq('product_id', productId);
-
-        if (strategyError) throw strategyError;
-      } else {
-        const { error: strategyError } = await supabase
-          .from('product_strategy')
-          .insert(strategyData);
-
-        if (strategyError) throw strategyError;
-      }
-
-      // Salvar copy
       const copyData = {
         product_id: productId,
-        vsl_script: vslScript.trim() || '',
+        vsl_script: vslScript || '',
         landing_page_copy: {
-          headline: headline.trim() || '',
-          subtitle: subtitle.trim() || '',
-          benefits: benefits.trim() || '',
-          social_proof: socialProof.trim() || '',
+          headline: headline || '',
+          subtitle: subtitle || '',
+          benefits: benefits || '',
+          social_proof: socialProof || '',
         },
       };
 
-      console.log('Salvando copy:', copyData);
-
-      // Verificar se já existe um registro de copy
-      const { data: existingCopy } = await supabase
-        .from('product_copy')
-        .select('id')
-        .eq('product_id', productId)
-        .maybeSingle();
-
-      if (existingCopy) {
-        const { error: copyError } = await supabase
-          .from('product_copy')
-          .update(copyData)
-          .eq('product_id', productId);
-
-        if (copyError) throw copyError;
-      } else {
-        const { error: copyError } = await supabase
-          .from('product_copy')
-          .insert(copyData);
-
-        if (copyError) throw copyError;
-      }
-
-      // Salvar oferta
       const offerData = {
         product_id: productId,
         main_offer: {
-          promise: mainOfferPromise.trim() || '',
-          description: mainOfferDescription.trim() || '',
-          price: mainOfferPrice.trim() || '',
+          promise: mainOfferPromise || '',
+          description: mainOfferDescription || '',
+          price: mainOfferPrice || '',
         },
       };
 
-      console.log('Salvando oferta:', offerData);
+      console.log('📝 Dados preparados para salvamento:', {
+        strategy: strategyData,
+        copy: copyData,
+        offer: offerData
+      });
 
-      // Verificar se já existe um registro de oferta
-      const { data: existingOffer } = await supabase
-        .from('product_offer')
-        .select('id')
-        .eq('product_id', productId)
-        .maybeSingle();
+      // Salvar estratégia usando upsert
+      console.log('💾 Salvando estratégia...');
+      const { error: strategyError } = await supabase
+        .from('product_strategy')
+        .upsert(strategyData, {
+          onConflict: 'product_id',
+        });
 
-      if (existingOffer) {
-        const { error: offerError } = await supabase
-          .from('product_offer')
-          .update(offerData)
-          .eq('product_id', productId);
-
-        if (offerError) throw offerError;
-      } else {
-        const { error: offerError } = await supabase
-          .from('product_offer')
-          .insert(offerData);
-
-        if (offerError) throw offerError;
+      if (strategyError) {
+        console.error('❌ Erro ao salvar estratégia:', strategyError);
+        throw strategyError;
       }
+      console.log('✅ Estratégia salva com sucesso');
 
-      console.log('Todos os dados salvos com sucesso');
+      // Salvar copy usando upsert
+      console.log('💾 Salvando copy...');
+      const { error: copyError } = await supabase
+        .from('product_copy')
+        .upsert(copyData, {
+          onConflict: 'product_id',
+        });
+
+      if (copyError) {
+        console.error('❌ Erro ao salvar copy:', copyError);
+        throw copyError;
+      }
+      console.log('✅ Copy salvo com sucesso');
+
+      // Salvar oferta usando upsert
+      console.log('💾 Salvando oferta...');
+      const { error: offerError } = await supabase
+        .from('product_offer')
+        .upsert(offerData, {
+          onConflict: 'product_id',
+        });
+
+      if (offerError) {
+        console.error('❌ Erro ao salvar oferta:', offerError);
+        throw offerError;
+      }
+      console.log('✅ Oferta salva com sucesso');
+
+      console.log('🎉 Todos os dados salvos com sucesso!');
 
       toast({
         title: product ? "Produto atualizado" : "Produto criado",
@@ -330,7 +354,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
       onSuccess();
     } catch (error) {
-      console.error('Error saving product:', error);
+      console.error('❌ Erro no processo de salvamento:', error);
       toast({
         title: "Erro",
         description: "Não foi possível salvar o produto. Verifique o console para mais detalhes.",
