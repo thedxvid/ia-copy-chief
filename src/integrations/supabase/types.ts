@@ -839,6 +839,10 @@ export type Database = {
           total_used: number
         }[]
       }
+      is_user_admin: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
       reset_monthly_tokens: {
         Args: Record<PropertyKey, never>
         Returns: undefined

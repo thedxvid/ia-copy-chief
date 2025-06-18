@@ -13,7 +13,8 @@ import {
   PenTool,
   LogOut,
   User,
-  Settings
+  Settings,
+  Shield
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
@@ -70,6 +71,12 @@ export function AppSidebar() {
   const { signOut, user } = useAuth()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const currentPath = location.pathname
+
+  // Lista de emails de administradores definitivos
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  
+  // Verificar se é admin
+  const isAdmin = user?.email && adminEmails.includes(user.email);
 
   const isCollapsed = state === "collapsed"
   const isActive = (path: string) => currentPath === path
@@ -161,6 +168,30 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider">
+              Administrativo
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to="/admin" 
+                      end 
+                      className={({ isActive }) => `${getNavCls({ isActive })} flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors`}
+                    >
+                      <Shield className="h-4 w-4" />
+                      {!isCollapsed && <span>Admin</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-[#333333] p-2 mb-4">
@@ -186,6 +217,18 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563]">
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <NavLink to="/admin" className="flex items-center text-white hover:bg-[#2A2A2A]">
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin
+                        </NavLink>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-[#4B5563]" />
+                    </>
+                  )}
+                  
                   <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
                     <SheetTrigger asChild>
                       <DropdownMenuItem 
@@ -229,6 +272,18 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563]">
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <NavLink to="/admin" className="flex items-center text-white hover:bg-[#2A2A2A]">
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin
+                        </NavLink>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-[#4B5563]" />
+                    </>
+                  )}
+                  
                   <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
                     <SheetTrigger asChild>
                       <DropdownMenuItem 

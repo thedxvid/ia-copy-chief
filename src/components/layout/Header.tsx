@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ModernButton } from '@/components/ui/modern-button';
-import { Menu, X, User, LogOut, Bot, Settings } from 'lucide-react';
+import { Menu, X, User, LogOut, Bot, Settings, Shield } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,12 @@ export const Header = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
+
+  // Lista de emails de administradores definitivos
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  
+  // Verificar se é admin
+  const isAdmin = user?.email && adminEmails.includes(user.email);
 
   const handleSignOut = async () => {
     await signOut();
@@ -102,6 +108,18 @@ export const Header = () => {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563] z-50">
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link to="/admin" className="flex items-center text-white hover:bg-[#2A2A2A]">
+                              <Shield className="mr-2 h-4 w-4" />
+                              Admin
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-[#4B5563]" />
+                        </>
+                      )}
+                      
                       <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
                         <SheetTrigger asChild>
                           <DropdownMenuItem 
