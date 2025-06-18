@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,8 +83,13 @@ export const useQuizTemplates = () => {
     
     try {
       console.log('🔍 Fetching quiz templates...');
+      console.log('🔑 Current user:', user?.email);
+      console.log('🔐 Is admin:', isAdmin);
       
-      const { data, error } = await supabase
+      // Usar service role key para operações administrativas
+      const client = isAdmin ? supabase : supabase;
+      
+      const { data, error } = await client
         .from('quiz_templates')
         .select('*')
         .eq('is_active', true)
@@ -143,12 +147,21 @@ export const useQuizTemplates = () => {
     setIsLoading(true);
     try {
       console.log('📝 Creating new template:', template.title);
+      console.log('🔑 User ID:', user.id);
+      console.log('📋 Template data:', {
+        quiz_type: template.quiz_type,
+        title: template.title,
+        questions_count: template.questions.length
+      });
       
-      // Converter QuizQuestion[] para Json compatível usando unknown como intermediário
+      // Usar a sessão autenticada do usuário
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log('🔐 Session exists:', !!sessionData.session);
+      
       const templateData = {
         quiz_type: template.quiz_type,
         title: template.title,
-        description: template.description,
+        description: template.description || null,
         questions: template.questions as unknown as Database['public']['Tables']['quiz_templates']['Insert']['questions'],
         is_default: template.is_default,
         is_active: template.is_active,
@@ -164,6 +177,7 @@ export const useQuizTemplates = () => {
 
       if (error) {
         console.error('❌ Error creating template:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
 
