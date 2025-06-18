@@ -32,7 +32,7 @@ export interface QuizTemplate {
 }
 
 // Helper function to safely convert Json to QuizQuestion[]
-const parseQuestions = (questions: Json): QuizQuestion[] => {
+export const parseQuestions = (questions: Json): QuizQuestion[] => {
   if (Array.isArray(questions)) {
     return questions as unknown as QuizQuestion[];
   }

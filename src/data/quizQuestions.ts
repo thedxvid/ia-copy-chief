@@ -1,19 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { QuizQuestion } from '@/hooks/useQuizTemplates';
 
-export interface QuizQuestion {
-  id: string;
-  question: string;
-  type: 'textarea' | 'text' | 'radio' | 'number' | 'select';
-  required: boolean;
-  placeholder?: string;
-  options?: string[];
-  min?: number;
-  max?: number;
-  maxLength?: number;
-  helpText?: string;
-}
-
 export interface QuizData {
   [key: string]: QuizQuestion[];
 }
