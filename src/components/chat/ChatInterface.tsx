@@ -344,11 +344,11 @@ export const ChatInterface = () => {
 
         <ChatMessagesWithData />
         
-        {/* Botão flutuante para scroll - centralizado na área do chat */}
+        {/* Botão flutuante para scroll - movido mais para cima */}
         {showScrollButton && (
           <button
             onClick={scrollToBottom}
-            className={`absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
+            className={`absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
               showScrollButton ? 'opacity-30 hover:opacity-70 scale-100' : 'opacity-0 scale-95'
             }`}
             title="Ir para o final da conversa"
