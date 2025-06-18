@@ -534,6 +534,7 @@ export type Database = {
           checkout_url: string | null
           created_at: string
           extra_tokens: number | null
+          first_login: boolean
           full_name: string | null
           id: string
           is_admin: boolean
@@ -557,6 +558,7 @@ export type Database = {
           checkout_url?: string | null
           created_at?: string
           extra_tokens?: number | null
+          first_login?: boolean
           full_name?: string | null
           id: string
           is_admin?: boolean
@@ -580,6 +582,7 @@ export type Database = {
           checkout_url?: string | null
           created_at?: string
           extra_tokens?: number | null
+          first_login?: boolean
           full_name?: string | null
           id?: string
           is_admin?: boolean
