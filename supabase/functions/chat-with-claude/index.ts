@@ -17,7 +17,7 @@ serve(async (req) => {
     const { message, agentPrompt, chatHistory, agentName, isCustomAgent, userId, streaming = false } = await req.json();
 
     console.log('=== CHAT REQUEST DEBUG ===');
-    console.log('User ID:', userId);
+    console.log('User ID:', userId || 'undefined/null');
     console.log('Agent Name:', agentName);
     console.log('Is Custom Agent:', isCustomAgent);
     console.log('Message Length:', message.length);
@@ -39,9 +39,22 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verificar tokens disponíveis se userId fornecido
+    // Lista de emails de administradores
+    const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+    let isAdmin = false;
+    
+    // Verificar se é admin quando userId está disponível
     if (userId) {
-      console.log('=== TOKEN VERIFICATION ===');
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+      if (!userError && userData?.user?.email) {
+        isAdmin = adminEmails.includes(userData.user.email);
+        console.log('User is admin:', isAdmin);
+      }
+    }
+
+    // Verificar tokens disponíveis apenas para não-admins
+    if (userId && !isAdmin) {
+      console.log('=== TOKEN VERIFICATION (Non-admin) ===');
       
       const { data: tokensData, error: tokensError } = await supabase
         .rpc('get_available_tokens', { p_user_id: userId });
@@ -65,6 +78,8 @@ serve(async (req) => {
       if (!userTokens || userTokens.total_available < estimatedTokens) {
         throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para esta conversa.`);
       }
+    } else if (isAdmin) {
+      console.log('=== ADMIN ACCESS - Skipping token verification ===');
     }
 
     // Preparar mensagens para o modelo de IA
@@ -89,7 +104,7 @@ serve(async (req) => {
     console.log('System prompt length:', agentPrompt?.length || 0);
 
     const requestBody = {
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 3000,
       system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil.`,
       messages: messages,
@@ -103,7 +118,6 @@ serve(async (req) => {
       messages_count: requestBody.messages.length
     });
 
-    console.log('Tentativa 1/3 com modelo de IA avançado');
     console.log('Calling AI API...');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -121,7 +135,12 @@ serve(async (req) => {
       console.error('❌ AI API error:', response.status, errorText);
       
       if (response.status === 400) {
-        throw new Error('Erro na formatação da requisição para IA API');
+        // Verificar se é erro de créditos
+        if (errorText.includes('credit balance')) {
+          throw new Error('Saldo de créditos da API de IA insuficiente. Entre em contato com o suporte.');
+        } else {
+          throw new Error('Erro na formatação da requisição para IA API');
+        }
       } else if (response.status === 401) {
         throw new Error('Chave da API de IA inválida');
       } else if (response.status === 429) {
@@ -204,9 +223,9 @@ serve(async (req) => {
     const actualTokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
     console.log('Tokens realmente usados:', actualTokensUsed);
 
-    // Consumir tokens se userId fornecido
-    if (userId && actualTokensUsed > 0) {
-      console.log('=== TOKEN CONSUMPTION ===');
+    // Consumir tokens apenas para não-admins
+    if (userId && !isAdmin && actualTokensUsed > 0) {
+      console.log('=== TOKEN CONSUMPTION (Non-admin) ===');
       
       const { data: consumeResult, error: consumeError } = await supabase
         .rpc('consume_tokens', {
@@ -229,6 +248,8 @@ serve(async (req) => {
       
       const remainingTokens = tokensAfter?.[0]?.total_available || 0;
       console.log('Verificando notificações:', { remainingTokens, usagePercentage: ((100000 - remainingTokens) / 100000) * 100 });
+    } else if (isAdmin) {
+      console.log('=== ADMIN ACCESS - Skipping token consumption ===');
     }
 
     console.log('=== SUCCESS ===');
@@ -237,7 +258,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       response: assistantResponse,
       tokensUsed: actualTokensUsed,
-      tokensRemaining: userId ? await getUserRemainingTokens(supabase, userId) : null
+      tokensRemaining: (userId && !isAdmin) ? await getUserRemainingTokens(supabase, userId) : null
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -250,6 +271,9 @@ serve(async (req) => {
     
     if (error.message?.includes('Tokens insuficientes')) {
       statusCode = 402;
+      errorMessage = error.message;
+    } else if (error.message?.includes('créditos da API de IA')) {
+      statusCode = 503;
       errorMessage = error.message;
     } else if (error.message?.includes('IA API')) {
       statusCode = 503;

@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { ChatMessage, Agent, ChatState } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +23,10 @@ export const useChatAgent = (selectedProductId?: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const { fetchProductDetails } = useProducts();
   const { user } = useAuth();
+
+  // Lista de emails de administradores
+  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  const isAdmin = user?.email && adminEmails.includes(user.email);
 
   useEffect(() => {
     if (user) {
@@ -301,6 +304,8 @@ INSTRUÇÕES IMPORTANTES:
       // Determinar se é agente customizado
       const isCustomAgent = selectedAgent.id.startsWith('custom-');
 
+      console.log('Chamando chat function com userId:', user?.id);
+
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: content,
@@ -312,13 +317,29 @@ INSTRUÇÕES IMPORTANTES:
           agentName: selectedAgent.name,
           isCustomAgent,
           customAgentId: isCustomAgent ? selectedAgent.id.replace('custom-', '') : null,
-          productId: selectedProductId
+          productId: selectedProductId,
+          userId: user?.id // Garantir que o userId seja enviado
         }
       });
 
       if (error) {
         console.error('Error calling chat function:', error);
-        throw new Error(error.message || 'Erro ao conectar com a API');
+        
+        // Tratamento especial para administradores
+        if (isAdmin) {
+          console.log('Erro detectado para admin, verificando detalhes:', error);
+          
+          // Se for erro relacionado a créditos da API, mostrar mensagem específica para admin
+          if (error.message?.includes('credit balance') || error.message?.includes('API')) {
+            toast.error('Erro na API de IA: Verifique os créditos da conta Anthropic nas configurações do sistema.');
+          } else {
+            toast.error(`Erro no sistema de chat: ${error.message || 'Erro desconhecido'}`);
+          }
+        } else {
+          // Para usuários normais, mensagem mais genérica
+          toast.error('Erro temporário no chat. Tente novamente em alguns instantes.');
+        }
+        return;
       }
 
       const assistantMessageId = crypto.randomUUID();
@@ -346,11 +367,17 @@ INSTRUÇÕES IMPORTANTES:
 
     } catch (error) {
       console.error('Chat error:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao enviar mensagem');
+      
+      // Tratamento de erro mais específico
+      if (isAdmin) {
+        toast.error(`Erro técnico: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Verifique os logs para mais detalhes.`);
+      } else {
+        toast.error('Erro ao processar mensagem. Tente novamente.');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAgent, activeSession, selectedProductId, fetchProductDetails, user]);
+  }, [selectedAgent, activeSession, selectedProductId, fetchProductDetails, user, isAdmin]);
 
   const regenerateLastMessage = useCallback(async () => {
     if (!activeSession || !selectedAgent) return;
