@@ -66,23 +66,52 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
     const mappedAnswers: Record<string, string> = {};
     const prefilledSet = new Set<string>();
     
-    // Função auxiliar para extrair texto de objetos complexos
+    // Função auxiliar melhorada para extrair texto de objetos complexos
     const extractText = (value: any): string => {
       if (!value) return '';
+      
       if (typeof value === 'string') return value;
-      if (typeof value === 'object' && !Array.isArray(value)) {
-        // Tentar extrair campos comuns de objetos
-        const textFields = ['text', 'content', 'description', 'value', 'headline', 'title', 'body'];
+      
+      if (typeof value === 'number') return String(value);
+      
+      if (Array.isArray(value)) {
+        return value
+          .filter(item => item && typeof item === 'string')
+          .join(', ');
+      }
+      
+      if (typeof value === 'object' && value !== null) {
+        // Tentar extrair campos de texto mais específicos primeiro
+        const textFields = [
+          'text', 'content', 'description', 'value', 
+          'headline', 'title', 'body', 'message',
+          'benefit', 'problem', 'solution', 'offer'
+        ];
+        
         for (const field of textFields) {
-          if (value[field] && typeof value[field] === 'string') {
-            return value[field];
+          if (value[field] && typeof value[field] === 'string' && value[field].trim() !== '') {
+            return value[field].trim();
           }
         }
-        return JSON.stringify(value, null, 2);
+        
+        // Se não encontrou campos específicos, tentar extrair o primeiro valor string válido
+        const stringValues = Object.values(value)
+          .filter(v => v && typeof v === 'string' && v.trim() !== '' && v !== '""' && v !== "''")
+          .map(v => String(v).trim());
+        
+        if (stringValues.length > 0) {
+          return stringValues[0];
+        }
+        
+        // Como último recurso, retornar uma descrição legível do objeto
+        const keys = Object.keys(value).filter(k => value[k] && typeof value[k] === 'string');
+        if (keys.length > 0) {
+          return keys.map(k => `${k}: ${value[k]}`).join(', ');
+        }
+        
+        return '';
       }
-      if (Array.isArray(value)) {
-        return value.join(', ');
-      }
+      
       return String(value);
     };
 
@@ -118,22 +147,22 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
         'persona': extractText(productDetails.strategy.target_audience),
         
         // Proposta de valor
-        'benefit': productDetails.strategy.value_proposition,
-        'benefits': productDetails.strategy.value_proposition,
-        'value_proposition': productDetails.strategy.value_proposition,
-        'proposta_valor': productDetails.strategy.value_proposition,
-        'produto_benefits': productDetails.strategy.value_proposition,
-        'beneficios': productDetails.strategy.value_proposition,
-        'vantagem': productDetails.strategy.value_proposition,
-        'diferencial': productDetails.strategy.value_proposition,
-        'problema_solucao': productDetails.strategy.value_proposition,
-        'solucao': productDetails.strategy.value_proposition,
+        'benefit': extractText(productDetails.strategy.value_proposition),
+        'benefits': extractText(productDetails.strategy.value_proposition),
+        'value_proposition': extractText(productDetails.strategy.value_proposition),
+        'proposta_valor': extractText(productDetails.strategy.value_proposition),
+        'produto_benefits': extractText(productDetails.strategy.value_proposition),
+        'beneficios': extractText(productDetails.strategy.value_proposition),
+        'vantagem': extractText(productDetails.strategy.value_proposition),
+        'diferencial': extractText(productDetails.strategy.value_proposition),
+        'problema_solucao': extractText(productDetails.strategy.value_proposition),
+        'solucao': extractText(productDetails.strategy.value_proposition),
         
         // Posicionamento
-        'positioning': productDetails.strategy.market_positioning,
-        'market_positioning': productDetails.strategy.market_positioning,
-        'posicionamento': productDetails.strategy.market_positioning,
-        'posicao_mercado': productDetails.strategy.market_positioning,
+        'positioning': extractText(productDetails.strategy.market_positioning),
+        'market_positioning': extractText(productDetails.strategy.market_positioning),
+        'posicionamento': extractText(productDetails.strategy.market_positioning),
+        'posicao_mercado': extractText(productDetails.strategy.market_positioning),
       };
       Object.assign(basicFieldMappings, strategyMappings);
     }
@@ -173,9 +202,9 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
     // Mapeamento de copy existente
     if (productDetails.copy) {
       const copyMappings = {
-        'vsl_script': productDetails.copy.vsl_script,
-        'script': productDetails.copy.vsl_script,
-        'roteiro': productDetails.copy.vsl_script,
+        'vsl_script': extractText(productDetails.copy.vsl_script),
+        'script': extractText(productDetails.copy.vsl_script),
+        'roteiro': extractText(productDetails.copy.vsl_script),
         'landing_copy': extractText(productDetails.copy.landing_page_copy),
         'email_copy': extractText(productDetails.copy.email_campaign),
         'social_copy': extractText(productDetails.copy.social_media_content),
@@ -189,17 +218,18 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
     if (productDetails.meta) {
       const metaMappings = {
         'tags': productDetails.meta.tags ? productDetails.meta.tags.join(', ') : '',
-        'notes': productDetails.meta.private_notes,
-        'notas': productDetails.meta.private_notes,
-        'observacoes': productDetails.meta.private_notes,
+        'notes': extractText(productDetails.meta.private_notes),
+        'notas': extractText(productDetails.meta.private_notes),
+        'observacoes': extractText(productDetails.meta.private_notes),
       };
       Object.assign(basicFieldMappings, metaMappings);
     }
 
     // Aplicar mapeamentos que têm valores válidos
     Object.entries(basicFieldMappings).forEach(([key, value]) => {
-      if (value && typeof value === 'string' && value.trim() !== '' && value !== 'null' && value !== 'undefined') {
-        mappedAnswers[key] = value.trim();
+      const cleanValue = typeof value === 'string' ? value.trim() : String(value || '').trim();
+      if (cleanValue && cleanValue !== '' && cleanValue !== 'null' && cleanValue !== 'undefined' && cleanValue !== '{}' && cleanValue !== '[]') {
+        mappedAnswers[key] = cleanValue;
         prefilledSet.add(key);
       }
     });
@@ -215,23 +245,45 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
       // Mapear baseado no conteúdo da pergunta
       if ((questionLower.includes('público') || questionLower.includes('target') || questionLower.includes('cliente')) && 
           productDetails.strategy?.target_audience) {
-        mappedAnswers[question.id] = extractText(productDetails.strategy.target_audience);
-        prefilledSet.add(question.id);
+        const targetText = extractText(productDetails.strategy.target_audience);
+        if (targetText) {
+          mappedAnswers[question.id] = targetText;
+          prefilledSet.add(question.id);
+        }
       } else if ((questionLower.includes('benefício') || questionLower.includes('vantagem') || questionLower.includes('solução')) && 
                  productDetails.strategy?.value_proposition) {
-        mappedAnswers[question.id] = productDetails.strategy.value_proposition;
-        prefilledSet.add(question.id);
+        const benefitText = extractText(productDetails.strategy.value_proposition);
+        if (benefitText) {
+          mappedAnswers[question.id] = benefitText;
+          prefilledSet.add(question.id);
+        }
       } else if ((questionLower.includes('preço') || questionLower.includes('valor') || questionLower.includes('custo')) && 
                  productDetails.offer?.pricing_strategy) {
-        mappedAnswers[question.id] = extractText(productDetails.offer.pricing_strategy);
-        prefilledSet.add(question.id);
+        const priceText = extractText(productDetails.offer.pricing_strategy);
+        if (priceText) {
+          mappedAnswers[question.id] = priceText;
+          prefilledSet.add(question.id);
+        }
       } else if ((questionLower.includes('oferta') || questionLower.includes('produto') || questionLower.includes('serviço')) && 
                  productDetails.offer?.main_offer) {
-        mappedAnswers[question.id] = extractText(productDetails.offer.main_offer);
-        prefilledSet.add(question.id);
+        const offerText = extractText(productDetails.offer.main_offer);
+        if (offerText) {
+          mappedAnswers[question.id] = offerText;
+          prefilledSet.add(question.id);
+        }
+      } else if ((questionLower.includes('problema') || questionLower.includes('dor') || questionLower.includes('desafio')) && 
+                 productDetails.strategy?.value_proposition) {
+        const problemText = extractText(productDetails.strategy.value_proposition);
+        if (problemText) {
+          mappedAnswers[question.id] = problemText;
+          prefilledSet.add(question.id);
+        }
       }
     });
 
+    console.log('🎯 Mapped answers after improved extraction:', mappedAnswers);
+    console.log('📝 Pre-filled fields count:', prefilledSet.size);
+    
     setPrefilledFields(prefilledSet);
     return mappedAnswers;
   };
