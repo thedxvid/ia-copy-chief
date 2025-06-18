@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -52,17 +51,20 @@ export const ChatInterface = () => {
     }
   }, [location.state, sessions, selectSession]);
 
-  // Função para verificar se está no final do scroll
+  // Função para verificar se está no final do scroll - versão aprimorada
   const checkIfAtBottom = () => {
     const container = messagesContainerRef.current;
     if (!container) return true;
     
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const threshold = 50; // Reduzir threshold para ser mais preciso
-    return scrollHeight - scrollTop - clientHeight <= threshold;
+    const threshold = 100; // Aumentar threshold para melhor detecção
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    // Considerar que está no final se a distância for menor que o threshold
+    return distanceFromBottom <= threshold;
   };
 
-  // Monitorar scroll para mostrar/ocultar botão
+  // Monitorar scroll para mostrar/ocultar botão - versão aprimorada
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -71,13 +73,18 @@ export const ChatInterface = () => {
       const isCurrentlyAtBottom = checkIfAtBottom();
       setIsAtBottom(isCurrentlyAtBottom);
       
-      // Mostrar botão APENAS se:
-      // 1. NÃO estiver no final
-      // 2. Houver conteúdo suficiente para scroll
+      // Verificar se há conteúdo suficiente para mostrar o botão
       const { scrollHeight, clientHeight } = container;
-      const hasScrollableContent = scrollHeight > clientHeight + 100;
+      const hasScrollableContent = scrollHeight > clientHeight + 150; // Mais rigoroso
       
-      setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent);
+      // Mostrar botão APENAS se:
+      // 1. NÃO estiver no final (com uma margem maior)
+      // 2. Houver conteúdo suficiente para scroll
+      // 3. O usuário realmente fez scroll para cima
+      const { scrollTop } = container;
+      const hasScrolledUp = scrollTop > 100; // Só mostrar se scrollou pelo menos 100px
+      
+      setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent && hasScrolledUp);
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
@@ -135,78 +142,99 @@ export const ChatInterface = () => {
     }
 
     return (
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-6 space-y-4"
-      >
-        {activeSession.messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-[#CCCCCC]">
-              <div className="w-12 h-12 mx-auto mb-4 opacity-50">🤖</div>
-              <p className="text-lg font-medium mb-2">Bem-vindo ao Chat com IA!</p>
-              <p className="text-sm">Comece sua conversa digitando uma mensagem.</p>
+      <div className="flex-1 relative"> {/* Tornar relativo para posicionamento absoluto do botão */}
+        <div 
+          ref={messagesContainerRef}
+          className="h-full overflow-y-auto p-6 space-y-4"
+        >
+          {activeSession.messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-[#CCCCCC]">
+                <div className="w-12 h-12 mx-auto mb-4 opacity-50">🤖</div>
+                <p className="text-lg font-medium mb-2">Bem-vindo ao Chat com IA!</p>
+                <p className="text-sm">Comece sua conversa digitando uma mensagem.</p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <>
-            {activeSession.messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex items-start space-x-3 ${
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                {message.role === 'assistant' && (
+          ) : (
+            <>
+              {activeSession.messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex items-start space-x-3 ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  {message.role === 'assistant' && (
+                    <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
+                      <span className="text-white text-sm">🤖</span>
+                    </div>
+                  )}
+                  
+                  <div
+                    className={`max-w-[80%] p-4 rounded-2xl ${
+                      message.role === 'user'
+                        ? 'bg-[#3B82F6] text-white'
+                        : 'bg-[#1E1E1E] text-white border border-[#4B5563]'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <div className="text-xs opacity-70 mt-2">
+                      {message.timestamp.toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  </div>
+
+                  {message.role === 'user' && (
+                    <div className="flex-shrink-0 w-8 h-8 bg-[#4B5563] rounded-2xl flex items-center justify-center">
+                      <span className="text-white text-sm">👤</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
                     <span className="text-white text-sm">🤖</span>
                   </div>
-                )}
-                
-                <div
-                  className={`max-w-[80%] p-4 rounded-2xl ${
-                    message.role === 'user'
-                      ? 'bg-[#3B82F6] text-white'
-                      : 'bg-[#1E1E1E] text-white border border-[#4B5563]'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                  <div className="text-xs opacity-70 mt-2">
-                    {message.timestamp.toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
-                </div>
-
-                {message.role === 'user' && (
-                  <div className="flex-shrink-0 w-8 h-8 bg-[#4B5563] rounded-2xl flex items-center justify-center">
-                    <span className="text-white text-sm">👤</span>
-                  </div>
-                )}
-              </div>
-            ))}
-            
-            {isLoading && (
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
-                  <span className="text-white text-sm">🤖</span>
-                </div>
-                <div className="bg-[#1E1E1E] text-white border border-[#4B5563] p-4 rounded-2xl">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="bg-[#1E1E1E] text-white border border-[#4B5563] p-4 rounded-2xl">
+                    <div className="flex items-center space-x-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                      <span className="text-sm text-[#CCCCCC]">Gerando resposta...</span>
                     </div>
-                    <span className="text-sm text-[#CCCCCC]">Gerando resposta...</span>
                   </div>
                 </div>
-              </div>
-            )}
-            
-            {/* Elemento invisível para marcar o final das mensagens */}
-            <div ref={messagesEndRef} />
-          </>
+              )}
+              
+              {/* Elemento invisível para marcar o final das mensagens */}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
+
+        {/* Botão flutuante para scroll - posicionado dentro da área do chat */}
+        {showScrollButton && (
+          <button
+            onClick={scrollToBottom}
+            className={`absolute bottom-4 right-4 z-10 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center hover:scale-110 ${
+              showScrollButton ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+            }`}
+            title="Ir para o final da conversa"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+              backdropFilter: 'blur(4px)'
+            }}
+          >
+            <ArrowDown className="w-5 h-5" />
+          </button>
         )}
       </div>
     );
@@ -351,25 +379,6 @@ export const ChatInterface = () => {
           />
         )}
       </div>
-
-      {/* Botão flutuante para scroll - posicionamento absoluto */}
-      {showScrollButton && (
-        <button
-          onClick={scrollToBottom}
-          className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
-            showScrollButton ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-          }`}
-          title="Ir para o final da conversa"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-            backdropFilter: 'blur(4px)'
-          }}
-        >
-          <ArrowDown className="w-5 h-5" />
-        </button>
-      )}
 
       {/* Agent Editor Modal */}
       <AgentEditor
