@@ -26,7 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending checkout email to:", email, "with URL:", checkoutUrl);
 
     const emailResponse = await resend.emails.send({
-      from: "CopyMaster <noreply@copymaster.app>",
+      from: "CopyMaster <noreply@iacopychief.com>",
       to: [email],
       subject: "🚀 Complete seu acesso ao CopyMaster",
       html: `

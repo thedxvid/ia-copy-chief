@@ -294,7 +294,7 @@ const handler = async (req: Request): Promise<Response> => {
             <p><strong>CopyMaster</strong> - Transformando ideias em copies que convertem</p>
             <p>
               Precisa de ajuda? Entre em contato: 
-              <a href="mailto:suporte@copymaster.app">suporte@copymaster.app</a>
+              <a href="mailto:suporte@iacopychief.com">suporte@iacopychief.com</a>
             </p>
             <p style="margin-top: 20px; font-size: 12px;">
               © 2024 CopyMaster. Todos os direitos reservados.
@@ -312,7 +312,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "CopyMaster <noreply@copymaster.app>",
+      from: "CopyMaster <noreply@iacopychief.com>",
       to: [email],
       subject: "🚀 Confirme seu email e ative sua conta CopyMaster",
       html: emailHtml,
