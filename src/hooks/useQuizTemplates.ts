@@ -30,19 +30,28 @@ export interface QuizTemplate {
 
 type DbQuizTemplate = Database['public']['Tables']['quiz_templates']['Row'];
 
+// Função helper para validar se é um QuizQuestion válido
+const isValidQuizQuestion = (obj: any): obj is QuizQuestion => {
+  return obj && 
+    typeof obj === 'object' && 
+    typeof obj.id === 'string' && 
+    typeof obj.question === 'string' && 
+    typeof obj.type === 'string' &&
+    ['radio', 'text', 'textarea', 'number'].includes(obj.type) &&
+    typeof obj.required === 'boolean' &&
+    (obj.options === undefined || Array.isArray(obj.options)) &&
+    (obj.placeholder === undefined || typeof obj.placeholder === 'string');
+};
+
 // Função helper para converter dados do banco para nossa interface
 const convertDbTemplate = (dbTemplate: DbQuizTemplate): QuizTemplate => {
   // Validar e converter questions de Json para QuizQuestion[]
   let questions: QuizQuestion[] = [];
   
   if (Array.isArray(dbTemplate.questions)) {
-    questions = dbTemplate.questions.filter((q: any) => 
-      q && typeof q === 'object' && 
-      typeof q.id === 'string' && 
-      typeof q.question === 'string' && 
-      typeof q.type === 'string' &&
-      typeof q.required === 'boolean'
-    ) as QuizQuestion[];
+    // Usar unknown como tipo intermediário para conversão segura
+    const questionsArray = dbTemplate.questions as unknown as any[];
+    questions = questionsArray.filter(isValidQuizQuestion);
   }
 
   return {
@@ -117,12 +126,12 @@ export const useQuizTemplates = () => {
 
     setIsLoading(true);
     try {
-      // Converter QuizQuestion[] para Json compatível
+      // Converter QuizQuestion[] para Json compatível usando unknown como intermediário
       const templateData = {
         quiz_type: template.quiz_type,
         title: template.title,
         description: template.description,
-        questions: template.questions as any, // Cast para Json
+        questions: template.questions as unknown as Database['public']['Tables']['quiz_templates']['Insert']['questions'],
         is_default: template.is_default,
         is_active: template.is_active,
         version: template.version,
@@ -163,7 +172,9 @@ export const useQuizTemplates = () => {
       if (updates.quiz_type) updateData.quiz_type = updates.quiz_type;
       if (updates.title) updateData.title = updates.title;
       if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.questions) updateData.questions = updates.questions as any; // Cast para Json
+      if (updates.questions) {
+        updateData.questions = updates.questions as unknown as Database['public']['Tables']['quiz_templates']['Update']['questions'];
+      }
       if (updates.is_default !== undefined) updateData.is_default = updates.is_default;
       if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
       if (updates.version) updateData.version = updates.version;
