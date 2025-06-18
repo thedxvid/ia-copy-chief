@@ -170,7 +170,7 @@ export const useQuizTemplates = () => {
   };
 
   const createTemplate = async (template: Omit<QuizTemplate, 'id' | 'created_at' | 'updated_at'>) => {
-    console.log('🚀 === INÍCIO DO PROCESSO DE CRIAÇÃO SIMPLIFICADO ===');
+    console.log('🚀 === INÍCIO DO PROCESSO DE CRIAÇÃO ===');
     console.log('👤 User ID:', user?.id);
     console.log('📧 User email:', user?.email);
     console.log('🔐 Admin check complete:', adminCheckComplete);
@@ -207,12 +207,12 @@ export const useQuizTemplates = () => {
         questions_count: template.questions.length
       });
       
-      // Preparar dados EXATAMENTE como o banco espera
+      // Preparar dados EXATAMENTE como o banco espera - converter questions para Json
       const templateData = {
         quiz_type: template.quiz_type,
         title: template.title,
         description: template.description || null,
-        questions: template.questions,
+        questions: template.questions as unknown as Database['public']['Tables']['quiz_templates']['Insert']['questions'],
         is_default: template.is_default,
         is_active: template.is_active,
         version: template.version,
@@ -221,7 +221,7 @@ export const useQuizTemplates = () => {
 
       console.log('💾 About to insert template data...');
       
-      // Inserir dados diretamente - sem consultas complexas
+      // Inserir dados diretamente
       const { data, error } = await supabase
         .from('quiz_templates')
         .insert(templateData)
@@ -260,7 +260,7 @@ export const useQuizTemplates = () => {
       console.error('📝 Final error message:', errorMessage);
       
       // Não fazer toast aqui se já foi feito acima
-      if (!err instanceof Error || !err.message.includes('Erro')) {
+      if (!(err instanceof Error) || !err.message.includes('Erro')) {
         toast.error(errorMessage);
       }
       throw err;
