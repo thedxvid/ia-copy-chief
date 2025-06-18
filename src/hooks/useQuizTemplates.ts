@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,10 +73,34 @@ export const useQuizTemplates = () => {
   const [templates, setTemplates] = useState<QuizTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
 
-  // Verificar se usuário é admin
-  const isAdmin = user?.email && ['davicastrowp@gmail.com', 'admin@iacopychief.com'].includes(user.email);
+  // Verificar se usuário é admin usando a função do banco
+  const checkAdminStatus = async () => {
+    if (!user?.id) {
+      setIsAdmin(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('is_user_admin', {
+        user_id: user.id
+      });
+
+      if (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(data || false);
+      console.log('🔐 Admin status:', data || false);
+    } catch (err) {
+      console.error('Error in admin check:', err);
+      setIsAdmin(false);
+    }
+  };
 
   const fetchTemplates = async () => {
     setIsLoading(true);
@@ -86,10 +111,7 @@ export const useQuizTemplates = () => {
       console.log('🔑 Current user:', user?.email);
       console.log('🔐 Is admin:', isAdmin);
       
-      // Usar service role key para operações administrativas
-      const client = isAdmin ? supabase : supabase;
-      
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('quiz_templates')
         .select('*')
         .eq('is_active', true)
@@ -153,10 +175,6 @@ export const useQuizTemplates = () => {
         title: template.title,
         questions_count: template.questions.length
       });
-      
-      // Usar a sessão autenticada do usuário
-      const { data: sessionData } = await supabase.auth.getSession();
-      console.log('🔐 Session exists:', !!sessionData.session);
       
       const templateData = {
         quiz_type: template.quiz_type,
@@ -295,6 +313,12 @@ export const useQuizTemplates = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      checkAdminStatus();
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchTemplates();

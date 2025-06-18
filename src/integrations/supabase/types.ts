@@ -536,6 +536,7 @@ export type Database = {
           extra_tokens: number | null
           full_name: string | null
           id: string
+          is_admin: boolean
           kiwify_customer_id: string | null
           monthly_tokens: number | null
           notified_10: boolean | null
@@ -558,6 +559,7 @@ export type Database = {
           extra_tokens?: number | null
           full_name?: string | null
           id: string
+          is_admin?: boolean
           kiwify_customer_id?: string | null
           monthly_tokens?: number | null
           notified_10?: boolean | null
@@ -580,6 +582,7 @@ export type Database = {
           extra_tokens?: number | null
           full_name?: string | null
           id?: string
+          is_admin?: boolean
           kiwify_customer_id?: string | null
           monthly_tokens?: number | null
           notified_10?: boolean | null
@@ -835,6 +838,10 @@ export type Database = {
           total_available: number
           total_used: number
         }[]
+      }
+      is_user_admin: {
+        Args: { user_id: string }
+        Returns: boolean
       }
       reset_monthly_tokens: {
         Args: Record<PropertyKey, never>
