@@ -90,12 +90,18 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const loadExistingData = async (productId: string) => {
     setLoadingExistingData(true);
     try {
+      console.log('Carregando dados para produto:', productId);
+      
       // Buscar dados relacionados
       const [strategyResult, copyResult, offerResult] = await Promise.all([
         supabase.from('product_strategy').select('*').eq('product_id', productId).maybeSingle(),
         supabase.from('product_copy').select('*').eq('product_id', productId).maybeSingle(),
         supabase.from('product_offer').select('*').eq('product_id', productId).maybeSingle(),
       ]);
+
+      console.log('Dados de estratégia:', strategyResult.data);
+      console.log('Dados de copy:', copyResult.data);
+      console.log('Dados de oferta:', offerResult.data);
 
       // Carregar dados de estratégia
       if (strategyResult.data) {
@@ -172,12 +178,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
 
     setIsLoading(true);
+    console.log('Iniciando salvamento...');
 
     try {
       let productId = product?.id;
 
       // Create or update product
       if (product) {
+        console.log('Atualizando produto existente:', product.id);
         const { error } = await supabase
           .from('products')
           .update({
@@ -190,6 +198,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
         if (error) throw error;
       } else {
+        console.log('Criando novo produto');
         const { data: newProduct, error } = await supabase
           .from('products')
           .insert({
@@ -206,62 +215,111 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         productId = newProduct.id;
       }
 
-      // Sempre atualizar estratégia (inclusive valores vazios para limpar dados)
+      console.log('Produto salvo, ID:', productId);
+
+      // Salvar estratégia
       const strategyData = {
         product_id: productId,
-        target_audience: targetAudience.trim() ? { description: targetAudience.trim() } : null,
-        market_positioning: marketPositioning.trim() || null,
-        value_proposition: valueProposition.trim() || null,
+        target_audience: targetAudience.trim() ? { description: targetAudience.trim() } : {},
+        market_positioning: marketPositioning.trim() || '',
+        value_proposition: valueProposition.trim() || '',
       };
 
-      const { error: strategyError } = await supabase
-        .from('product_strategy')
-        .upsert(strategyData, { onConflict: 'product_id' });
+      console.log('Salvando estratégia:', strategyData);
 
-      if (strategyError) {
-        console.error('Error saving strategy:', strategyError);
-        throw strategyError;
+      // Verificar se já existe um registro de estratégia
+      const { data: existingStrategy } = await supabase
+        .from('product_strategy')
+        .select('id')
+        .eq('product_id', productId)
+        .maybeSingle();
+
+      if (existingStrategy) {
+        const { error: strategyError } = await supabase
+          .from('product_strategy')
+          .update(strategyData)
+          .eq('product_id', productId);
+
+        if (strategyError) throw strategyError;
+      } else {
+        const { error: strategyError } = await supabase
+          .from('product_strategy')
+          .insert(strategyData);
+
+        if (strategyError) throw strategyError;
       }
 
-      // Sempre atualizar copy (inclusive valores vazios para limpar dados)
+      // Salvar copy
       const copyData = {
         product_id: productId,
-        vsl_script: vslScript.trim() || null,
+        vsl_script: vslScript.trim() || '',
         landing_page_copy: {
-          headline: headline.trim() || null,
-          subtitle: subtitle.trim() || null,
-          benefits: benefits.trim() || null,
-          social_proof: socialProof.trim() || null,
+          headline: headline.trim() || '',
+          subtitle: subtitle.trim() || '',
+          benefits: benefits.trim() || '',
+          social_proof: socialProof.trim() || '',
         },
       };
 
-      const { error: copyError } = await supabase
-        .from('product_copy')
-        .upsert(copyData, { onConflict: 'product_id' });
+      console.log('Salvando copy:', copyData);
 
-      if (copyError) {
-        console.error('Error saving copy:', copyError);
-        throw copyError;
+      // Verificar se já existe um registro de copy
+      const { data: existingCopy } = await supabase
+        .from('product_copy')
+        .select('id')
+        .eq('product_id', productId)
+        .maybeSingle();
+
+      if (existingCopy) {
+        const { error: copyError } = await supabase
+          .from('product_copy')
+          .update(copyData)
+          .eq('product_id', productId);
+
+        if (copyError) throw copyError;
+      } else {
+        const { error: copyError } = await supabase
+          .from('product_copy')
+          .insert(copyData);
+
+        if (copyError) throw copyError;
       }
 
-      // Sempre atualizar oferta (inclusive valores vazios para limpar dados)
+      // Salvar oferta
       const offerData = {
         product_id: productId,
         main_offer: {
-          promise: mainOfferPromise.trim() || null,
-          description: mainOfferDescription.trim() || null,
-          price: mainOfferPrice.trim() || null,
+          promise: mainOfferPromise.trim() || '',
+          description: mainOfferDescription.trim() || '',
+          price: mainOfferPrice.trim() || '',
         },
       };
 
-      const { error: offerError } = await supabase
-        .from('product_offer')
-        .upsert(offerData, { onConflict: 'product_id' });
+      console.log('Salvando oferta:', offerData);
 
-      if (offerError) {
-        console.error('Error saving offer:', offerError);
-        throw offerError;
+      // Verificar se já existe um registro de oferta
+      const { data: existingOffer } = await supabase
+        .from('product_offer')
+        .select('id')
+        .eq('product_id', productId)
+        .maybeSingle();
+
+      if (existingOffer) {
+        const { error: offerError } = await supabase
+          .from('product_offer')
+          .update(offerData)
+          .eq('product_id', productId);
+
+        if (offerError) throw offerError;
+      } else {
+        const { error: offerError } = await supabase
+          .from('product_offer')
+          .insert(offerData);
+
+        if (offerError) throw offerError;
       }
+
+      console.log('Todos os dados salvos com sucesso');
 
       toast({
         title: product ? "Produto atualizado" : "Produto criado",
@@ -275,7 +333,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       console.error('Error saving product:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível salvar o produto.",
+        description: "Não foi possível salvar o produto. Verifique o console para mais detalhes.",
         variant: "destructive",
       });
     } finally {
