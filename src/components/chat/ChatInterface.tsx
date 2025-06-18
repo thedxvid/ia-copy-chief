@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -54,10 +55,10 @@ export const ChatInterface = () => {
   // Função para verificar se está no final do scroll
   const checkIfAtBottom = () => {
     const container = messagesContainerRef.current;
-    if (!container) return false;
+    if (!container) return true;
     
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const threshold = 100; // 100px de tolerância
+    const threshold = 50; // Reduzir threshold para ser mais preciso
     return scrollHeight - scrollTop - clientHeight <= threshold;
   };
 
@@ -70,14 +71,16 @@ export const ChatInterface = () => {
       const isCurrentlyAtBottom = checkIfAtBottom();
       setIsAtBottom(isCurrentlyAtBottom);
       
-      // Mostrar botão apenas se não estiver no final E houver conteúdo suficiente
+      // Mostrar botão APENAS se:
+      // 1. NÃO estiver no final
+      // 2. Houver conteúdo suficiente para scroll
       const { scrollHeight, clientHeight } = container;
-      const hasScrollableContent = scrollHeight > clientHeight + 50;
+      const hasScrollableContent = scrollHeight > clientHeight + 100;
       
       setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent);
     };
 
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     // Verificar estado inicial
     handleScroll();
     
@@ -134,7 +137,7 @@ export const ChatInterface = () => {
     return (
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-6 space-y-4 relative"
+        className="flex-1 overflow-y-auto p-6 space-y-4"
       >
         {activeSession.messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
@@ -204,22 +207,6 @@ export const ChatInterface = () => {
             {/* Elemento invisível para marcar o final das mensagens */}
             <div ref={messagesEndRef} />
           </>
-        )}
-
-        {/* Botão flutuante para scroll até o final - novo estilo */}
-        {showScrollButton && (
-          <button
-            onClick={scrollToBottom}
-            className={`fixed right-8 top-1/2 transform -translate-y-1/2 z-20 w-8 h-8 bg-[#333333] hover:bg-[#444444] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center ${
-              showScrollButton ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-            }`}
-            title="Ir para o final da conversa"
-            style={{
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            <ArrowDown className="w-4 h-4" />
-          </button>
         )}
       </div>
     );
@@ -364,6 +351,25 @@ export const ChatInterface = () => {
           />
         )}
       </div>
+
+      {/* Botão flutuante para scroll - posicionamento absoluto */}
+      {showScrollButton && (
+        <button
+          onClick={scrollToBottom}
+          className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
+            showScrollButton ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          }`}
+          title="Ir para o final da conversa"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(4px)'
+          }}
+        >
+          <ArrowDown className="w-5 h-5" />
+        </button>
+      )}
 
       {/* Agent Editor Modal */}
       <AgentEditor
