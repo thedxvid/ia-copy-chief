@@ -1,4 +1,3 @@
-
 import { useState } from "react"
 import { 
   LayoutDashboard, 
@@ -163,7 +162,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-[#333333] p-2">
+      <SidebarFooter className="border-t border-[#333333] p-2 mb-4">
         <SidebarMenu>
           {user && !isCollapsed && (
             <SidebarMenuItem>
