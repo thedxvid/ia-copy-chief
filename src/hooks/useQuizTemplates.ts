@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import type { Database } from '@/integrations/supabase/types';
 
 export interface QuizQuestion {
   id: string;
@@ -27,6 +28,38 @@ export interface QuizTemplate {
   updated_at: string;
 }
 
+type DbQuizTemplate = Database['public']['Tables']['quiz_templates']['Row'];
+
+// Função helper para converter dados do banco para nossa interface
+const convertDbTemplate = (dbTemplate: DbQuizTemplate): QuizTemplate => {
+  // Validar e converter questions de Json para QuizQuestion[]
+  let questions: QuizQuestion[] = [];
+  
+  if (Array.isArray(dbTemplate.questions)) {
+    questions = dbTemplate.questions.filter((q: any) => 
+      q && typeof q === 'object' && 
+      typeof q.id === 'string' && 
+      typeof q.question === 'string' && 
+      typeof q.type === 'string' &&
+      typeof q.required === 'boolean'
+    ) as QuizQuestion[];
+  }
+
+  return {
+    id: dbTemplate.id,
+    quiz_type: dbTemplate.quiz_type,
+    title: dbTemplate.title,
+    description: dbTemplate.description || undefined,
+    questions,
+    is_default: dbTemplate.is_default,
+    is_active: dbTemplate.is_active,
+    version: dbTemplate.version,
+    created_by: dbTemplate.created_by || undefined,
+    created_at: dbTemplate.created_at,
+    updated_at: dbTemplate.updated_at
+  };
+};
+
 export const useQuizTemplates = () => {
   const [templates, setTemplates] = useState<QuizTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +82,8 @@ export const useQuizTemplates = () => {
 
       if (error) throw error;
       
-      setTemplates(data || []);
+      const convertedTemplates = (data || []).map(convertDbTemplate);
+      setTemplates(convertedTemplates);
     } catch (err) {
       console.error('Error fetching quiz templates:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar templates');
@@ -69,7 +103,7 @@ export const useQuizTemplates = () => {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data ? convertDbTemplate(data) : null;
     } catch (err) {
       console.error('Error fetching template by type:', err);
       return null;
@@ -83,12 +117,21 @@ export const useQuizTemplates = () => {
 
     setIsLoading(true);
     try {
+      // Converter QuizQuestion[] para Json compatível
+      const templateData = {
+        quiz_type: template.quiz_type,
+        title: template.title,
+        description: template.description,
+        questions: template.questions as any, // Cast para Json
+        is_default: template.is_default,
+        is_active: template.is_active,
+        version: template.version,
+        created_by: user?.id
+      };
+
       const { data, error } = await supabase
         .from('quiz_templates')
-        .insert([{
-          ...template,
-          created_by: user?.id
-        }])
+        .insert([templateData])
         .select()
         .single();
 
@@ -96,7 +139,7 @@ export const useQuizTemplates = () => {
 
       await fetchTemplates();
       toast.success('Template criado com sucesso!');
-      return data;
+      return convertDbTemplate(data);
     } catch (err) {
       console.error('Error creating template:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar template';
@@ -114,9 +157,20 @@ export const useQuizTemplates = () => {
 
     setIsLoading(true);
     try {
+      // Converter updates para formato do banco
+      const updateData: any = {};
+      
+      if (updates.quiz_type) updateData.quiz_type = updates.quiz_type;
+      if (updates.title) updateData.title = updates.title;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.questions) updateData.questions = updates.questions as any; // Cast para Json
+      if (updates.is_default !== undefined) updateData.is_default = updates.is_default;
+      if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
+      if (updates.version) updateData.version = updates.version;
+
       const { data, error } = await supabase
         .from('quiz_templates')
-        .update(updates)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -125,7 +179,7 @@ export const useQuizTemplates = () => {
 
       await fetchTemplates();
       toast.success('Template atualizado com sucesso!');
-      return data;
+      return convertDbTemplate(data);
     } catch (err) {
       console.error('Error updating template:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar template';

@@ -313,6 +313,17 @@ let templatesCache: { [key: string]: QuizQuestion[] } = {};
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
+// Função helper para validar se é um array de QuizQuestion válido
+const isValidQuizQuestionArray = (questions: any): questions is QuizQuestion[] => {
+  return Array.isArray(questions) && questions.every(q => 
+    q && typeof q === 'object' && 
+    typeof q.id === 'string' && 
+    typeof q.question === 'string' && 
+    typeof q.type === 'string' &&
+    typeof q.required === 'boolean'
+  );
+};
+
 export const getQuizQuestions = async (quizType: string): Promise<QuizQuestion[]> => {
   // Verificar cache primeiro
   const now = Date.now();
@@ -338,7 +349,7 @@ export const getQuizQuestions = async (quizType: string): Promise<QuizQuestion[]
       throw error;
     }
 
-    if (template && template.questions) {
+    if (template?.questions && isValidQuizQuestionArray(template.questions)) {
       console.log(`✅ Found template in database for ${quizType} with ${template.questions.length} questions`);
       
       // Atualizar cache
@@ -347,7 +358,7 @@ export const getQuizQuestions = async (quizType: string): Promise<QuizQuestion[]
       
       return template.questions;
     } else {
-      console.log(`⚠️ No template found in database for ${quizType}, using fallback data`);
+      console.log(`⚠️ No valid template found in database for ${quizType}, using fallback data`);
     }
   } catch (error) {
     console.error(`💥 Error loading template for ${quizType}:`, error);
