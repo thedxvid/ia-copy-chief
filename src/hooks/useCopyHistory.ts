@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,15 +17,30 @@ interface CopyHistoryItem {
     whatsapp_messages?: string[];
     telegram_messages?: string[];
     quiz_content?: string;
+    conversation?: {
+      messages: Array<{
+        role: 'user' | 'assistant';
+        content: string;
+        timestamp: string;
+      }>;
+      agent_name: string;
+      product_name?: string;
+    };
   };
   product?: {
     name: string;
     niche: string;
     sub_niche?: string;
   };
-  source: 'product' | 'quiz';
+  source: 'product' | 'quiz' | 'conversation';
   quiz_type?: string;
   quiz_answers?: Record<string, string>;
+  conversation_data?: {
+    agent_name: string;
+    agent_id: string;
+    product_id?: string;
+    message_count: number;
+  };
 }
 
 const getExampleData = (): CopyHistoryItem[] => [
@@ -151,6 +165,38 @@ const getExampleData = (): CopyHistoryItem[] => [
     content: {
       quiz_content: "Assunto: 🚀 Descubra o Segredo dos 6 Dígitos em 30 Dias\n\nOlá [Nome],\n\nVocê já imaginou como seria ganhar mais em um mês do que muitos ganham em um ano inteiro?\n\nEu sei que pode parecer impossível, mas deixe-me contar uma história...\n\n[Resto do email personalizado baseado nas respostas do quiz]"
     }
+  },
+  {
+    id: 'example-conversation-1',
+    title: "Conversa com Agente de Vídeos de Vendas",
+    type: "Conversa",
+    date: new Date(Date.now() - 86400000).toLocaleDateString('pt-BR'),
+    status: "Concluído",
+    performance: "Em análise",
+    source: 'conversation',
+    conversation_data: {
+      agent_name: "Agente de Vídeos de Vendas",
+      agent_id: "sales-video",
+      message_count: 8
+    },
+    content: {
+      conversation: {
+        messages: [
+          {
+            role: "user",
+            content: "Preciso criar um script para um VSL sobre um curso de marketing digital",
+            timestamp: new Date(Date.now() - 86400000).toISOString()
+          },
+          {
+            role: "assistant", 
+            content: "Perfeito! Vou te ajudar a criar um script de VSL envolvente para seu curso de marketing digital. Primeiro, me conte mais sobre seu público-alvo e qual é o principal problema que seu curso resolve...",
+            timestamp: new Date(Date.now() - 86300000).toISOString()
+          }
+        ],
+        agent_name: "Agente de Vídeos de Vendas",
+        product_name: "Curso de Marketing Digital"
+      }
+    }
   }
 ];
 
@@ -207,6 +253,22 @@ export const useCopyHistory = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      // Buscar conversas do chat
+      const { data: conversationsData, error: conversationsError } = await supabase
+        .from('chat_sessions')
+        .select(`
+          *,
+          chat_messages(
+            id,
+            role,
+            content,
+            created_at
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false });
+
       if (productsError) {
         throw productsError;
       }
@@ -215,11 +277,14 @@ export const useCopyHistory = () => {
         throw quizError;
       }
 
+      if (conversationsError) {
+        throw conversationsError;
+      }
+
       const transformedData: CopyHistoryItem[] = [];
 
       // Transformar dados dos produtos
       productsData?.forEach(product => {
-        // Verificar se product_copy existe e é um array ou objeto único
         const productCopies = Array.isArray(product.product_copy) 
           ? product.product_copy 
           : product.product_copy 
@@ -272,13 +337,11 @@ export const useCopyHistory = () => {
           vsl: 'Quiz VSL'
         };
 
-        // Safely handle quiz_answers type conversion
         let safeQuizAnswers: Record<string, string> = {};
         if (quizCopy.quiz_answers && typeof quizCopy.quiz_answers === 'object' && !Array.isArray(quizCopy.quiz_answers)) {
           safeQuizAnswers = quizCopy.quiz_answers as Record<string, string>;
         }
 
-        // Safely handle generated_copy content extraction
         let quizContent = '';
         if (quizCopy.generated_copy) {
           if (typeof quizCopy.generated_copy === 'string') {
@@ -304,6 +367,48 @@ export const useCopyHistory = () => {
           content: {
             quiz_content: quizContent
           }
+        });
+      });
+
+      // Transformar dados das conversas
+      conversationsData?.forEach(conversation => {
+        const messages = Array.isArray(conversation.chat_messages) 
+          ? conversation.chat_messages.map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+              timestamp: msg.created_at
+            }))
+          : [];
+
+        // Buscar nome do produto se houver product_id
+        const relatedProduct = productsData?.find(p => p.id === conversation.product_id);
+
+        transformedData.push({
+          id: conversation.id,
+          title: conversation.title || `Conversa com ${conversation.agent_name}`,
+          type: 'Conversa',
+          date: new Date(conversation.updated_at).toLocaleDateString('pt-BR'),
+          status: 'Concluído',
+          performance: 'Em análise',
+          source: 'conversation',
+          conversation_data: {
+            agent_name: conversation.agent_name,
+            agent_id: conversation.agent_id,
+            product_id: conversation.product_id,
+            message_count: conversation.message_count
+          },
+          content: {
+            conversation: {
+              messages,
+              agent_name: conversation.agent_name,
+              product_name: relatedProduct?.name
+            }
+          },
+          product: relatedProduct ? {
+            name: relatedProduct.name,
+            niche: relatedProduct.niche,
+            sub_niche: relatedProduct.sub_niche
+          } : undefined
         });
       });
 

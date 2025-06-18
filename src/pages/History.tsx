@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Download, Eye, Calendar, Search, Filter, Plus, Info } from 'lucide-react';
+import { FileText, Download, Eye, Calendar, Search, Filter, Plus, Info, MessageSquare, Bot } from 'lucide-react';
 import { CopyDetailsModal } from '@/components/history/CopyDetailsModal';
 import { CopyPreviewModal } from '@/components/history/CopyPreviewModal';
+import { ViewCopyModal } from '@/components/specialized/ViewCopyModal';
 import { downloadCopyAsText, downloadCopyAsJSON } from '@/utils/copyExport';
 import { useCopyHistory } from '@/hooks/useCopyHistory';
 import { CardSkeleton } from '@/components/ui/loading-skeleton';
@@ -19,6 +20,7 @@ const History = () => {
   const [selectedCopy, setSelectedCopy] = useState<any>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -49,21 +51,36 @@ const History = () => {
     }
   };
 
+  const getTypeIcon = (type: string) => {
+    if (type === 'Conversa') {
+      return <MessageSquare className="w-5 h-5 text-[#3B82F6]" />;
+    }
+    return <FileText className="w-5 h-5 text-white" />;
+  };
+
   const handleViewDetails = (item: any) => {
     setSelectedCopy(item);
-    setIsDetailsModalOpen(true);
+    if (item.source === 'conversation') {
+      setIsViewModalOpen(true);
+    } else {
+      setIsDetailsModalOpen(true);
+    }
     toast({
       title: "Visualizando detalhes",
-      description: `Abrindo detalhes da copy "${item.title}"`
+      description: `Abrindo detalhes ${item.source === 'conversation' ? 'da conversa' : 'da copy'} "${item.title}"`
     });
   };
 
   const handlePreview = (item: any) => {
     setSelectedCopy(item);
-    setIsPreviewModalOpen(true);
+    if (item.source === 'conversation') {
+      setIsViewModalOpen(true);
+    } else {
+      setIsPreviewModalOpen(true);
+    }
     toast({
       title: "Prévia carregada",
-      description: `Exibindo prévia do conteúdo da copy "${item.title}"`
+      description: `Exibindo prévia ${item.source === 'conversation' ? 'da conversa' : 'do conteúdo'} "${item.title}"`
     });
   };
 
@@ -91,9 +108,19 @@ const History = () => {
     });
   };
 
+  const handleContinueConversation = (item: any) => {
+    // Redirecionar para o chat com a sessão específica
+    navigate('/chat', { state: { sessionId: item.id } });
+    toast({
+      title: "Redirecionando",
+      description: "Abrindo conversa no chat"
+    });
+  };
+
   const filteredItems = historyItems.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.type.toLowerCase().includes(searchTerm.toLowerCase());
+                         item.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (item.source === 'conversation' && item.conversation_data?.agent_name.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = filterType === 'all' || item.type === filterType;
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
     
@@ -153,7 +180,7 @@ const History = () => {
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Histórico de Copies</h1>
             <p className="text-[#CCCCCC]">
-              Acompanhe todas as suas copies criadas e seus resultados
+              Acompanhe todas as suas copies e conversas criadas
             </p>
           </div>
           {historyItems.length === 0 && (
@@ -176,7 +203,7 @@ const History = () => {
                 <div>
                   <p className="text-blue-400 font-medium">Visualizando dados de exemplo</p>
                   <p className="text-[#CCCCCC] text-sm">
-                    Estas são copies de demonstração. Crie produtos e copies reais para ver seu histórico personalizado.
+                    Estas são copies e conversas de demonstração. Crie produtos e converse com agentes para ver seu histórico personalizado.
                   </p>
                 </div>
                 <Button 
@@ -200,7 +227,7 @@ const History = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#CCCCCC] w-4 h-4" />
                   <Input
-                    placeholder="Buscar copies..."
+                    placeholder="Buscar copies e conversas..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 bg-[#2A2A2A] border-[#4B5563] text-white placeholder-[#CCCCCC]"
@@ -237,7 +264,7 @@ const History = () => {
           </CardContent>
         </Card>
 
-        {/* Lista de Copies */}
+        {/* Lista de Copies e Conversas */}
         <div className="grid gap-4">
           {filteredItems.length === 0 ? (
             <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
@@ -245,24 +272,34 @@ const History = () => {
                 <FileText className="w-16 h-16 text-[#4B5563] mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   {searchTerm || filterType !== 'all' || filterStatus !== 'all' 
-                    ? 'Nenhuma copy encontrada'
-                    : 'Nenhuma copy ainda'
+                    ? 'Nenhum item encontrado'
+                    : 'Nenhum item ainda'
                   }
                 </h3>
                 <p className="text-[#CCCCCC] mb-6">
                   {searchTerm || filterType !== 'all' || filterStatus !== 'all' 
                     ? 'Tente ajustar os filtros de busca para encontrar o que procura.'
-                    : 'Você ainda não criou nenhuma copy. Comece criando seu primeiro produto!'
+                    : 'Você ainda não criou nenhuma copy ou conversa. Comece criando seu primeiro produto ou conversando com um agente!'
                   }
                 </p>
                 {!searchTerm && filterType === 'all' && filterStatus === 'all' && (
-                  <Button 
-                    onClick={handleCreateFirstCopy}
-                    className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Criar Primeira Copy
-                  </Button>
+                  <div className="flex gap-2 justify-center">
+                    <Button 
+                      onClick={handleCreateFirstCopy}
+                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Criar Copy
+                    </Button>
+                    <Button 
+                      onClick={() => navigate('/chat')}
+                      variant="outline"
+                      className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#4B5563]/20"
+                    >
+                      <Bot className="w-4 h-4 mr-2" />
+                      Chat com IA
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -273,7 +310,7 @@ const History = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3">
                       <div className="w-10 h-10 bg-[#3B82F6] rounded-xl flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-white" />
+                        {getTypeIcon(item.type)}
                       </div>
                       <div>
                         <CardTitle className="text-white text-lg">{item.title}</CardTitle>
@@ -285,6 +322,11 @@ const History = () => {
                           <Badge variant="outline" className="text-[#CCCCCC] border-[#4B5563]">
                             {item.type}
                           </Badge>
+                          {item.source === 'conversation' && item.conversation_data && (
+                            <Badge variant="outline" className="text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10">
+                              {item.conversation_data.agent_name}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -319,14 +361,32 @@ const History = () => {
                       <Badge className={getPerformanceColor(item.performance)}>
                         {item.performance}
                       </Badge>
+                      {item.source === 'conversation' && item.conversation_data?.message_count && (
+                        <Badge variant="outline" className="text-[#CCCCCC] border-[#4B5563]">
+                          {item.conversation_data.message_count} mensagens
+                        </Badge>
+                      )}
                     </div>
-                    <Button 
-                      size="sm" 
-                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors"
-                      onClick={() => handleViewDetails(item)}
-                    >
-                      Ver Detalhes
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        className="bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors"
+                        onClick={() => handleViewDetails(item)}
+                      >
+                        Ver Detalhes
+                      </Button>
+                      {item.source === 'conversation' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="border-[#4B5563] text-[#CCCCCC] hover:bg-[#4B5563]/20"
+                          onClick={() => handleContinueConversation(item)}
+                        >
+                          <MessageSquare className="w-4 h-4 mr-1" />
+                          Continuar
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -345,6 +405,13 @@ const History = () => {
           isOpen={isPreviewModalOpen}
           onClose={() => setIsPreviewModalOpen(false)}
           copyData={selectedCopy}
+        />
+
+        <ViewCopyModal
+          isOpen={isViewModalOpen}
+          onClose={() => setIsViewModalOpen(false)}
+          copyData={selectedCopy}
+          copyType="conversation"
         />
       </div>
     </DashboardLayout>
