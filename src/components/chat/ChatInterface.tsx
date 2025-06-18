@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { AgentSelector } from './AgentSelector';
@@ -6,16 +7,20 @@ import { useChatAgent } from '@/hooks/useChatAgent';
 import { ProductSelector } from '@/components/ui/product-selector';
 import { useProducts } from '@/hooks/useProducts';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Trash2, MessageSquare, Menu, X } from 'lucide-react';
+import { CheckCircle, Trash2, MessageSquare, Menu, X, ArrowDown } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AgentEditor } from '@/components/agents/AgentEditor';
+import { useScrollPosition } from '@/hooks/useScrollPosition';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const [showSidebar, setShowSidebar] = useState(false);
   const [isAgentEditorOpen, setIsAgentEditorOpen] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { products } = useProducts();
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -45,6 +50,44 @@ export const ChatInterface = () => {
       }
     }
   }, [location.state, sessions, selectSession]);
+
+  // Scroll automático para o final apenas quando necessário
+  useEffect(() => {
+    if (messagesEndRef.current && activeSession) {
+      // Scroll para o final apenas se:
+      // 1. É uma nova sessão (sem mensagens anteriores)
+      // 2. Ou se já estávamos próximos do final antes da nova mensagem
+      const container = messagesContainerRef.current;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        
+        if (activeSession.messages.length <= 1 || isNearBottom) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+  }, [activeSession?.messages]);
+
+  // Monitorar scroll para mostrar/ocultar botão
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setShowScrollButton(!isNearBottom && scrollHeight > clientHeight);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [activeSession]);
+
+  // Função para scroll suave até o final
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   // Função para fechar sidebar no mobile ao selecionar sessão
   const handleSelectSession = (sessionId: string) => {
@@ -81,7 +124,10 @@ export const ChatInterface = () => {
     }
 
     return (
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-6 space-y-4 relative"
+      >
         {activeSession.messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-[#CCCCCC]">
@@ -146,7 +192,21 @@ export const ChatInterface = () => {
                 </div>
               </div>
             )}
+            
+            {/* Elemento invisível para marcar o final das mensagens */}
+            <div ref={messagesEndRef} />
           </>
+        )}
+
+        {/* Botão flutuante para scroll até o final */}
+        {showScrollButton && (
+          <button
+            onClick={scrollToBottom}
+            className="fixed bottom-24 right-6 z-10 w-12 h-12 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center animate-fade-in"
+            title="Ir para o final da conversa"
+          >
+            <ArrowDown className="w-5 h-5" />
+          </button>
         )}
       </div>
     );
