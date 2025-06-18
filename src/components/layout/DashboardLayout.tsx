@@ -20,7 +20,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             <AppSidebar />
           </div>
           <SidebarInset className="flex-1 bg-[#121212] min-w-0 overflow-x-hidden">
-            <header className="flex h-14 sm:h-16 shrink-0 items-center justify-between gap-2 border-b border-[#4B5563]/20 px-3 sm:px-4">
+            {/* Header fixo no mobile */}
+            <header className="fixed md:relative top-0 left-0 right-0 z-40 flex h-14 sm:h-16 shrink-0 items-center justify-between gap-2 border-b border-[#4B5563]/20 px-3 sm:px-4 bg-[#121212] md:bg-transparent backdrop-blur-sm md:backdrop-blur-none">
               <div className="flex items-center gap-3">
                 <SidebarTrigger className="text-white hover:bg-[#2A2A2A] flex-shrink-0">
                   <svg
@@ -58,7 +59,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </div>
               </div>
             </header>
-            <main className="flex-1 p-3 sm:p-4 lg:p-6 max-w-full overflow-x-hidden">
+            {/* Main com padding-top no mobile para compensar o header fixo */}
+            <main className="flex-1 p-3 sm:p-4 lg:p-6 max-w-full overflow-x-hidden pt-16 md:pt-3">
               <div className="max-w-full" data-tutorial="dashboard-content">
                 {children}
               </div>
