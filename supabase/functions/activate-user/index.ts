@@ -20,15 +20,26 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { email } = await req.json();
 
-    console.log("Activating user:", email);
+    console.log("Attempting to activate user:", email);
 
-    // Buscar o usuário pelo email
+    if (!email || !email.includes('@')) {
+      console.error("Invalid email provided:", email);
+      return new Response(
+        JSON.stringify({ error: "Email inválido fornecido" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Primeiro, verificar se o usuário já existe
     const { data: users, error: userError } = await supabase.auth.admin.listUsers();
     
     if (userError) {
       console.error("Error listing users:", userError);
       return new Response(
-        JSON.stringify({ error: userError.message }),
+        JSON.stringify({ error: "Erro ao buscar usuários: " + userError.message }),
         {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -37,58 +48,68 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const user = users.users.find(u => u.email === email);
+    
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: "User not found" }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
+      console.log("User not found, attempting to create:", email);
+      
+      // Criar usuário se não existir
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email: email,
+        password: Math.random().toString(36).slice(-8) + "Aa1!", // Senha temporária
+        email_confirm: true // Confirmar email automaticamente
+      });
+
+      if (createError) {
+        console.error("Error creating user:", createError);
+        return new Response(
+          JSON.stringify({ error: "Erro ao criar usuário: " + createError.message }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+
+      console.log("User created successfully:", newUser.user?.email);
+      
+      // Usar o usuário recém-criado
+      const userId = newUser.user?.id;
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: "Erro ao obter ID do usuário criado" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+
+      // Criar perfil e ativar subscription
+      await activateUserSubscription(supabase, userId, email);
+      
+    } else {
+      console.log("User found, activating subscription:", email);
+      await activateUserSubscription(supabase, user.id, email);
     }
 
-    // Ativar subscription do usuário por 30 dias
-    const subscriptionExpiresAt = new Date();
-    subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        subscription_status: "active",
-        payment_approved_at: new Date().toISOString(),
-        subscription_expires_at: subscriptionExpiresAt.toISOString(),
-        checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
-      })
-      .eq("id", user.id);
-
-    if (updateError) {
-      console.error("Error updating profile:", updateError);
-      return new Response(
-        JSON.stringify({ error: updateError.message }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    console.log("User activated successfully:", email);
+    console.log("User activation completed successfully:", email);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "User activated for 30 days",
-        subscription_expires_at: subscriptionExpiresAt.toISOString()
+        message: `Usuário ${email} foi ativado com sucesso por 30 dias`,
+        email: email
       }),
       {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
+
   } catch (error: any) {
-    console.error("Error in activate-user:", error);
+    console.error("Error in activate-user function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "Erro interno: " + error.message }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -96,5 +117,61 @@ const handler = async (req: Request): Promise<Response> => {
     );
   }
 };
+
+async function activateUserSubscription(supabase: any, userId: string, email: string) {
+  // Data de expiração: 30 dias a partir de agora
+  const subscriptionExpiresAt = new Date();
+  subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
+
+  // Verificar se já existe um perfil
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .single();
+
+  if (existingProfile) {
+    // Atualizar perfil existente
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        subscription_status: "active",
+        payment_approved_at: new Date().toISOString(),
+        subscription_expires_at: subscriptionExpiresAt.toISOString(),
+        checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
+        monthly_tokens: 25000, // Tokens mensais
+        extra_tokens: 0,
+        total_tokens_used: 0
+      })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("Error updating existing profile:", updateError);
+      throw new Error("Erro ao atualizar perfil existente: " + updateError.message);
+    }
+  } else {
+    // Criar novo perfil
+    const { error: insertError } = await supabase
+      .from("profiles")
+      .insert({
+        id: userId,
+        full_name: email.split('@')[0], // Usar parte do email como nome
+        subscription_status: "active",
+        payment_approved_at: new Date().toISOString(),
+        subscription_expires_at: subscriptionExpiresAt.toISOString(),
+        checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
+        monthly_tokens: 25000, // Tokens mensais
+        extra_tokens: 0,
+        total_tokens_used: 0
+      });
+
+    if (insertError) {
+      console.error("Error creating profile:", insertError);
+      throw new Error("Erro ao criar perfil: " + insertError.message);
+    }
+  }
+
+  console.log("Profile updated/created successfully for user:", email);
+}
 
 serve(handler);
