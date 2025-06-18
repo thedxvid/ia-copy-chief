@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { ChatMessage, Agent, ChatState } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,7 +24,6 @@ export const useChatAgent = (selectedProductId?: string) => {
   const { fetchProductDetails } = useProducts();
   const { user } = useAuth();
 
-  // Carregar sessões existentes do usuário
   useEffect(() => {
     if (user) {
       loadUserSessions();
@@ -36,6 +34,8 @@ export const useChatAgent = (selectedProductId?: string) => {
     if (!user) return;
 
     try {
+      console.log('Carregando sessões do usuário:', user.id);
+      
       const { data: sessionsData, error } = await supabase
         .from('chat_sessions')
         .select('*')
@@ -48,13 +48,19 @@ export const useChatAgent = (selectedProductId?: string) => {
         return;
       }
 
+      console.log('Sessões encontradas:', sessionsData?.length || 0);
+
       const sessionsWithMessages = await Promise.all(
         (sessionsData || []).map(async (session) => {
-          const { data: messagesData } = await supabase
+          const { data: messagesData, error: messagesError } = await supabase
             .from('chat_messages')
             .select('*')
             .eq('session_id', session.id)
             .order('created_at', { ascending: true });
+
+          if (messagesError) {
+            console.error('Erro ao carregar mensagens:', messagesError);
+          }
 
           const messages: ChatMessage[] = (messagesData || []).map(msg => ({
             id: msg.id,
@@ -75,50 +81,66 @@ export const useChatAgent = (selectedProductId?: string) => {
         })
       );
 
+      console.log('Sessões processadas:', sessionsWithMessages.length);
       setSessions(sessionsWithMessages);
     } catch (error) {
-      console.error('Erro ao carregar sessões:', error);
+      console.error('Erro geral ao carregar sessões:', error);
     }
   };
 
   const saveSessionToSupabase = async (session: ChatSession) => {
-    if (!user) return null;
+    if (!user) {
+      console.log('Usuário não logado, não salvando sessão');
+      return null;
+    }
 
     try {
-      // Inserir ou atualizar sessão
-      const { data: sessionData, error: sessionError } = await supabase
+      console.log('Salvando sessão:', session.id);
+      
+      const sessionData = {
+        id: session.id,
+        user_id: user.id,
+        title: session.title,
+        agent_name: selectedAgent?.name || session.agent_name || '',
+        agent_id: selectedAgent?.id || session.agent_id || '',
+        product_id: selectedProductId || session.product_id || null,
+        is_active: true,
+        message_count: session.messages.length,
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
         .from('chat_sessions')
-        .upsert({
-          id: session.id,
-          user_id: user.id,
-          title: session.title,
-          agent_name: selectedAgent?.name || '',
-          agent_id: selectedAgent?.id || '',
-          product_id: selectedProductId || null,
-          updated_at: new Date().toISOString()
-        })
+        .upsert(sessionData)
         .select()
         .single();
 
-      if (sessionError) {
-        console.error('Erro ao salvar sessão:', sessionError);
+      if (error) {
+        console.error('Erro ao salvar sessão:', error);
         return null;
       }
 
-      return sessionData;
+      console.log('Sessão salva com sucesso:', data);
+      return data;
     } catch (error) {
-      console.error('Erro ao salvar sessão:', error);
+      console.error('Erro geral ao salvar sessão:', error);
       return null;
     }
   };
 
   const saveMessageToSupabase = async (sessionId: string, message: ChatMessage) => {
-    if (!user) return;
+    if (!user) {
+      console.log('Usuário não logado, não salvando mensagem');
+      return;
+    }
 
     try {
+      console.log('Salvando mensagem:', message.id);
+      
       const { error } = await supabase
         .from('chat_messages')
         .insert({
+          id: message.id,
           session_id: sessionId,
           role: message.role,
           content: message.content,
@@ -127,15 +149,19 @@ export const useChatAgent = (selectedProductId?: string) => {
 
       if (error) {
         console.error('Erro ao salvar mensagem:', error);
+      } else {
+        console.log('Mensagem salva com sucesso');
       }
     } catch (error) {
-      console.error('Erro ao salvar mensagem:', error);
+      console.error('Erro geral ao salvar mensagem:', error);
     }
   };
 
   const createNewSession = useCallback(async () => {
+    const sessionId = crypto.randomUUID();
+    
     const newSession: ChatSession = {
-      id: Date.now().toString(),
+      id: sessionId,
       title: 'Nova conversa',
       created_at: new Date().toISOString(),
       messages: [],
@@ -144,9 +170,13 @@ export const useChatAgent = (selectedProductId?: string) => {
       product_id: selectedProductId
     };
     
-    // Salvar no Supabase se usuário estiver logado
+    console.log('Criando nova sessão:', sessionId);
+    
     if (user) {
-      await saveSessionToSupabase(newSession);
+      const savedSession = await saveSessionToSupabase(newSession);
+      if (savedSession) {
+        console.log('Nova sessão salva no Supabase');
+      }
     }
     
     setSessions(prev => [newSession, ...prev]);
@@ -154,6 +184,7 @@ export const useChatAgent = (selectedProductId?: string) => {
   }, [selectedAgent, selectedProductId, user]);
 
   const selectSession = useCallback((sessionId: string) => {
+    console.log('Selecionando sessão:', sessionId);
     const session = sessions.find(s => s.id === sessionId);
     if (session) {
       setActiveSession(session);
@@ -161,15 +192,22 @@ export const useChatAgent = (selectedProductId?: string) => {
   }, [sessions]);
 
   const deleteSession = useCallback(async (sessionId: string) => {
-    // Deletar do Supabase se usuário estiver logado
+    console.log('Deletando sessão:', sessionId);
+    
     if (user) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('chat_sessions')
           .update({ is_active: false })
           .eq('id', sessionId);
+          
+        if (error) {
+          console.error('Erro ao deletar sessão:', error);
+        } else {
+          console.log('Sessão marcada como inativa no Supabase');
+        }
       } catch (error) {
-        console.error('Erro ao deletar sessão:', error);
+        console.error('Erro geral ao deletar sessão:', error);
       }
     }
 
@@ -197,14 +235,16 @@ export const useChatAgent = (selectedProductId?: string) => {
       return;
     }
 
+    const userMessageId = crypto.randomUUID();
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: userMessageId,
       role: 'user',
       content,
       timestamp: new Date()
     };
 
-    // Update session with user message
+    console.log('Enviando mensagem do usuário:', userMessageId);
+
     const updatedSession = {
       ...activeSession,
       messages: [...activeSession.messages, userMessage],
@@ -218,7 +258,6 @@ export const useChatAgent = (selectedProductId?: string) => {
     setActiveSession(updatedSession);
     setSessions(prev => prev.map(s => s.id === activeSession.id ? updatedSession : s));
     
-    // Salvar mensagem do usuário no Supabase
     if (user) {
       await saveMessageToSupabase(activeSession.id, userMessage);
       await saveSessionToSupabase(updatedSession);
@@ -227,7 +266,6 @@ export const useChatAgent = (selectedProductId?: string) => {
     setIsLoading(true);
 
     try {
-      // Buscar contexto do produto se selecionado
       let productContext = '';
       if (selectedProductId) {
         const productDetails = await fetchProductDetails(selectedProductId);
@@ -236,7 +274,6 @@ export const useChatAgent = (selectedProductId?: string) => {
         }
       }
 
-      // Preparar o prompt do agente com contexto do produto
       let enhancedPrompt = selectedAgent.prompt;
       if (productContext) {
         enhancedPrompt = `${selectedAgent.prompt}
@@ -254,7 +291,6 @@ INSTRUÇÕES IMPORTANTES:
 `;
       }
 
-      // Call Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: content,
@@ -274,14 +310,16 @@ INSTRUÇÕES IMPORTANTES:
         throw new Error(error.message || 'Erro ao conectar com a API');
       }
 
+      const assistantMessageId = crypto.randomUUID();
       const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: assistantMessageId,
         role: 'assistant',
         content: data.response || 'Resposta não disponível',
         timestamp: new Date()
       };
 
-      // Update session with assistant message
+      console.log('Recebendo resposta do assistente:', assistantMessageId);
+
       const finalSession = {
         ...updatedSession,
         messages: [...updatedSession.messages, assistantMessage]
@@ -290,7 +328,6 @@ INSTRUÇÕES IMPORTANTES:
       setActiveSession(finalSession);
       setSessions(prev => prev.map(s => s.id === activeSession.id ? finalSession : s));
 
-      // Salvar mensagem do assistente no Supabase
       if (user) {
         await saveMessageToSupabase(activeSession.id, assistantMessage);
         await saveSessionToSupabase(finalSession);
@@ -313,7 +350,6 @@ INSTRUÇÕES IMPORTANTES:
     const lastUserMessage = messages[messages.length - 2];
     if (lastUserMessage.role !== 'user') return;
     
-    // Remove the last assistant message and regenerate
     const updatedMessages = messages.slice(0, -1);
     const updatedSession = {
       ...activeSession,
@@ -323,7 +359,6 @@ INSTRUÇÕES IMPORTANTES:
     setActiveSession(updatedSession);
     setSessions(prev => prev.map(s => s.id === activeSession.id ? updatedSession : s));
     
-    // Re-send the last user message
     await sendMessage(lastUserMessage.content);
   }, [activeSession, selectedAgent, sendMessage]);
 

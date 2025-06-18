@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { AgentSelector } from './AgentSelector';
@@ -10,12 +9,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Trash2, MessageSquare, Menu, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { useLocation } from 'react-router-dom';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const [showSidebar, setShowSidebar] = useState(false);
   const { products } = useProducts();
   const isMobile = useIsMobile();
+  const location = useLocation();
   const {
     sessions,
     activeSession,
@@ -30,6 +31,17 @@ export const ChatInterface = () => {
   } = useChatAgent(selectedProductId);
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
+
+  // Verificar se há um sessionId no state da navegação
+  useEffect(() => {
+    if (location.state?.sessionId && sessions.length > 0) {
+      const sessionToSelect = sessions.find(s => s.id === location.state.sessionId);
+      if (sessionToSelect) {
+        selectSession(sessionToSelect.id);
+        console.log('Sessão selecionada via navegação:', sessionToSelect.id);
+      }
+    }
+  }, [location.state, sessions, selectSession]);
 
   // Função para fechar sidebar no mobile ao selecionar sessão
   const handleSelectSession = (sessionId: string) => {
