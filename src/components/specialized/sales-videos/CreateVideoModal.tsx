@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,40 +53,72 @@ export const CreateVideoModal: React.FC<CreateVideoModalProps> = ({
     additional_info: ''
   });
 
+  // Função para aplicar informações do produto nos campos
+  const applyProductToFields = async (productId: string) => {
+    try {
+      const productDetails = await fetchProductDetails(productId);
+      if (productDetails) {
+        setBriefing(prev => ({
+          ...prev,
+          product_id: productId,
+          // Aplicar nome do produto se o campo estiver vazio
+          product_name: prev.product_name || productDetails.name,
+          // Aplicar público-alvo se disponível e campo estiver vazio
+          target_audience: prev.target_audience || (
+            productDetails.strategy?.target_audience 
+              ? typeof productDetails.strategy.target_audience === 'string'
+                ? productDetails.strategy.target_audience
+                : JSON.stringify(productDetails.strategy.target_audience)
+              : ''
+          ),
+          // Aplicar benefícios/proposta de valor se disponível e campo estiver vazio
+          product_benefits: prev.product_benefits || (
+            productDetails.strategy?.value_proposition || ''
+          ),
+          // Aplicar detalhes da oferta se disponível e campo estiver vazio
+          offer_details: prev.offer_details || (
+            productDetails.offer?.main_offer 
+              ? typeof productDetails.offer.main_offer === 'string'
+                ? productDetails.offer.main_offer
+                : JSON.stringify(productDetails.offer.main_offer)
+              : ''
+          ),
+          // Aplicar estratégia de preço se disponível e campo estiver vazio
+          price_strategy: prev.price_strategy || (
+            productDetails.offer?.pricing_strategy
+              ? typeof productDetails.offer.pricing_strategy === 'string'
+                ? productDetails.offer.pricing_strategy
+                : JSON.stringify(productDetails.offer.pricing_strategy)
+              : ''
+          ),
+          // Adicionar informações extras do produto no campo adicional
+          additional_info: prev.additional_info + (
+            productDetails.meta?.private_notes 
+              ? `\n\nNotas do produto: ${productDetails.meta.private_notes}`
+              : ''
+          )
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar detalhes do produto:', error);
+    }
+  };
+
+  // Efeito para aplicar dados do produto quando selecionado
+  useEffect(() => {
+    if (selectedProductId) {
+      applyProductToFields(selectedProductId);
+    }
+  }, [selectedProductId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     let enhancedBriefing = { ...briefing };
     
-    // Se um produto foi selecionado, incluir seu contexto
+    // Se um produto foi selecionado, garantir que o ID está incluído
     if (selectedProductId) {
-      const productDetails = await fetchProductDetails(selectedProductId);
-      if (productDetails) {
-        enhancedBriefing.product_id = selectedProductId;
-        
-        // Pré-preencher campos se estiverem vazios
-        if (!briefing.product_name) {
-          enhancedBriefing.product_name = productDetails.name;
-        }
-        
-        if (!briefing.target_audience && productDetails.strategy?.target_audience) {
-          const audience = typeof productDetails.strategy.target_audience === 'string'
-            ? productDetails.strategy.target_audience
-            : JSON.stringify(productDetails.strategy.target_audience);
-          enhancedBriefing.target_audience = audience;
-        }
-        
-        if (!briefing.product_benefits && productDetails.strategy?.value_proposition) {
-          enhancedBriefing.product_benefits = productDetails.strategy.value_proposition;
-        }
-        
-        if (!briefing.offer_details && productDetails.offer?.main_offer) {
-          const offer = typeof productDetails.offer.main_offer === 'string'
-            ? productDetails.offer.main_offer
-            : JSON.stringify(productDetails.offer.main_offer);
-          enhancedBriefing.offer_details = offer;
-        }
-      }
+      enhancedBriefing.product_id = selectedProductId;
     }
     
     await onSubmit(enhancedBriefing);
