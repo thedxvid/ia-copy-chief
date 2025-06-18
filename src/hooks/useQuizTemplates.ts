@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,8 +119,6 @@ export const useQuizTemplates = () => {
     
     try {
       console.log('🔍 Fetching quiz templates...');
-      console.log('🔑 Current user:', user?.email);
-      console.log('🔐 Is admin:', isAdmin);
       
       const { data, error } = await supabase
         .from('quiz_templates')
