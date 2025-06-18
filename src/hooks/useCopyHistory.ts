@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -218,7 +219,14 @@ export const useCopyHistory = () => {
 
       // Transformar dados dos produtos
       productsData?.forEach(product => {
-        product.product_copy?.forEach(copy => {
+        // Verificar se product_copy existe e é um array ou objeto único
+        const productCopies = Array.isArray(product.product_copy) 
+          ? product.product_copy 
+          : product.product_copy 
+            ? [product.product_copy] 
+            : [];
+
+        productCopies.forEach(copy => {
           let type = 'Copy Geral';
           if (copy.landing_page_copy) type = 'Landing Page';
           else if (copy.email_campaign) type = 'Email';

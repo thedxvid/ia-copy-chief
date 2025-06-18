@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTokens } from '@/hooks/useTokens';
 import { useProducts } from '@/hooks/useProducts';
 import { toast } from 'sonner';
-import { TemplateSelector } from './TemplateSelector';
 
 interface ToolModalProps {
   isOpen: boolean;

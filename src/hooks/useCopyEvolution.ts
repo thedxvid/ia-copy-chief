@@ -172,7 +172,14 @@ export const useCopyEvolution = () => {
       const transformedData: CopyEvolutionItem[] = [];
 
       productsData?.forEach(product => {
-        product.product_copy?.forEach(copy => {
+        // Verificar se product_copy existe e é um array ou objeto único
+        const productCopies = Array.isArray(product.product_copy) 
+          ? product.product_copy 
+          : product.product_copy 
+            ? [product.product_copy] 
+            : [];
+
+        productCopies.forEach(copy => {
           const copyType = getCopyType(copy);
           const score = calculateCopyScore(copy, copyType);
           const color = getTypeColor(copyType);
