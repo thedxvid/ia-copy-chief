@@ -48,11 +48,12 @@ const toolItems = [
 ]
 
 export function AppSidebar() {
-  const { collapsed } = useSidebar()
+  const { state } = useSidebar()
   const location = useLocation()
   const { signOut, user } = useAuth()
   const currentPath = location.pathname
 
+  const isCollapsed = state === "collapsed"
   const isActive = (path: string) => currentPath === path
   const isMainExpanded = mainItems.some((i) => isActive(i.url))
   const isToolsExpanded = toolItems.some((i) => isActive(i.url))
@@ -72,13 +73,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className={`${collapsed ? "w-14" : "w-60"} bg-[#1A1A1A] border-r border-[#333333]`}
-      collapsible
+      className={`${isCollapsed ? "w-14" : "w-60"} bg-[#1A1A1A] border-r border-[#333333]`}
+      collapsible="icon"
     >
       <SidebarTrigger className="m-2 self-end text-white hover:bg-[#2A2A2A]" />
 
       <SidebarContent>
-        <SidebarGroup open={isMainExpanded}>
+        <SidebarGroup>
           <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider">
             Principal
           </SidebarGroupLabel>
@@ -93,7 +94,7 @@ export function AppSidebar() {
                       className={({ isActive }) => `${getNavCls({ isActive })} flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors`}
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!isCollapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -102,7 +103,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup open={isToolsExpanded}>
+        <SidebarGroup>
           <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider">
             Ferramentas
           </SidebarGroupLabel>
@@ -117,7 +118,7 @@ export function AppSidebar() {
                       className={({ isActive }) => `${getNavCls({ isActive })} flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors`}
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!isCollapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -136,11 +137,11 @@ export function AppSidebar() {
                 className="w-full flex items-center space-x-3 px-3 py-2 text-[#CCCCCC] hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                {!collapsed && <span>Sair</span>}
+                {!isCollapsed && <span>Sair</span>}
               </button>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {!collapsed && user && (
+          {!isCollapsed && user && (
             <div className="px-3 py-2 text-xs text-[#666666] border-t border-[#333333] mt-2">
               <div className="flex items-center space-x-2">
                 <User className="h-3 w-3" />

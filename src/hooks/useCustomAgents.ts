@@ -51,7 +51,10 @@ export const useCustomAgents = () => {
         throw error;
       }
 
-      setCustomAgents(data || []);
+      setCustomAgents((data || []).map(agent => ({
+        ...agent,
+        status: agent.status as 'active' | 'inactive'
+      })));
     } catch (err) {
       console.error('Erro ao buscar agentes customizados:', err);
       setError('Erro ao carregar agentes personalizados');
@@ -91,9 +94,14 @@ export const useCustomAgents = () => {
         throw error;
       }
 
-      setCustomAgents(prev => [data, ...prev]);
+      const newAgent = {
+        ...data,
+        status: data.status as 'active' | 'inactive'
+      };
+
+      setCustomAgents(prev => [newAgent, ...prev]);
       toast.success('Agente criado com sucesso!');
-      return data;
+      return newAgent;
     } catch (err) {
       console.error('Erro ao criar agente:', err);
       toast.error('Erro ao criar agente');
@@ -123,11 +131,16 @@ export const useCustomAgents = () => {
         throw error;
       }
 
+      const updatedAgent = {
+        ...data,
+        status: data.status as 'active' | 'inactive'
+      };
+
       setCustomAgents(prev => 
-        prev.map(agent => agent.id === id ? data : agent)
+        prev.map(agent => agent.id === id ? updatedAgent : agent)
       );
       toast.success('Agente atualizado com sucesso!');
-      return data;
+      return updatedAgent;
     } catch (err) {
       console.error('Erro ao atualizar agente:', err);
       toast.error('Erro ao atualizar agente');
