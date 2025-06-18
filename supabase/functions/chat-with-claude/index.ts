@@ -31,7 +31,7 @@ serve(async (req) => {
     console.log('=== ENVIRONMENT CHECK ===');
     console.log('Supabase URL:', supabaseUrl ? 'OK' : 'MISSING');
     console.log('Supabase Key:', supabaseKey ? 'OK' : 'MISSING');
-    console.log('Anthropic API Key:', anthropicApiKey ? 'OK' : 'MISSING');
+    console.log('AI API Key:', anthropicApiKey ? 'OK' : 'MISSING');
 
     if (!supabaseUrl || !supabaseKey || !anthropicApiKey) {
       throw new Error('Configuração de ambiente incompleta');
@@ -54,20 +54,20 @@ serve(async (req) => {
       const userTokens = tokensData?.[0];
       console.log('User tokens:', userTokens);
 
-      // Estimar tokens necessários para Claude 4 Sonnet
+      // Estimar tokens necessários para o modelo de IA
       const systemPromptLength = agentPrompt?.length || 0;
       const messageLength = message.length;
       const historyLength = chatHistory?.reduce((acc: number, msg: any) => acc + msg.content.length, 0) || 0;
       
       const estimatedTokens = Math.ceil((systemPromptLength + messageLength + historyLength) * 1.3) + 1000; // Buffer para resposta
-      console.log('Tokens estimados necessários (Claude 4 Sonnet):', estimatedTokens);
+      console.log('Tokens estimados necessários:', estimatedTokens);
 
       if (!userTokens || userTokens.total_available < estimatedTokens) {
         throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para esta conversa.`);
       }
     }
 
-    // Preparar mensagens para Claude 4 Sonnet
+    // Preparar mensagens para o modelo de IA
     const messages = [];
     
     if (chatHistory && chatHistory.length > 0) {
@@ -84,27 +84,27 @@ serve(async (req) => {
       content: message
     });
 
-    console.log('=== CLAUDE 4 SONNET API CALL ===');
+    console.log('=== AI API CALL ===');
     console.log('Messages count:', messages.length);
     console.log('System prompt length:', agentPrompt?.length || 0);
 
     const requestBody = {
-      model: 'claude-sonnet-4-20250514', // ✅ Claude 4 Sonnet
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 3000,
       system: agentPrompt || `Você é ${agentName || 'um assistente útil'}. Responda de forma clara, direta e útil.`,
       messages: messages,
       stream: streaming
     };
 
-    console.log('Request body structure (Claude 4):', {
+    console.log('Request body structure:', {
       model: requestBody.model,
       max_tokens: requestBody.max_tokens,
       system_length: requestBody.system.length,
       messages_count: requestBody.messages.length
     });
 
-    console.log('Tentativa 1/3 com Claude 4 Sonnet');
-    console.log('Calling Claude 4 Sonnet API...');
+    console.log('Tentativa 1/3 com modelo de IA avançado');
+    console.log('Calling AI API...');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -118,16 +118,16 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Claude 4 Sonnet API error:', response.status, errorText);
+      console.error('❌ AI API error:', response.status, errorText);
       
       if (response.status === 400) {
-        throw new Error('Erro na formatação da requisição para Claude API');
+        throw new Error('Erro na formatação da requisição para IA API');
       } else if (response.status === 401) {
-        throw new Error('Chave da API Claude inválida');
+        throw new Error('Chave da API de IA inválida');
       } else if (response.status === 429) {
         throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos');
       } else {
-        throw new Error(`Falha na comunicação com Claude API: ${response.status}`);
+        throw new Error(`Falha na comunicação com IA API: ${response.status}`);
       }
     }
 
@@ -191,9 +191,9 @@ serve(async (req) => {
     }
 
     // Resposta normal (não-streaming)
-    console.log('Claude 4 Sonnet API call successful');
+    console.log('AI API call successful');
     const data = await response.json();
-    console.log('Claude 4 Sonnet API response received');
+    console.log('AI API response received');
 
     const assistantResponse = data.content[0]?.text || 'Resposta não disponível';
     
@@ -202,7 +202,7 @@ serve(async (req) => {
 
     // Calcular tokens usados
     const actualTokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
-    console.log('Tokens realmente usados pelo Claude 4:', actualTokensUsed);
+    console.log('Tokens realmente usados:', actualTokensUsed);
 
     // Consumir tokens se userId fornecido
     if (userId && actualTokensUsed > 0) {
@@ -220,7 +220,7 @@ serve(async (req) => {
       if (consumeError || !consumeResult) {
         console.error('⚠️ Erro ao consumir tokens:', consumeError);
       } else {
-        console.log('Tokens consumidos com sucesso (Claude 4)');
+        console.log('Tokens consumidos com sucesso');
       }
 
       // Verificar e enviar notificações se necessário
@@ -232,7 +232,7 @@ serve(async (req) => {
     }
 
     console.log('=== SUCCESS ===');
-    console.log('Chat processado com sucesso usando Claude 4 Sonnet');
+    console.log('Chat processado com sucesso');
 
     return new Response(JSON.stringify({
       response: assistantResponse,
@@ -251,7 +251,7 @@ serve(async (req) => {
     if (error.message?.includes('Tokens insuficientes')) {
       statusCode = 402;
       errorMessage = error.message;
-    } else if (error.message?.includes('Claude API')) {
+    } else if (error.message?.includes('IA API')) {
       statusCode = 503;
       errorMessage = error.message;
     } else if (error.message?.includes('ambiente incompleta')) {

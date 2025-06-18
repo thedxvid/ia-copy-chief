@@ -130,9 +130,9 @@ serve(async (req) => {
       throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para gerar esta copy.`);
     }
 
-    console.log('🤖 Calling Claude 4 Sonnet API...');
+    console.log('🤖 Calling AI API...');
 
-    // Chamar Claude 4 Sonnet API com a sintaxe correta
+    // Chamar API de IA com a sintaxe correta
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -141,40 +141,40 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', // ✅ ATUALIZADO: Claude 4 Sonnet
-        max_tokens: 4000, // ✅ AUMENTADO: Aproveitando melhor o Claude 4
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
         messages: [
-          { role: 'user', content: prompt } // ✅ CORRIGIDO: user ao invés de human
+          { role: 'user', content: prompt }
         ]
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Claude 4 Sonnet API error:', response.status, errorText);
+      console.error('❌ AI API error:', response.status, errorText);
       
-      // Melhor tratamento de erros específicos da API Claude
+      // Melhor tratamento de erros específicos da API
       if (response.status === 400) {
         console.error('🚨 Bad Request - Verificar sintaxe da requisição');
-        throw new Error('Erro na formatação da requisição para Claude API');
+        throw new Error('Erro na formatação da requisição para IA API');
       } else if (response.status === 401) {
         console.error('🚨 Unauthorized - API Key inválida');
-        throw new Error('Chave da API Claude inválida');
+        throw new Error('Chave da API de IA inválida');
       } else if (response.status === 429) {
         console.error('🚨 Rate Limited - Muitas requisições');
         throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos');
       } else {
-        throw new Error(`Falha na comunicação com Claude API: ${response.status}`);
+        throw new Error(`Falha na comunicação com IA API: ${response.status}`);
       }
     }
 
-    const claudeData = await response.json();
-    const generatedCopy = claudeData.content[0]?.text || 'Copy não gerada';
+    const aiData = await response.json();
+    const generatedCopy = aiData.content[0]?.text || 'Copy não gerada';
 
-    console.log('✅ Copy generated successfully with Claude 4 Sonnet, length:', generatedCopy.length);
+    console.log('✅ Copy generated successfully, length:', generatedCopy.length);
 
     // Calcular tokens reais usados
-    const actualTokensUsed = claudeData.usage?.input_tokens + claudeData.usage?.output_tokens || estimatedTokens;
+    const actualTokensUsed = aiData.usage?.input_tokens + aiData.usage?.output_tokens || estimatedTokens;
     console.log('📊 Actual tokens used:', actualTokensUsed);
 
     // Consumir tokens
@@ -183,8 +183,8 @@ serve(async (req) => {
         p_user_id: userId,
         p_tokens_used: actualTokensUsed,
         p_feature_used: `copy_generation_${data?.copy_type || copyType}`,
-        p_prompt_tokens: claudeData.usage?.input_tokens || Math.floor(actualTokensUsed * 0.4),
-        p_completion_tokens: claudeData.usage?.output_tokens || Math.floor(actualTokensUsed * 0.6)
+        p_prompt_tokens: aiData.usage?.input_tokens || Math.floor(actualTokensUsed * 0.4),
+        p_completion_tokens: aiData.usage?.output_tokens || Math.floor(actualTokensUsed * 0.6)
       });
 
     if (consumeError || !consumeResult) {
@@ -196,7 +196,7 @@ serve(async (req) => {
     // Verificar notificações
     await checkAndSendNotifications(supabase, userId, userTokens.total_available - actualTokensUsed);
 
-    console.log('🎉 Copy generation completed successfully with Claude 4 Sonnet');
+    console.log('🎉 Copy generation completed successfully');
 
     return new Response(JSON.stringify({
       generatedCopy,
@@ -208,7 +208,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('💥 Error in n8n-integration:', error);
+    console.error('💥 Error in copy generation:', error);
     
     // Log detalhado para debugging
     console.error('Error details:', {
