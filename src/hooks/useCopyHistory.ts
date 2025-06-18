@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -213,21 +212,10 @@ export const useCopyHistory = () => {
         .eq('is_active', true)
         .order('updated_at', { ascending: false });
 
-      if (productsError) {
-        throw productsError;
-      }
-
-      if (quizError) {
-        throw quizError;
-      }
-
-      if (specializedError) {
-        throw specializedError;
-      }
-
-      if (conversationsError) {
-        throw conversationsError;
-      }
+      if (productsError) throw productsError;
+      if (quizError) throw quizError;
+      if (specializedError) throw specializedError;
+      if (conversationsError) throw conversationsError;
 
       const transformedData: CopyHistoryItem[] = [];
 
@@ -276,7 +264,7 @@ export const useCopyHistory = () => {
         });
       });
 
-      // Transformar dados do quiz
+      // Transformar dados do quiz (corrigido para extrair conteúdo corretamente)
       quizData?.forEach(quizCopy => {
         const quizTypeMap: Record<string, string> = {
           email_marketing: 'Quiz Email',
@@ -291,13 +279,20 @@ export const useCopyHistory = () => {
           safeQuizAnswers = quizCopy.quiz_answers as Record<string, string>;
         }
 
+        // Extrair conteúdo corretamente do generated_copy
         let quizContent = '';
         if (quizCopy.generated_copy) {
           if (typeof quizCopy.generated_copy === 'string') {
             quizContent = quizCopy.generated_copy;
           } else if (typeof quizCopy.generated_copy === 'object' && !Array.isArray(quizCopy.generated_copy)) {
             const copyObj = quizCopy.generated_copy as { [key: string]: any };
-            quizContent = copyObj.content || JSON.stringify(quizCopy.generated_copy, null, 2);
+            // Tentar extrair o conteúdo de diferentes campos possíveis
+            quizContent = copyObj.content || 
+                         copyObj.copy || 
+                         copyObj.text || 
+                         copyObj.script ||
+                         copyObj.body ||
+                         JSON.stringify(quizCopy.generated_copy, null, 2);
           } else {
             quizContent = JSON.stringify(quizCopy.generated_copy, null, 2);
           }
@@ -321,7 +316,7 @@ export const useCopyHistory = () => {
         });
       });
 
-      // Transformar dados das copies especializadas
+      // Transformar dados das copies especializadas (melhorado)
       specializedData?.forEach(specializedCopy => {
         const typeMap: Record<string, string> = {
           'ads': 'Anúncio',

@@ -15,7 +15,7 @@ interface ViewCopyModalProps {
   isOpen: boolean;
   onClose: () => void;
   copyData: any;
-  copyType: string;
+  copyType?: string;
 }
 
 export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
@@ -37,7 +37,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
     if (!copyData) return 'Nenhum conteúdo disponível';
 
     // Conversas do chat
-    if (copyType === 'conversation' && copyData.content?.conversation) {
+    if ((copyType === 'conversation' || copyData.source === 'conversation') && copyData.content?.conversation) {
       const conversation = copyData.content.conversation;
       let formattedText = '';
       
@@ -65,38 +65,63 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
     }
 
     // Conteúdo do Quiz
-    if (copyData.source === 'quiz' && copyData.content?.quiz_content) {
+    if (copyData.source === 'quiz') {
       let formattedText = '';
       
-      formattedText += `📝 ${copyData.quiz_type?.toUpperCase() || 'QUIZ'}\n`;
+      formattedText += `📝 ${(copyData.quiz_type || copyData.type || 'QUIZ').toUpperCase()}\n`;
       formattedText += `${'='.repeat(50)}\n\n`;
       
+      formattedText += `📋 TÍTULO: ${copyData.title}\n\n`;
+      
       // Mostrar respostas do quiz se disponíveis
-      if (copyData.quiz_answers) {
+      if (copyData.quiz_answers && Object.keys(copyData.quiz_answers).length > 0) {
         formattedText += `📋 RESPOSTAS DO QUIZ:\n`;
         formattedText += `${'='.repeat(30)}\n`;
         
         Object.entries(copyData.quiz_answers).forEach(([key, value]) => {
-          formattedText += `${key}: ${value}\n`;
+          const cleanKey = key.replace(/_/g, ' ').toUpperCase();
+          formattedText += `${cleanKey}: ${value}\n`;
         });
         formattedText += `\n`;
       }
       
       formattedText += `📄 CONTEÚDO GERADO:\n`;
       formattedText += `${'='.repeat(30)}\n`;
-      formattedText += `${copyData.content.quiz_content}\n\n`;
+      
+      // Extrair conteúdo do quiz de diferentes possíveis localizações
+      let quizContent = '';
+      if (copyData.content?.quiz_content) {
+        quizContent = copyData.content.quiz_content;
+      } else if (copyData.generated_copy) {
+        if (typeof copyData.generated_copy === 'string') {
+          quizContent = copyData.generated_copy;
+        } else if (typeof copyData.generated_copy === 'object') {
+          const copyObj = copyData.generated_copy;
+          quizContent = copyObj.content || 
+                       copyObj.copy || 
+                       copyObj.text || 
+                       copyObj.script ||
+                       copyObj.body ||
+                       JSON.stringify(copyData.generated_copy, null, 2);
+        }
+      }
+      
+      formattedText += `${quizContent}\n\n`;
       
       return formattedText;
     }
 
     // Conteúdo de copies especializadas (ads, sales-videos, pages, content)
-    if (copyData.copy_data) {
+    if (copyData.source === 'specialized' && copyData.copy_data) {
       const data = copyData.copy_data;
       let formattedText = '';
 
+      // Determinar o tipo baseado no copy_type ou type
+      const actualType = copyData.copy_type || copyData.type || 'specialized';
+
       // Páginas
-      if (copyType === 'pages' || copyData.type?.includes('Landing') || copyData.type?.includes('Page')) {
-        formattedText += `🎯 ${data.page_type?.toUpperCase() || copyData.type?.toUpperCase() || 'PÁGINA'}\n`;
+      if (actualType.includes('pages') || actualType.includes('Landing') || actualType.includes('Page')) {
+        formattedText += `🎯 ${actualType.toUpperCase()}\n`;
         formattedText += `${'='.repeat(50)}\n\n`;
         if (data.headline) formattedText += `📢 HEADLINE:\n${data.headline}\n\n`;
         if (data.subheadline) formattedText += `📝 SUBHEADLINE:\n${data.subheadline}\n\n`;
@@ -108,8 +133,8 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
       }
 
       // Vídeos de Vendas
-      else if (copyType === 'sales-videos' || copyData.type?.includes('VSL') || copyData.type?.includes('Video')) {
-        formattedText += `🎬 ${data.video_type?.toUpperCase() || copyData.type?.toUpperCase() || 'VÍDEO DE VENDAS'}\n`;
+      else if (actualType.includes('sales-videos') || actualType.includes('VSL') || actualType.includes('Video')) {
+        formattedText += `🎬 ${actualType.toUpperCase()}\n`;
         formattedText += `${'='.repeat(50)}\n\n`;
         if (data.hook) formattedText += `🪝 GANCHO:\n${data.hook}\n\n`;
         if (data.problem) formattedText += `❗ PROBLEMA:\n${data.problem}\n\n`;
@@ -121,8 +146,8 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
       }
 
       // Anúncios
-      else if (copyType === 'ads' || copyData.type?.includes('Anúncio') || copyData.type?.includes('Ad')) {
-        formattedText += `📢 ${data.ad_type?.toUpperCase() || copyData.type?.toUpperCase() || 'ANÚNCIO'}\n`;
+      else if (actualType.includes('ads') || actualType.includes('Anúncio') || actualType.includes('Ad')) {
+        formattedText += `📢 ${actualType.toUpperCase()}\n`;
         formattedText += `${'='.repeat(50)}\n\n`;
         if (data.headline) formattedText += `📢 TÍTULO:\n${data.headline}\n\n`;
         if (data.description) formattedText += `📝 DESCRIÇÃO:\n${data.description}\n\n`;
@@ -132,8 +157,8 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
       }
 
       // Conteúdos
-      else if (copyType === 'content' || copyData.type?.includes('Conteúdo') || copyData.type?.includes('Social')) {
-        formattedText += `✍️ ${data.content_type?.toUpperCase() || copyData.type?.toUpperCase() || 'CONTEÚDO'}\n`;
+      else if (actualType.includes('content') || actualType.includes('Conteúdo') || actualType.includes('Social')) {
+        formattedText += `✍️ ${actualType.toUpperCase()}\n`;
         formattedText += `${'='.repeat(50)}\n\n`;
         if (data.title) formattedText += `📝 TÍTULO:\n${data.title}\n\n`;
         if (data.subtitle) formattedText += `📄 SUBTÍTULO:\n${data.subtitle}\n\n`;
@@ -145,7 +170,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
 
       // Fallback para qualquer outro tipo de copy_data
       else {
-        formattedText += `📄 ${copyData.type?.toUpperCase() || 'CONTEÚDO'}\n`;
+        formattedText += `📄 ${actualType.toUpperCase()}\n`;
         formattedText += `${'='.repeat(50)}\n\n`;
         
         // Iterar por todas as propriedades do copy_data
@@ -161,7 +186,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
     }
 
     // Conteúdo de copies de produtos (landing_page_copy, email_campaign, etc.)
-    if (copyData.content) {
+    if (copyData.content && copyData.source === 'product') {
       const content = copyData.content;
       let formattedText = '';
 
@@ -232,7 +257,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
       return formattedText;
     }
 
-    return 'Nenhum conteúdo disponível';
+    return 'Nenhum conteúdo disponível para exibição';
   };
 
   const getStatusBadge = (status: string) => {
@@ -254,7 +279,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
   };
 
   const renderConversationContent = () => {
-    if (copyType !== 'conversation' || !copyData.content?.conversation) return null;
+    if ((copyType !== 'conversation' && copyData.source !== 'conversation') || !copyData.content?.conversation) return null;
 
     const conversation = copyData.content.conversation;
     
@@ -340,7 +365,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {copyType === 'conversation' ? (
+              {(copyType === 'conversation' || copyData.source === 'conversation') ? (
                 <MessageSquare className="w-6 h-6 text-[#3B82F6]" />
               ) : (
                 <Eye className="w-6 h-6 text-[#3B82F6]" />
@@ -352,7 +377,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
                     Criado em: {copyData.date || new Date(copyData.created_at || Date.now()).toLocaleDateString('pt-BR')}
                   </p>
                   {getStatusBadge(copyData.status)}
-                  {copyType === 'conversation' && copyData.conversation_data && (
+                  {(copyType === 'conversation' || copyData.source === 'conversation') && copyData.conversation_data && (
                     <Badge variant="outline" className="text-[#CCCCCC] border-[#4B5563] text-xs">
                       {copyData.conversation_data.message_count} mensagens
                     </Badge>
@@ -365,6 +390,11 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
                   {copyData.source === 'product' && (
                     <Badge variant="outline" className="text-[#F59E0B] border-[#F59E0B]/30 bg-[#F59E0B]/10 text-xs">
                       Produto
+                    </Badge>
+                  )}
+                  {copyData.source === 'specialized' && (
+                    <Badge variant="outline" className="text-[#8B5CF6] border-[#8B5CF6]/30 bg-[#8B5CF6]/10 text-xs">
+                      Especializada
                     </Badge>
                   )}
                 </div>
@@ -385,7 +415,7 @@ export const ViewCopyModal: React.FC<ViewCopyModalProps> = ({
         </DialogHeader>
 
         <div className="mt-4">
-          {copyType === 'conversation' ? renderConversationContent() : renderRegularContent()}
+          {(copyType === 'conversation' || copyData.source === 'conversation') ? renderConversationContent() : renderRegularContent()}
         </div>
       </DialogContent>
     </Dialog>

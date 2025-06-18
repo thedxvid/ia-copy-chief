@@ -6,8 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Download, Eye, Calendar, Search, Filter, Plus, Info, MessageSquare, Bot } from 'lucide-react';
-import { CopyDetailsModal } from '@/components/history/CopyDetailsModal';
-import { CopyPreviewModal } from '@/components/history/CopyPreviewModal';
 import { ViewCopyModal } from '@/components/specialized/ViewCopyModal';
 import { downloadCopyAsText, downloadCopyAsJSON } from '@/utils/copyExport';
 import { useCopyHistory } from '@/hooks/useCopyHistory';
@@ -18,8 +16,6 @@ import { useNavigate } from 'react-router-dom';
 const History = () => {
   const { historyItems, loading, error, isUsingExampleData } = useCopyHistory();
   const [selectedCopy, setSelectedCopy] = useState<any>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -60,11 +56,7 @@ const History = () => {
 
   const handleViewDetails = (item: any) => {
     setSelectedCopy(item);
-    if (item.source === 'conversation') {
-      setIsViewModalOpen(true);
-    } else {
-      setIsDetailsModalOpen(true);
-    }
+    setIsViewModalOpen(true);
     toast({
       title: "Visualizando detalhes",
       description: `Abrindo detalhes ${item.source === 'conversation' ? 'da conversa' : 'da copy'} "${item.title}"`
@@ -73,11 +65,7 @@ const History = () => {
 
   const handlePreview = (item: any) => {
     setSelectedCopy(item);
-    if (item.source === 'conversation') {
-      setIsViewModalOpen(true);
-    } else {
-      setIsPreviewModalOpen(true);
-    }
+    setIsViewModalOpen(true);
     toast({
       title: "Prévia carregada",
       description: `Exibindo prévia ${item.source === 'conversation' ? 'da conversa' : 'do conteúdo'} "${item.title}"`
@@ -327,6 +315,16 @@ const History = () => {
                               {item.conversation_data.agent_name}
                             </Badge>
                           )}
+                          {item.source === 'quiz' && (
+                            <Badge variant="outline" className="text-[#10B981] border-[#10B981]/30 bg-[#10B981]/10">
+                              Quiz IA
+                            </Badge>
+                          )}
+                          {item.source === 'specialized' && (
+                            <Badge variant="outline" className="text-[#8B5CF6] border-[#8B5CF6]/30 bg-[#8B5CF6]/10">
+                              Especializada
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -394,24 +392,12 @@ const History = () => {
           )}
         </div>
 
-        {/* Modais */}
-        <CopyDetailsModal
-          isOpen={isDetailsModalOpen}
-          onClose={() => setIsDetailsModalOpen(false)}
-          copyData={selectedCopy}
-        />
-
-        <CopyPreviewModal
-          isOpen={isPreviewModalOpen}
-          onClose={() => setIsPreviewModalOpen(false)}
-          copyData={selectedCopy}
-        />
-
+        {/* Modal Unificado */}
         <ViewCopyModal
           isOpen={isViewModalOpen}
           onClose={() => setIsViewModalOpen(false)}
           copyData={selectedCopy}
-          copyType="conversation"
+          copyType={selectedCopy?.source === 'conversation' ? 'conversation' : selectedCopy?.source}
         />
       </div>
     </DashboardLayout>
