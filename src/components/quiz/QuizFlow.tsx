@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
-import { QuizQuestion, getQuizQuestions, getQuizTitle } from '@/data/quizQuestions';
+import { QuizQuestion } from '@/hooks/useQuizTemplates';
+import { getQuizQuestions, getQuizTitle } from '@/data/quizQuestions';
 import { useProducts } from '@/hooks/useProducts';
 
 interface QuizFlowProps {
