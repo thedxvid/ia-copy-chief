@@ -150,7 +150,7 @@ const handler = async (req: Request): Promise<Response> => {
               </div>
               
               <div style="text-align: center;">
-                <a href="https://copymaster.app" class="cta-button">
+                <a href="https://iacopychief.com" class="cta-button">
                   🚀 Acessar Plataforma Agora
                 </a>
               </div>
@@ -166,7 +166,7 @@ const handler = async (req: Request): Promise<Response> => {
               <p><strong>CopyMaster</strong> - Transformando ideias em copies que convertem</p>
               <p>
                 Precisa de ajuda? Entre em contato: 
-                <a href="mailto:suporte@copymaster.app" style="color: #3B82F6;">suporte@copymaster.app</a>
+                <a href="mailto:suporte@iacopychief.com" style="color: #3B82F6;">suporte@iacopychief.com</a>
               </p>
               <p style="margin-top: 20px; font-size: 12px;">
                 © 2024 CopyMaster. Todos os direitos reservados.
@@ -317,7 +317,7 @@ const handler = async (req: Request): Promise<Response> => {
               <p><strong>CopyMaster</strong> - Transformando ideias em copies que convertem</p>
               <p>
                 Precisa de ajuda? Entre em contato: 
-                <a href="mailto:suporte@copymaster.app" style="color: #3B82F6;">suporte@copymaster.app</a>
+                <a href="mailto:suporte@iacopychief.com" style="color: #3B82F6;">suporte@iacopychief.com</a>
               </p>
               <p style="margin-top: 20px; font-size: 12px;">
                 © 2024 CopyMaster. Todos os direitos reservados.
@@ -335,7 +335,7 @@ const handler = async (req: Request): Promise<Response> => {
     const emailHtml = isActivatedUser ? activatedUserTemplate : standardTemplate;
 
     const emailResponse = await resend.emails.send({
-      from: "CopyMaster <noreply@copymaster.app>",
+      from: "CopyMaster <noreply@iacopychief.com>",
       to: [email],
       subject: emailSubject,
       html: emailHtml,
