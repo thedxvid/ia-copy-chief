@@ -320,7 +320,7 @@ export const ChatInterface = () => {
       )}
 
       {/* Área principal do chat */}
-      <div className={`flex-1 flex flex-col ${isMobile ? 'w-full' : ''}`}>
+      <div className={`flex-1 flex flex-col ${isMobile ? 'w-full' : ''} relative`}>
         {/* Header do chat para mobile */}
         {isMobile && (
           <div className="flex items-center justify-between p-4 border-b border-[#333333]">
@@ -343,6 +343,26 @@ export const ChatInterface = () => {
         )}
 
         <ChatMessagesWithData />
+        
+        {/* Botão flutuante para scroll - centralizado na área do chat */}
+        {showScrollButton && (
+          <button
+            onClick={scrollToBottom}
+            className={`absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
+              showScrollButton ? 'opacity-30 hover:opacity-70 scale-100' : 'opacity-0 scale-95'
+            }`}
+            title="Ir para o final da conversa"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.4)',
+              color: 'white',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+              backdropFilter: 'blur(2px)'
+            }}
+          >
+            <ArrowDown className="w-5 h-5" />
+          </button>
+        )}
+        
         {activeSession && (
           <ChatInput
             onSendMessage={sendMessage}
@@ -351,25 +371,6 @@ export const ChatInterface = () => {
           />
         )}
       </div>
-
-      {/* Botão flutuante para scroll - posicionamento absoluto */}
-      {showScrollButton && (
-        <button
-          onClick={scrollToBottom}
-          className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
-            showScrollButton ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-          }`}
-          title="Ir para o final da conversa"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-            backdropFilter: 'blur(4px)'
-          }}
-        >
-          <ArrowDown className="w-5 h-5" />
-        </button>
-      )}
 
       {/* Agent Editor Modal */}
       <AgentEditor
