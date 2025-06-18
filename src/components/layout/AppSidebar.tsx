@@ -1,3 +1,4 @@
+
 import { useState } from "react"
 import { 
   LayoutDashboard, 
@@ -101,8 +102,8 @@ export function AppSidebar() {
       className={`${isCollapsed ? "w-14" : "w-60"} bg-[#1A1A1A] border-r border-[#333333]`}
       collapsible="icon"
     >
-      <SidebarHeader className="border-b border-[#333333] p-4">
-        <div className="flex items-center space-x-2">
+      <SidebarHeader className={`border-b border-[#333333] ${isCollapsed ? "px-2 py-4" : "p-4"}`}>
+        <div className={`flex items-center ${isCollapsed ? "justify-center" : "space-x-2"}`}>
           <div className="w-8 h-8 bg-[#3B82F6] rounded-xl flex items-center justify-center flex-shrink-0">
             <Bot className="w-5 h-5 text-white" />
           </div>
