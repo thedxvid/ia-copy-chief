@@ -322,7 +322,7 @@ export type Database = {
           {
             foreignKeyName: "product_copy_product_id_fkey"
             columns: ["product_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
@@ -451,7 +451,7 @@ export type Database = {
           {
             foreignKeyName: "product_offer_product_id_fkey"
             columns: ["product_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
@@ -489,7 +489,7 @@ export type Database = {
           {
             foreignKeyName: "product_strategy_product_id_fkey"
             columns: ["product_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
