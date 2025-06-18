@@ -74,31 +74,55 @@ export const useQuizTemplates = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   const { user } = useAuth();
 
   // Verificar se usuário é admin usando a função do banco
   const checkAdminStatus = async () => {
     if (!user?.id) {
+      console.log('🔑 No user ID found');
       setIsAdmin(false);
+      setAdminCheckComplete(true);
       return;
     }
 
     try {
-      const { data, error } = await supabase.rpc('is_user_admin', {
-        user_id: user.id
-      });
+      console.log('🔍 Checking admin status for user:', user.email);
+      
+      // Primeiro, verificar se o campo is_admin existe no perfil
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
+      if (profileError) {
+        console.error('❌ Error checking profile:', profileError);
+      } else if (profileData) {
+        console.log('📋 Profile data:', profileData);
+        setIsAdmin(profileData.is_admin || false);
+        setAdminCheckComplete(true);
         return;
       }
 
-      setIsAdmin(data || false);
-      console.log('🔐 Admin status:', data || false);
+      // Fallback: usar a função RPC se o perfil não funcionar
+      console.log('🔄 Trying RPC function as fallback...');
+      const { data: rpcData, error: rpcError } = await supabase.rpc('is_user_admin', {
+        user_id: user.id
+      });
+
+      if (rpcError) {
+        console.error('❌ Error with RPC function:', rpcError);
+        setIsAdmin(false);
+      } else {
+        console.log('✅ RPC result:', rpcData);
+        setIsAdmin(rpcData || false);
+      }
     } catch (err) {
-      console.error('Error in admin check:', err);
+      console.error('❌ Unexpected error in admin check:', err);
       setIsAdmin(false);
+    } finally {
+      setAdminCheckComplete(true);
     }
   };
 
@@ -158,6 +182,10 @@ export const useQuizTemplates = () => {
   };
 
   const createTemplate = async (template: Omit<QuizTemplate, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!adminCheckComplete) {
+      throw new Error('Verificação de administrador ainda em andamento');
+    }
+
     if (!isAdmin) {
       throw new Error('Apenas administradores podem criar templates');
     }
@@ -170,6 +198,7 @@ export const useQuizTemplates = () => {
     try {
       console.log('📝 Creating new template:', template.title);
       console.log('🔑 User ID:', user.id);
+      console.log('🔐 Admin status verified:', isAdmin);
       console.log('📋 Template data:', {
         quiz_type: template.quiz_type,
         title: template.title,
@@ -187,6 +216,7 @@ export const useQuizTemplates = () => {
         created_by: user.id
       };
 
+      console.log('💾 Inserting template data...');
       const { data, error } = await supabase
         .from('quiz_templates')
         .insert([templateData])
@@ -317,12 +347,16 @@ export const useQuizTemplates = () => {
   useEffect(() => {
     if (user) {
       checkAdminStatus();
+    } else {
+      setAdminCheckComplete(true);
     }
   }, [user]);
 
   useEffect(() => {
-    fetchTemplates();
-  }, []);
+    if (adminCheckComplete) {
+      fetchTemplates();
+    }
+  }, [adminCheckComplete]);
 
   return {
     templates,
