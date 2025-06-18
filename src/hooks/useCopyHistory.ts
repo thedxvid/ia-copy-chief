@@ -33,7 +33,7 @@ interface CopyHistoryItem {
     niche: string;
     sub_niche?: string;
   };
-  source: 'product' | 'quiz' | 'conversation';
+  source: 'product' | 'quiz' | 'conversation' | 'specialized';
   quiz_type?: string;
   quiz_answers?: Record<string, string>;
   conversation_data?: {
@@ -42,6 +42,8 @@ interface CopyHistoryItem {
     product_id?: string;
     message_count: number;
   };
+  copy_data?: any;
+  generated_copy?: any;
   created_at?: string;
   updated_at?: string;
 }
@@ -180,6 +182,21 @@ export const useCopyHistory = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      // Buscar copies especializadas
+      const { data: specializedData, error: specializedError } = await supabase
+        .from('specialized_copies')
+        .select(`
+          *,
+          products (
+            id,
+            name,
+            niche,
+            sub_niche
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
       // Buscar conversas do chat
       const { data: conversationsData, error: conversationsError } = await supabase
         .from('chat_sessions')
@@ -202,6 +219,10 @@ export const useCopyHistory = () => {
 
       if (quizError) {
         throw quizError;
+      }
+
+      if (specializedError) {
+        throw specializedError;
       }
 
       if (conversationsError) {
@@ -276,9 +297,9 @@ export const useCopyHistory = () => {
             quizContent = quizCopy.generated_copy;
           } else if (typeof quizCopy.generated_copy === 'object' && !Array.isArray(quizCopy.generated_copy)) {
             const copyObj = quizCopy.generated_copy as { [key: string]: any };
-            quizContent = copyObj.content || JSON.stringify(quizCopy.generated_copy);
+            quizContent = copyObj.content || JSON.stringify(quizCopy.generated_copy, null, 2);
           } else {
-            quizContent = JSON.stringify(quizCopy.generated_copy);
+            quizContent = JSON.stringify(quizCopy.generated_copy, null, 2);
           }
         }
 
@@ -293,9 +314,37 @@ export const useCopyHistory = () => {
           created_at: quizCopy.created_at,
           quiz_type: quizCopy.quiz_type,
           quiz_answers: safeQuizAnswers,
+          generated_copy: quizCopy.generated_copy,
           content: {
             quiz_content: quizContent
           }
+        });
+      });
+
+      // Transformar dados das copies especializadas
+      specializedData?.forEach(specializedCopy => {
+        const typeMap: Record<string, string> = {
+          'ads': 'Anúncio',
+          'sales-videos': 'Vídeo de Vendas',
+          'pages': 'Landing Page',
+          'content': 'Conteúdo'
+        };
+
+        transformedData.push({
+          id: specializedCopy.id,
+          title: specializedCopy.title,
+          type: typeMap[specializedCopy.copy_type] || specializedCopy.copy_type,
+          date: new Date(specializedCopy.created_at).toLocaleDateString('pt-BR'),
+          status: specializedCopy.status === 'published' ? 'Concluído' : specializedCopy.status === 'draft' ? 'Rascunho' : 'Arquivado',
+          performance: 'Em análise',
+          source: 'specialized',
+          created_at: specializedCopy.created_at,
+          copy_data: specializedCopy.copy_data,
+          product: specializedCopy.products ? {
+            name: specializedCopy.products.name,
+            niche: specializedCopy.products.niche,
+            sub_niche: specializedCopy.products.sub_niche
+          } : undefined
         });
       });
 
