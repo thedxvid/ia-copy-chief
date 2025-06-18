@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -182,15 +181,24 @@ export const useQuizTemplates = () => {
   };
 
   const createTemplate = async (template: Omit<QuizTemplate, 'id' | 'created_at' | 'updated_at'>) => {
+    console.log('🚀 === INÍCIO DO PROCESSO DE CRIAÇÃO ===');
+    console.log('👤 User ID:', user?.id);
+    console.log('📧 User email:', user?.email);
+    console.log('🔐 Admin check complete:', adminCheckComplete);
+    console.log('👨‍💼 Is admin:', isAdmin);
+
     if (!adminCheckComplete) {
+      console.error('❌ Admin check not complete yet');
       throw new Error('Verificação de administrador ainda em andamento');
     }
 
     if (!isAdmin) {
+      console.error('❌ User is not admin');
       throw new Error('Apenas administradores podem criar templates');
     }
 
     if (!user?.id) {
+      console.error('❌ No user ID found');
       throw new Error('Usuário não autenticado');
     }
 
@@ -216,7 +224,9 @@ export const useQuizTemplates = () => {
         created_by: user.id
       };
 
-      console.log('💾 Inserting template data...');
+      console.log('💾 About to insert template data...');
+      console.log('📊 Template payload:', JSON.stringify(templateData, null, 2));
+      
       const { data, error } = await supabase
         .from('quiz_templates')
         .insert([templateData])
@@ -226,20 +236,27 @@ export const useQuizTemplates = () => {
       if (error) {
         console.error('❌ Error creating template:', error);
         console.error('❌ Error details:', JSON.stringify(error, null, 2));
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error code:', error.code);
         throw error;
       }
 
-      console.log('✅ Template created successfully:', data.id);
+      console.log('✅ Template created successfully!');
+      console.log('🎉 New template ID:', data.id);
+      console.log('📄 Created template data:', data);
+      
       await fetchTemplates();
       toast.success('Template criado com sucesso!');
       return convertDbTemplate(data);
     } catch (err) {
-      console.error('Error creating template:', err);
+      console.error('💥 Error in createTemplate function:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar template';
+      console.error('📝 Error message for user:', errorMessage);
       toast.error(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
+      console.log('🏁 === FIM DO PROCESSO DE CRIAÇÃO ===');
     }
   };
 
