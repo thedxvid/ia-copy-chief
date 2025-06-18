@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -51,20 +52,19 @@ export const ChatInterface = () => {
     }
   }, [location.state, sessions, selectSession]);
 
-  // Função para verificar se está no final do scroll - versão aprimorada
+  // Função para verificar se está no final do scroll - versão melhorada
   const checkIfAtBottom = () => {
     const container = messagesContainerRef.current;
     if (!container) return true;
     
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const threshold = 100; // Aumentar threshold para melhor detecção
+    const threshold = 100; // Threshold maior para melhor detecção
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     
-    // Considerar que está no final se a distância for menor que o threshold
     return distanceFromBottom <= threshold;
   };
 
-  // Monitorar scroll para mostrar/ocultar botão - versão aprimorada
+  // Monitorar scroll para mostrar/ocultar botão - versão melhorada
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -75,21 +75,20 @@ export const ChatInterface = () => {
       
       // Verificar se há conteúdo suficiente para mostrar o botão
       const { scrollHeight, clientHeight } = container;
-      const hasScrollableContent = scrollHeight > clientHeight + 150; // Mais rigoroso
+      const hasScrollableContent = scrollHeight > clientHeight + 200;
       
       // Mostrar botão APENAS se:
-      // 1. NÃO estiver no final (com uma margem maior)
+      // 1. NÃO estiver no final (com margem maior)
       // 2. Houver conteúdo suficiente para scroll
       // 3. O usuário realmente fez scroll para cima
       const { scrollTop } = container;
-      const hasScrolledUp = scrollTop > 100; // Só mostrar se scrollou pelo menos 100px
+      const hasScrolledUp = scrollTop > 150; // Só mostrar se scrollou pelo menos 150px
       
       setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent && hasScrolledUp);
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    // Verificar estado inicial
-    handleScroll();
+    handleScroll(); // Verificar estado inicial
     
     return () => container.removeEventListener('scroll', handleScroll);
   }, [activeSession]);
@@ -97,7 +96,6 @@ export const ChatInterface = () => {
   // Scroll automático apenas quando necessário (usuário está no final)
   useEffect(() => {
     if (messagesEndRef.current && activeSession && isAtBottom) {
-      // Só fazer scroll automático se o usuário estava no final
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [activeSession?.messages, isAtBottom]);
@@ -142,7 +140,7 @@ export const ChatInterface = () => {
     }
 
     return (
-      <div className="flex-1 relative"> {/* Tornar relativo para posicionamento absoluto do botão */}
+      <div className="flex-1 relative">
         <div 
           ref={messagesContainerRef}
           className="h-full overflow-y-auto p-6 space-y-4"
@@ -212,26 +210,17 @@ export const ChatInterface = () => {
                 </div>
               )}
               
-              {/* Elemento invisível para marcar o final das mensagens */}
               <div ref={messagesEndRef} />
             </>
           )}
         </div>
 
-        {/* Botão flutuante para scroll - posicionado dentro da área do chat */}
+        {/* Botão flutuante para scroll - posicionado absolutamente dentro da área do chat */}
         {showScrollButton && (
           <button
             onClick={scrollToBottom}
-            className={`absolute bottom-4 right-4 z-10 w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center hover:scale-110 ${
-              showScrollButton ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-            }`}
+            className="absolute bottom-20 right-6 w-10 h-10 bg-black/70 text-white rounded-full shadow-lg hover:bg-black/80 transition-all duration-300 flex items-center justify-center z-10 hover:scale-110"
             title="Ir para o final da conversa"
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: 'white',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-              backdropFilter: 'blur(4px)'
-            }}
           >
             <ArrowDown className="w-5 h-5" />
           </button>
