@@ -12,7 +12,8 @@ import {
   FileText, 
   PenTool,
   LogOut,
-  User
+  User,
+  Settings
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
@@ -26,10 +27,26 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
   SidebarFooter,
+  SidebarHeader,
 } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ProfileSettings } from '@/components/profile/ProfileSettings';
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -51,12 +68,11 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const { signOut, user } = useAuth()
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
   const currentPath = location.pathname
 
   const isCollapsed = state === "collapsed"
   const isActive = (path: string) => currentPath === path
-  const isMainExpanded = mainItems.some((i) => isActive(i.url))
-  const isToolsExpanded = toolItems.some((i) => isActive(i.url))
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     isActive 
@@ -71,12 +87,31 @@ export function AppSidebar() {
     }
   }
 
+  const getInitials = (name: string | undefined) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <Sidebar
       className={`${isCollapsed ? "w-14" : "w-60"} bg-[#1A1A1A] border-r border-[#333333]`}
       collapsible="icon"
     >
-      <SidebarTrigger className="m-2 self-end text-white hover:bg-[#2A2A2A]" />
+      <SidebarHeader className="border-b border-[#333333] p-4">
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-[#3B82F6] rounded-xl flex items-center justify-center flex-shrink-0">
+            <Bot className="w-5 h-5 text-white" />
+          </div>
+          {!isCollapsed && (
+            <span className="text-xl font-bold text-white">CopyChief</span>
+          )}
+        </div>
+      </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
@@ -130,24 +165,98 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-[#333333] p-2">
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center space-x-3 px-3 py-2 text-[#CCCCCC] hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                {!isCollapsed && <span>Sair</span>}
-              </button>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          {!isCollapsed && user && (
-            <div className="px-3 py-2 text-xs text-[#666666] border-t border-[#333333] mt-2">
-              <div className="flex items-center space-x-2">
-                <User className="h-3 w-3" />
-                <span className="truncate">{user.email}</span>
-              </div>
-            </div>
+          {user && !isCollapsed && (
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton className="w-full flex items-center space-x-3 px-3 py-2 text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white rounded-lg transition-colors">
+                    <Avatar className="w-6 h-6">
+                      <AvatarFallback className="bg-[#3B82F6] text-white text-xs">
+                        {getInitials(user.user_metadata?.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="text-sm font-medium truncate">
+                        {user.user_metadata?.full_name || 'Usuário'}
+                      </span>
+                      <span className="text-xs text-[#666666] truncate">
+                        {user.email}
+                      </span>
+                    </div>
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563]">
+                  <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+                    <SheetTrigger asChild>
+                      <DropdownMenuItem 
+                        className="text-white hover:bg-[#2A2A2A] cursor-pointer"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Configurações
+                      </DropdownMenuItem>
+                    </SheetTrigger>
+                    <SheetContent 
+                      side="right" 
+                      className="w-full sm:max-w-2xl overflow-y-auto"
+                    >
+                      <SheetHeader className="sr-only">
+                        <SheetTitle>Configurações do Perfil</SheetTitle>
+                      </SheetHeader>
+                      <ProfileSettings onClose={() => setIsProfileOpen(false)} />
+                    </SheetContent>
+                  </Sheet>
+                  <DropdownMenuSeparator className="bg-[#4B5563]" />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-white hover:bg-[#2A2A2A]">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          )}
+          
+          {user && isCollapsed && (
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton className="w-full flex items-center justify-center p-2 text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white rounded-lg transition-colors">
+                    <Avatar className="w-6 h-6">
+                      <AvatarFallback className="bg-[#3B82F6] text-white text-xs">
+                        {getInitials(user.user_metadata?.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563]">
+                  <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+                    <SheetTrigger asChild>
+                      <DropdownMenuItem 
+                        className="text-white hover:bg-[#2A2A2A] cursor-pointer"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Configurações
+                      </DropdownMenuItem>
+                    </SheetTrigger>
+                    <SheetContent 
+                      side="right" 
+                      className="w-full sm:max-w-2xl overflow-y-auto"
+                    >
+                      <SheetHeader className="sr-only">
+                        <SheetTitle>Configurações do Perfil</SheetTitle>
+                      </SheetHeader>
+                      <ProfileSettings onClose={() => setIsProfileOpen(false)} />
+                    </SheetContent>
+                  </Sheet>
+                  <DropdownMenuSeparator className="bg-[#4B5563]" />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-white hover:bg-[#2A2A2A]">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
           )}
         </SidebarMenu>
       </SidebarFooter>
