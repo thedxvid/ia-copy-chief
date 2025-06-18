@@ -48,9 +48,11 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const user = users.users.find(u => u.email === email);
+    let isNewUser = false;
     
     if (!user) {
       console.log("User not found, attempting to create:", email);
+      isNewUser = true;
       
       // Criar usuário se não existir
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
@@ -87,6 +89,28 @@ const handler = async (req: Request): Promise<Response> => {
       // Criar perfil e ativar subscription
       await activateUserSubscription(supabase, userId, email);
       
+      // Enviar email de boas-vindas para novo usuário
+      try {
+        console.log("Sending welcome email to new user:", email);
+        const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
+          body: { 
+            email: email,
+            name: email.split('@')[0],
+            isActivatedUser: true
+          },
+        });
+
+        if (emailError) {
+          console.error("Error sending welcome email:", emailError);
+          // Não falhar a ativação por causa do email
+        } else {
+          console.log("Welcome email sent successfully to:", email);
+        }
+      } catch (emailErr) {
+        console.error("Exception sending welcome email:", emailErr);
+        // Não falhar a ativação por causa do email
+      }
+      
     } else {
       console.log("User found, activating subscription:", email);
       await activateUserSubscription(supabase, user.id, email);
@@ -98,7 +122,8 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         message: `Usuário ${email} foi ativado com sucesso por 30 dias`,
-        email: email
+        email: email,
+        isNewUser: isNewUser
       }),
       {
         status: 200,

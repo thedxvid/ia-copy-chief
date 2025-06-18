@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { UserCheck, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { UserCheck, Loader2, AlertCircle, CheckCircle, Mail } from 'lucide-react';
 
 export const UserActivator: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -57,9 +57,15 @@ export const UserActivator: React.FC = () => {
         throw new Error(data.error);
       }
 
+      const successMessage = data?.isNewUser 
+        ? `✅ Usuário criado e ativado! Email de boas-vindas enviado para ${email.trim()}`
+        : `✅ Usuário ativado! ${email.trim()} foi ativado por 30 dias com 25.000 tokens`;
+
       toast({
-        title: "✅ Usuário Ativado!",
-        description: `${email.trim()} foi ativado por 30 dias com 25.000 tokens`,
+        title: data?.isNewUser ? "🎉 Novo Usuário Criado!" : "✅ Usuário Ativado!",
+        description: data?.isNewUser 
+          ? `${email.trim()} foi criado e ativado com sucesso. Email de boas-vindas enviado!`
+          : `${email.trim()} foi ativado por 30 dias com 25.000 tokens`,
       });
 
       setLastActivated(email.trim());
@@ -136,6 +142,10 @@ export const UserActivator: React.FC = () => {
             <div className="flex items-center gap-1 text-[#888888] text-xs">
               <AlertCircle className="w-3 h-3" />
               <span>Se o usuário não existir, será criado automaticamente</span>
+            </div>
+            <div className="flex items-center gap-1 text-[#888888] text-xs">
+              <Mail className="w-3 h-3" />
+              <span>Email de boas-vindas será enviado para novos usuários</span>
             </div>
           </div>
         </CardContent>
