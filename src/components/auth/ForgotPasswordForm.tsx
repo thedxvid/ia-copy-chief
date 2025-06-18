@@ -127,8 +127,8 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackTo
             <ArrowLeft size={16} className="mr-2" />
             Voltar ao login
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </form>
   );
 };
