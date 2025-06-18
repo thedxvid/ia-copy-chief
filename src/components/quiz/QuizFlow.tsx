@@ -32,7 +32,6 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const { fetchProductDetails } = useProducts();
   const [productDetails, setProductDetails] = useState<any>(null);
-  const [hasPrefilledData, setHasPrefilledData] = useState(false);
 
   const quizTitle = getQuizTitle(quizType);
   const progress = questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
@@ -59,48 +58,118 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
     }
   }, [quizType]);
 
-  // Carregar detalhes do produto se ID foi fornecido
+  // Função para mapear campos do produto para IDs das perguntas do quiz
+  const mapProductDataToQuizAnswers = (productDetails: any): Record<string, string> => {
+    const mappedAnswers: Record<string, string> = {};
+    
+    // Mapeamento comum para diferentes tipos de quiz
+    const fieldMappings = {
+      // Nome do produto
+      'product': productDetails.name,
+      'product_name': productDetails.name,
+      'nome_produto': productDetails.name,
+      
+      // Público-alvo
+      'target': productDetails.strategy?.target_audience 
+        ? typeof productDetails.strategy.target_audience === 'string'
+          ? productDetails.strategy.target_audience
+          : JSON.stringify(productDetails.strategy.target_audience)
+        : '',
+      'target_audience': productDetails.strategy?.target_audience 
+        ? typeof productDetails.strategy.target_audience === 'string'
+          ? productDetails.strategy.target_audience
+          : JSON.stringify(productDetails.strategy.target_audience)
+        : '',
+      'publico_alvo': productDetails.strategy?.target_audience 
+        ? typeof productDetails.strategy.target_audience === 'string'
+          ? productDetails.strategy.target_audience
+          : JSON.stringify(productDetails.strategy.target_audience)
+        : '',
+      
+      // Benefícios/Proposta de valor
+      'benefit': productDetails.strategy?.value_proposition || '',
+      'benefits': productDetails.strategy?.value_proposition || '',
+      'value_proposition': productDetails.strategy?.value_proposition || '',
+      'proposta_valor': productDetails.strategy?.value_proposition || '',
+      'product_benefits': productDetails.strategy?.value_proposition || '',
+      
+      // Preço
+      'price': productDetails.offer?.pricing_strategy
+        ? typeof productDetails.offer.pricing_strategy === 'string'
+          ? productDetails.offer.pricing_strategy
+          : JSON.stringify(productDetails.offer.pricing_strategy)
+        : '',
+      'pricing': productDetails.offer?.pricing_strategy
+        ? typeof productDetails.offer.pricing_strategy === 'string'
+          ? productDetails.offer.pricing_strategy
+          : JSON.stringify(productDetails.offer.pricing_strategy)
+        : '',
+      'preco': productDetails.offer?.pricing_strategy
+        ? typeof productDetails.offer.pricing_strategy === 'string'
+          ? productDetails.offer.pricing_strategy
+          : JSON.stringify(productDetails.offer.pricing_strategy)
+        : '',
+      
+      // Oferta principal
+      'offer': productDetails.offer?.main_offer
+        ? typeof productDetails.offer.main_offer === 'string'
+          ? productDetails.offer.main_offer
+          : JSON.stringify(productDetails.offer.main_offer)
+        : '',
+      'main_offer': productDetails.offer?.main_offer
+        ? typeof productDetails.offer.main_offer === 'string'
+          ? productDetails.offer.main_offer
+          : JSON.stringify(productDetails.offer.main_offer)
+        : '',
+      'oferta_principal': productDetails.offer?.main_offer
+        ? typeof productDetails.offer.main_offer === 'string'
+          ? productDetails.offer.main_offer
+          : JSON.stringify(productDetails.offer.main_offer)
+        : '',
+      
+      // Nicho
+      'niche': productDetails.niche || '',
+      'nicho': productDetails.niche || '',
+      
+      // Sub-nicho
+      'sub_niche': productDetails.sub_niche || '',
+      'sub_nicho': productDetails.sub_niche || '',
+      
+      // Posicionamento de mercado
+      'positioning': productDetails.strategy?.market_positioning || '',
+      'market_positioning': productDetails.strategy?.market_positioning || '',
+      'posicionamento': productDetails.strategy?.market_positioning || '',
+    };
+
+    // Aplicar mapeamentos que têm valores
+    Object.entries(fieldMappings).forEach(([key, value]) => {
+      if (value && typeof value === 'string' && value.trim() !== '') {
+        mappedAnswers[key] = value;
+      }
+    });
+
+    return mappedAnswers;
+  };
+
+  // Carregar detalhes do produto e pré-preencher respostas
   useEffect(() => {
-    if (productId && !hasPrefilledData) {
+    if (productId && questions.length > 0) {
+      console.log(`🔄 Loading product details for ID: ${productId}`);
       fetchProductDetails(productId).then(details => {
         if (details) {
+          console.log(`✅ Product details loaded:`, details);
           setProductDetails(details);
           
-          // Pré-preencher respostas baseadas no produto
-          const prefilledAnswers: Record<string, string> = {};
+          // Mapear dados do produto para respostas do quiz
+          const prefilledAnswers = mapProductDataToQuizAnswers(details);
+          console.log(`🎯 Pre-filled answers:`, prefilledAnswers);
           
-          // Preencher nome do produto
-          if (details.name) {
-            prefilledAnswers['product'] = details.name;
-          }
-          
-          // Preencher público-alvo se disponível
-          if (details.strategy?.target_audience) {
-            const audience = typeof details.strategy.target_audience === 'string' 
-              ? details.strategy.target_audience 
-              : JSON.stringify(details.strategy.target_audience);
-            prefilledAnswers['target'] = audience;
-          }
-          
-          // Preencher proposta de valor
-          if (details.strategy?.value_proposition) {
-            prefilledAnswers['benefit'] = details.strategy.value_proposition;
-          }
-          
-          // Preencher preço se disponível
-          if (details.offer?.pricing_strategy) {
-            const pricing = typeof details.offer.pricing_strategy === 'string'
-              ? details.offer.pricing_strategy
-              : JSON.stringify(details.offer.pricing_strategy);
-            prefilledAnswers['price'] = pricing;
-          }
-          
-          // Só aplicar as respostas pré-preenchidas se ainda não foram definidas
+          // Aplicar respostas pré-preenchidas
           setAnswers(prevAnswers => {
             const newAnswers = { ...prevAnswers };
-            Object.keys(prefilledAnswers).forEach(key => {
-              if (!newAnswers[key]) {
-                newAnswers[key] = prefilledAnswers[key];
+            Object.entries(prefilledAnswers).forEach(([key, value]) => {
+              if (!newAnswers[key] && value) {
+                newAnswers[key] = value;
               }
             });
             return newAnswers;
@@ -110,12 +179,12 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
           if (questions[0] && prefilledAnswers[questions[0].id] && !currentAnswer) {
             setCurrentAnswer(prefilledAnswers[questions[0].id]);
           }
-          
-          setHasPrefilledData(true);
         }
+      }).catch(error => {
+        console.error('❌ Error loading product details:', error);
       });
     }
-  }, [productId, fetchProductDetails, questions, hasPrefilledData, currentAnswer]);
+  }, [productId, questions, fetchProductDetails]);
 
   // Atualizar resposta atual quando mudar de pergunta
   useEffect(() => {
@@ -159,7 +228,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   };
 
   const renderQuestionInput = (question: QuizQuestion) => {
-    const isPrefilledField = productDetails && answers[question.id] && hasPrefilledData;
+    const isPrefilledField = productDetails && answers[question.id] && productDetails;
     
     switch (question.type) {
       case 'radio':
