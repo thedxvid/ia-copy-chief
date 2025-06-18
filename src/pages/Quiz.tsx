@@ -14,40 +14,49 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useProducts } from '@/hooks/useProducts';
-
 const Quiz = () => {
   const [currentStep, setCurrentStep] = useState<'selector' | 'quiz' | 'result'>('selector');
   const [selectedQuizType, setSelectedQuizType] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
-  const [generatedCopy, setGeneratedCopy] = useState<{ title: string; content: string } | null>(null);
+  const [generatedCopy, setGeneratedCopy] = useState<{
+    title: string;
+    content: string;
+  } | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [savedCopyId, setSavedCopyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'quiz' | 'templates'>('quiz');
-  
-  const { user } = useAuth();
-  const { saveQuizCopy, isSaving } = useQuizCopySave();
-  const { triggerN8nWorkflow } = useN8nIntegration();
-  const { fetchProductDetails } = useProducts();
-  const { templates } = useQuizTemplates();
+  const {
+    user
+  } = useAuth();
+  const {
+    saveQuizCopy,
+    isSaving
+  } = useQuizCopySave();
+  const {
+    triggerN8nWorkflow
+  } = useN8nIntegration();
+  const {
+    fetchProductDetails
+  } = useProducts();
+  const {
+    templates
+  } = useQuizTemplates();
   const navigate = useNavigate();
-
   const handleSelectQuiz = (quizType: string, productId?: string) => {
     setSelectedQuizType(quizType);
     setSelectedProductId(productId);
     setCurrentStep('quiz');
   };
-
   const handleProductChange = (productId: string | undefined) => {
     setSelectedProductId(productId);
   };
-
   const handleQuizComplete = async (answers: Record<string, string>) => {
     console.log('🎯 Quiz completed with answers:', answers);
     console.log('👤 Current user:', user);
     console.log('📝 Selected quiz type:', selectedQuizType);
     console.log('📦 Selected product ID:', selectedProductId);
-    
+
     // Verificar se o usuário está autenticado
     if (!user?.id) {
       console.error('❌ User not authenticated');
@@ -55,12 +64,9 @@ const Quiz = () => {
       navigate('/auth');
       return;
     }
-
     console.log('✅ User authenticated, proceeding with copy generation');
-
     setQuizAnswers(answers);
     setIsGenerating(true);
-    
     try {
       // Buscar informações do produto se selecionado
       let productInfo = null;
@@ -70,12 +76,15 @@ const Quiz = () => {
       }
 
       // Determinar o tipo real do quiz e título
-      const { actualQuizType, quizTitle } = getQuizTypeAndTitle(selectedQuizType);
+      const {
+        actualQuizType,
+        quizTitle
+      } = getQuizTypeAndTitle(selectedQuizType);
 
       // Construir prompt baseado nas respostas do quiz e informações do produto
       const prompt = await buildQuizPrompt(answers, actualQuizType, productInfo);
       console.log('📝 Built prompt for quiz:', prompt.substring(0, 200) + '...');
-      
+
       // Preparar dados estruturados para o N8n - com tipos explícitos
       const requestData = {
         type: 'copy_generation' as const,
@@ -91,31 +100,24 @@ const Quiz = () => {
         workflow_id: 'quiz-copy-generation',
         session_id: `quiz_${actualQuizType}_${Date.now()}`
       };
-
       console.log('🚀 Sending request to N8n integration:', JSON.stringify(requestData, null, 2));
-      
       const result = await triggerN8nWorkflow(requestData);
-
       console.log('✅ N8n result received:', result);
-      
       if (!result || !result.generatedCopy) {
         console.error('❌ Invalid result from N8n:', result);
         throw new Error('Nenhuma copy foi gerada');
       }
-
       const copy = {
         title: quizTitle,
         content: result.generatedCopy
       };
-      
       console.log('🎉 Copy generated successfully:', {
         title: copy.title,
         contentLength: copy.content.length
       });
-      
       setGeneratedCopy(copy);
       setCurrentStep('result');
-      
+
       // Salvar automaticamente no histórico
       if (copy) {
         try {
@@ -125,7 +127,6 @@ const Quiz = () => {
             quizAnswers: answers,
             generatedCopy: copy
           });
-          
           if (savedCopy) {
             setSavedCopyId(savedCopy.id);
             console.log('✅ Copy saved to history with ID:', savedCopy.id);
@@ -135,12 +136,10 @@ const Quiz = () => {
           // Não bloquear o fluxo se o salvamento falhar
         }
       }
-      
       toast.success('Copy gerada com sucesso!');
     } catch (error) {
       console.error('💥 Error generating copy:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      
       if (errorMessage.includes('Tokens insuficientes')) {
         toast.error('Tokens insuficientes para gerar copy. Verifique seus créditos.');
       } else if (errorMessage.includes('User ID é obrigatório')) {
@@ -155,12 +154,14 @@ const Quiz = () => {
   };
 
   // Função para determinar o tipo real do quiz e título
-  const getQuizTypeAndTitle = (quizType: string): { actualQuizType: string; quizTitle: string } => {
+  const getQuizTypeAndTitle = (quizType: string): {
+    actualQuizType: string;
+    quizTitle: string;
+  } => {
     // Se for um template personalizado
     if (quizType.startsWith('template_')) {
       const templateId = quizType.replace('template_', '');
       const template = templates.find(t => t.id === templateId);
-      
       if (template) {
         return {
           actualQuizType: template.quiz_type,
@@ -168,7 +169,7 @@ const Quiz = () => {
         };
       }
     }
-    
+
     // Quiz padrão
     const titles = {
       vsl: 'Roteiro de Vídeo de Vendas (VSL)',
@@ -176,18 +177,13 @@ const Quiz = () => {
       landing: 'Copy de Landing Page',
       ads: 'Anúncios Pagos'
     };
-    
     return {
       actualQuizType: quizType,
       quizTitle: titles[quizType as keyof typeof titles] || 'Copy Personalizada'
     };
   };
-
   const buildQuizPrompt = async (answers: Record<string, string>, quizType: string, productInfo?: any): Promise<string> => {
-    const answersText = Object.entries(answers)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('\n');
-
+    const answersText = Object.entries(answers).map(([key, value]) => `${key}: ${value}`).join('\n');
     let productContext = '';
     if (productInfo) {
       productContext = `
@@ -195,33 +191,22 @@ INFORMAÇÕES DO PRODUTO SELECIONADO:
 - Nome: ${productInfo.name}
 - Nicho: ${productInfo.niche}${productInfo.sub_niche ? ` > ${productInfo.sub_niche}` : ''}
 - Status: ${productInfo.status}`;
-
       if (productInfo.strategy?.value_proposition) {
         productContext += `\n- Proposta de Valor: ${productInfo.strategy.value_proposition}`;
       }
-      
       if (productInfo.strategy?.target_audience) {
-        const audience = typeof productInfo.strategy.target_audience === 'string' 
-          ? productInfo.strategy.target_audience 
-          : JSON.stringify(productInfo.strategy.target_audience);
+        const audience = typeof productInfo.strategy.target_audience === 'string' ? productInfo.strategy.target_audience : JSON.stringify(productInfo.strategy.target_audience);
         productContext += `\n- Público-Alvo: ${audience}`;
       }
-
       if (productInfo.offer?.main_offer) {
-        const mainOffer = typeof productInfo.offer.main_offer === 'string'
-          ? productInfo.offer.main_offer
-          : JSON.stringify(productInfo.offer.main_offer);
+        const mainOffer = typeof productInfo.offer.main_offer === 'string' ? productInfo.offer.main_offer : JSON.stringify(productInfo.offer.main_offer);
         productContext += `\n- Oferta Principal: ${mainOffer}`;
       }
-
       if (productInfo.offer?.pricing_strategy) {
-        const pricing = typeof productInfo.offer.pricing_strategy === 'string'
-          ? productInfo.offer.pricing_strategy
-          : JSON.stringify(productInfo.offer.pricing_strategy);
+        const pricing = typeof productInfo.offer.pricing_strategy === 'string' ? productInfo.offer.pricing_strategy : JSON.stringify(productInfo.offer.pricing_strategy);
         productContext += `\n- Estratégia de Preço: ${pricing}`;
       }
     }
-
     const typePrompts = {
       vsl: `Crie um roteiro completo de VSL (Video Sales Letter) baseado nas seguintes informações:
 
@@ -230,7 +215,6 @@ RESPOSTAS DO QUIZ:
 ${answersText}
 
 Estruture em: Hook, Desenvolvimento (problema/agitação/solução), Oferta e CTA final.${productContext ? ' Use as informações do produto acima como base principal para criar um VSL personalizado e específico.' : ''}`,
-      
       product: `Crie uma estrutura de oferta completa baseada nas seguintes informações:
 
 ${productContext ? `${productContext}\n` : ''}
@@ -238,7 +222,6 @@ RESPOSTAS DO QUIZ:
 ${answersText}
 
 Inclua: Proposta de valor, benefícios, bônus, garantia e urgência.${productContext ? ' Use as informações do produto acima como base para criar uma oferta irresistível.' : ''}`,
-      
       landing: `Crie uma copy completa para landing page baseada nas seguintes informações:
 
 ${productContext ? `${productContext}\n` : ''}
@@ -246,7 +229,6 @@ RESPOSTAS DO QUIZ:
 ${answersText}
 
 Inclua: Headline, subheadline, benefícios, prova social e CTA.${productContext ? ' Use as informações do produto acima para criar uma landing page altamente convertedora.' : ''}`,
-      
       ads: `Crie múltiplas variações de anúncios pagos baseado nas seguintes informações:
 
 ${productContext ? `${productContext}\n` : ''}
@@ -255,15 +237,12 @@ ${answersText}
 
 Gere pelo menos 3 variações com diferentes abordagens.${productContext ? ' Use as informações do produto acima para criar anúncios específicos e segmentados.' : ''}`
     };
-
-    return typePrompts[quizType as keyof typeof typePrompts] || 
-           `Crie uma copy profissional baseada nas seguintes informações:
+    return typePrompts[quizType as keyof typeof typePrompts] || `Crie uma copy profissional baseada nas seguintes informações:
 
 ${productContext ? `${productContext}\n` : ''}
 RESPOSTAS DO QUIZ:
 ${answersText}${productContext ? '\n\nUse as informações do produto acima como contexto principal.' : ''}`;
   };
-
   const handleBackToSelector = () => {
     setCurrentStep('selector');
     setSelectedQuizType('');
@@ -273,24 +252,23 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
     setActiveTab('quiz');
     // Manter o produto selecionado para facilitar a experiência do usuário
   };
-
   const handleBackToQuiz = () => {
     setCurrentStep('quiz');
     setGeneratedCopy(null);
     setSavedCopyId(null);
   };
-
   const handleCopyToClipboard = () => {
     if (generatedCopy) {
       navigator.clipboard.writeText(generatedCopy.content);
       toast.success('Copy copiada para a área de transferência!');
     }
   };
-
   const handleDownload = () => {
     if (generatedCopy) {
       const element = document.createElement('a');
-      const file = new Blob([generatedCopy.content], { type: 'text/plain' });
+      const file = new Blob([generatedCopy.content], {
+        type: 'text/plain'
+      });
       element.href = URL.createObjectURL(file);
       element.download = `${generatedCopy.title.replace(/\s+/g, '_')}.txt`;
       document.body.appendChild(element);
@@ -298,7 +276,6 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
       document.body.removeChild(element);
     }
   };
-
   const handleViewInHistory = () => {
     navigate('/history');
     toast.success('Navegando para o histórico...');
@@ -306,8 +283,7 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
 
   // Verificar se o usuário está logado antes de mostrar o quiz
   if (!user) {
-    return (
-      <DashboardLayout>
+    return <DashboardLayout>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-16">
           <div className="bg-[#1E1E1E] border border-[#4B5563]/20 rounded-lg p-8">
             <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
@@ -317,29 +293,21 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
             <p className="text-[#CCCCCC] mb-6">
               Você precisa estar logado para usar o gerador de copy com quiz.
             </p>
-            <Button
-              onClick={() => navigate('/auth')}
-              className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-            >
+            <Button onClick={() => navigate('/auth')} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">
               Fazer Login
             </Button>
           </div>
         </div>
-      </DashboardLayout>
-    );
+      </DashboardLayout>;
   }
-
   if (currentStep === 'selector') {
-    return (
-      <DashboardLayout>
+    return <DashboardLayout>
         <div className="px-4 sm:px-6 lg:px-8">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quiz' | 'templates')} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'quiz' | 'templates')} className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Gerador de Copy com Quiz</h1>
-                <p className="text-[#CCCCCC]">
-                  Crie copy personalizada respondendo perguntas específicas
-                </p>
+                
+                
               </div>
               <TabsList className="bg-[#1E1E1E] border border-[#4B5563]/20">
                 <TabsTrigger value="quiz" className="data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
@@ -353,11 +321,7 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
             </div>
 
             <TabsContent value="quiz">
-              <QuizSelector 
-                onSelectQuiz={handleSelectQuiz} 
-                selectedProductId={selectedProductId}
-                onProductChange={handleProductChange}
-              />
+              <QuizSelector onSelectQuiz={handleSelectQuiz} selectedProductId={selectedProductId} onProductChange={handleProductChange} />
             </TabsContent>
 
             <TabsContent value="templates">
@@ -365,29 +329,17 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
             </TabsContent>
           </Tabs>
         </div>
-      </DashboardLayout>
-    );
+      </DashboardLayout>;
   }
-
   if (currentStep === 'quiz') {
-    return (
-      <DashboardLayout>
+    return <DashboardLayout>
         <div className="px-4 sm:px-6 lg:px-8">
-          <QuizFlow
-            quizType={selectedQuizType}
-            productId={selectedProductId}
-            onComplete={handleQuizComplete}
-            onBack={handleBackToSelector}
-            isLoading={isGenerating}
-          />
+          <QuizFlow quizType={selectedQuizType} productId={selectedProductId} onComplete={handleQuizComplete} onBack={handleBackToSelector} isLoading={isGenerating} />
         </div>
-      </DashboardLayout>
-    );
+      </DashboardLayout>;
   }
-
   if (currentStep === 'result') {
-    return (
-      <DashboardLayout>
+    return <DashboardLayout>
         <div className="px-4 sm:px-6 lg:px-8 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -397,27 +349,17 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
               </h1>
               <p className="text-[#CCCCCC]">
                 Copy personalizada gerada com IA
-                {savedCopyId && (
-                  <span className="ml-2 text-[#3B82F6]">
+                {savedCopyId && <span className="ml-2 text-[#3B82F6]">
                     • Salva no histórico ✓
-                  </span>
-                )}
+                  </span>}
               </p>
             </div>
             <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={handleBackToQuiz}
-                className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
-              >
+              <Button variant="outline" onClick={handleBackToQuiz} className="border-[#4B5563] text-white hover:bg-[#2A2A2A]">
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Refazer Quiz
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleBackToSelector}
-                className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
-              >
+              <Button variant="outline" onClick={handleBackToSelector} className="border-[#4B5563] text-white hover:bg-[#2A2A2A]">
                 Novo Quiz
               </Button>
             </div>
@@ -445,38 +387,24 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-[#4B5563]/20">
-                <Button
-                  onClick={handleCopyToClipboard}
-                  className="bg-[#3B82F6] hover:bg-[#2563EB] text-white flex-1"
-                >
+                <Button onClick={handleCopyToClipboard} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white flex-1">
                   <Copy className="w-4 h-4 mr-2" />
                   Copiar para Área de Transferência
                 </Button>
                 
-                <Button
-                  onClick={handleDownload}
-                  variant="outline"
-                  className="border-[#4B5563] text-white hover:bg-[#2A2A2A] flex-1"
-                >
+                <Button onClick={handleDownload} variant="outline" className="border-[#4B5563] text-white hover:bg-[#2A2A2A] flex-1">
                   <Download className="w-4 h-4 mr-2" />
                   Baixar como TXT
                 </Button>
 
-                {savedCopyId && (
-                  <Button
-                    onClick={handleViewInHistory}
-                    variant="outline"
-                    className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 flex-1"
-                  >
+                {savedCopyId && <Button onClick={handleViewInHistory} variant="outline" className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 flex-1">
                     <History className="w-4 h-4 mr-2" />
                     Ver no Histórico
-                  </Button>
-                )}
+                  </Button>}
               </div>
 
               {/* Save Status */}
-              {user && (
-                <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-4">
+              {user && <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 rounded-full bg-[#3B82F6]"></div>
                     <div>
@@ -484,15 +412,11 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
                         {savedCopyId ? 'Copy salva automaticamente!' : 'Salvando copy...'}
                       </h4>
                       <p className="text-[#CCCCCC] text-sm">
-                        {savedCopyId 
-                          ? 'Sua copy foi salva no histórico e pode ser acessada a qualquer momento.'
-                          : 'Aguarde enquanto salvamos sua copy no histórico...'
-                        }
+                        {savedCopyId ? 'Sua copy foi salva no histórico e pode ser acessada a qualquer momento.' : 'Aguarde enquanto salvamos sua copy no histórico...'}
                       </p>
                     </div>
                   </div>
-                </div>
-              )}
+                </div>}
 
               {/* Tips */}
               <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-4">
@@ -510,25 +434,18 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
                 <p className="text-[#888888] text-sm mb-4">
                   Quer criar outro tipo de copy para completar sua estratégia?
                 </p>
-                <Button
-                  onClick={handleBackToSelector}
-                  variant="outline"
-                  className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
-                >
+                <Button onClick={handleBackToSelector} variant="outline" className="border-[#4B5563] text-white hover:bg-[#2A2A2A]">
                   Fazer Outro Quiz
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
-      </DashboardLayout>
-    );
+      </DashboardLayout>;
   }
-
-  return (
-    <DashboardLayout>
+  return <DashboardLayout>
       <div className="px-4 sm:px-6 lg:px-8">
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quiz' | 'templates')} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'quiz' | 'templates')} className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">Gerador de Copy com Quiz</h1>
@@ -548,11 +465,7 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
           </div>
 
           <TabsContent value="quiz">
-            <QuizSelector 
-              onSelectQuiz={handleSelectQuiz} 
-              selectedProductId={selectedProductId}
-              onProductChange={handleProductChange}
-            />
+            <QuizSelector onSelectQuiz={handleSelectQuiz} selectedProductId={selectedProductId} onProductChange={handleProductChange} />
           </TabsContent>
 
           <TabsContent value="templates">
@@ -560,8 +473,6 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
-  );
+    </DashboardLayout>;
 };
-
 export default Quiz;
