@@ -53,7 +53,7 @@ const History = () => {
 
   const getTypeIcon = (type: string) => {
     if (type === 'Conversa') {
-      return <MessageSquare className="w-5 h-5 text-[#3B82F6]" />;
+      return <MessageSquare className="w-5 h-5 text-white" />;
     }
     return <FileText className="w-5 h-5 text-white" />;
   };

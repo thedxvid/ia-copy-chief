@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,8 @@ interface CopyHistoryItem {
     product_id?: string;
     message_count: number;
   };
+  created_at?: string;
+  updated_at?: string;
 }
 
 const getExampleData = (): CopyHistoryItem[] => [
@@ -52,6 +55,7 @@ const getExampleData = (): CopyHistoryItem[] => [
     status: "Concluído",
     performance: "Alta conversão",
     source: 'product',
+    created_at: new Date().toISOString(),
     content: {
       landing_page_copy: {
         headline: "Transforme Sua Vida Financeira com Marketing Digital",
@@ -74,6 +78,7 @@ const getExampleData = (): CopyHistoryItem[] => [
     status: "Em teste",
     performance: "Média conversão",
     source: 'product',
+    created_at: new Date(Date.now() - 86400000).toISOString(),
     content: {
       email_campaign: {
         subject: "🔥 O Método que Eliminou 15kg em 90 Dias (Sem Dieta Maluca)",
@@ -88,92 +93,14 @@ const getExampleData = (): CopyHistoryItem[] => [
     }
   },
   {
-    id: 'example-3',
-    title: "Script de Vendas - Webinar de Investimentos",
-    type: "Script",
-    date: new Date(Date.now() - 172800000).toLocaleDateString('pt-BR'),
-    status: "Concluído",
-    performance: "Alta conversão",
-    source: 'product',
-    content: {
-      vsl_script: "Olá, meu nome é João Silva e nos próximos 45 minutos vou revelar como construí um patrimônio de R$ 1 milhão investindo apenas R$ 100 por mês..."
-    },
-    product: {
-      name: "Webinar Investimentos Inteligentes",
-      niche: "Finanças",
-      sub_niche: "Investimentos"
-    }
-  },
-  {
-    id: 'example-4',
-    title: "Posts para Instagram - Desenvolvimento Pessoal",
-    type: "Social Media",
-    date: new Date(Date.now() - 259200000).toLocaleDateString('pt-BR'),
-    status: "Concluído",
-    performance: "Baixa conversão",
-    source: 'product',
-    content: {
-      social_media_content: {
-        headlines: [
-          "✨ 3 Hábitos que Mudaram Minha Vida Completamente",
-          "🚀 Por que 90% das Pessoas Falham nos Objetivos (e Como Não Ser Uma Delas)",
-          "💡 A Única Coisa que Separa Você do Sucesso"
-        ],
-        posts: [
-          "Você sabia que apenas 8% das pessoas conseguem cumprir suas metas? Descubra o que os 8% fazem diferente...",
-          "Sua mente é como um jardim: se você não plantar flores, as ervas daninhas crescerão sozinhas...",
-          "O sucesso não é sobre fazer coisas extraordinárias. É sobre fazer coisas ordinárias extraordinariamente bem."
-        ]
-      }
-    },
-    product: {
-      name: "Curso de Desenvolvimento Pessoal",
-      niche: "Desenvolvimento Pessoal",
-      sub_niche: "Produtividade"
-    }
-  },
-  {
-    id: 'example-5',
-    title: "Mensagens WhatsApp - Coaching de Relacionamentos",
-    type: "WhatsApp",
-    date: new Date(Date.now() - 345600000).toLocaleDateString('pt-BR'),
-    status: "Em teste",
-    performance: "Em análise",
-    source: 'product',
-    content: {
-      whatsapp_messages: [
-        "Oi! Você já se perguntou por que alguns relacionamentos duram décadas enquanto outros não passam de alguns meses? 🤔",
-        "A verdade é que existe uma 'fórmula' para relacionamentos duradouros, e hoje vou compartilhar com você! ❤️",
-        "Quer descobrir os 3 pilares de um relacionamento sólido? Responda SIM que eu te conto tudo! 👇"
-      ]
-    },
-    product: {
-      name: "Coaching de Relacionamentos",
-      niche: "Relacionamentos",
-      sub_niche: "Coaching"
-    }
-  },
-  {
-    id: 'example-quiz-1',
-    title: "Copy para Email Marketing - Quiz Personalizado",
-    type: "Quiz Email",
-    date: new Date(Date.now() - 432000000).toLocaleDateString('pt-BR'),
-    status: "Concluído",
-    performance: "Em análise",
-    source: 'quiz',
-    quiz_type: "email_marketing",
-    content: {
-      quiz_content: "Assunto: 🚀 Descubra o Segredo dos 6 Dígitos em 30 Dias\n\nOlá [Nome],\n\nVocê já imaginou como seria ganhar mais em um mês do que muitos ganham em um ano inteiro?\n\nEu sei que pode parecer impossível, mas deixe-me contar uma história...\n\n[Resto do email personalizado baseado nas respostas do quiz]"
-    }
-  },
-  {
     id: 'example-conversation-1',
     title: "Conversa com Agente de Vídeos de Vendas",
     type: "Conversa",
-    date: new Date(Date.now() - 86400000).toLocaleDateString('pt-BR'),
+    date: new Date(Date.now() - 172800000).toLocaleDateString('pt-BR'),
     status: "Concluído",
     performance: "Em análise",
     source: 'conversation',
+    created_at: new Date(Date.now() - 172800000).toISOString(),
     conversation_data: {
       agent_name: "Agente de Vídeos de Vendas",
       agent_id: "sales-video",
@@ -185,12 +112,12 @@ const getExampleData = (): CopyHistoryItem[] => [
           {
             role: "user",
             content: "Preciso criar um script para um VSL sobre um curso de marketing digital",
-            timestamp: new Date(Date.now() - 86400000).toISOString()
+            timestamp: new Date(Date.now() - 172800000).toISOString()
           },
           {
             role: "assistant", 
             content: "Perfeito! Vou te ajudar a criar um script de VSL envolvente para seu curso de marketing digital. Primeiro, me conte mais sobre seu público-alvo e qual é o principal problema que seu curso resolve...",
-            timestamp: new Date(Date.now() - 86300000).toISOString()
+            timestamp: new Date(Date.now() - 172700000).toISOString()
           }
         ],
         agent_name: "Agente de Vídeos de Vendas",
@@ -310,6 +237,7 @@ export const useCopyHistory = () => {
             status: statuses[Math.floor(Math.random() * statuses.length)],
             performance: performances[Math.floor(Math.random() * performances.length)],
             source: 'product',
+            created_at: copy.created_at,
             content: {
               landing_page_copy: copy.landing_page_copy,
               email_campaign: copy.email_campaign,
@@ -362,6 +290,7 @@ export const useCopyHistory = () => {
           status: 'Concluído',
           performance: 'Em análise',
           source: 'quiz',
+          created_at: quizCopy.created_at,
           quiz_type: quizCopy.quiz_type,
           quiz_answers: safeQuizAnswers,
           content: {
@@ -391,6 +320,8 @@ export const useCopyHistory = () => {
           status: 'Concluído',
           performance: 'Em análise',
           source: 'conversation',
+          created_at: conversation.created_at,
+          updated_at: conversation.updated_at,
           conversation_data: {
             agent_name: conversation.agent_name,
             agent_id: conversation.agent_id,
@@ -412,8 +343,12 @@ export const useCopyHistory = () => {
         });
       });
 
-      // Ordenar por data (mais recente primeiro)
-      transformedData.sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime());
+      // Ordenar por data (mais recente primeiro) usando a data de criação ou atualização
+      transformedData.sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at || a.date.split('/').reverse().join('-'));
+        const dateB = new Date(b.updated_at || b.created_at || b.date.split('/').reverse().join('-'));
+        return dateB.getTime() - dateA.getTime();
+      });
 
       if (transformedData.length === 0) {
         setHistoryItems(getExampleData());
