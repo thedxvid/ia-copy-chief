@@ -76,7 +76,7 @@ export const useQuizTemplates = () => {
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   const { user } = useAuth();
 
-  // Verificar se usuário é admin APENAS através da tabela profiles
+  // Verificar se usuário é admin usando APENAS a função RPC is_user_admin
   const checkAdminStatus = async () => {
     if (!user?.id) {
       console.log('🔑 No user ID found');
@@ -88,22 +88,17 @@ export const useQuizTemplates = () => {
     try {
       console.log('🔍 Checking admin status for user:', user.email);
       
-      // Usar APENAS a tabela profiles - nunca auth.users
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .maybeSingle();
+      // Usar APENAS a função RPC is_user_admin - nunca profiles diretamente
+      const { data, error } = await supabase.rpc('is_user_admin', {
+        user_id: user.id
+      });
 
-      if (profileError) {
-        console.error('❌ Error checking profile:', profileError);
+      if (error) {
+        console.error('❌ Error calling is_user_admin RPC:', error);
         setIsAdmin(false);
-      } else if (profileData) {
-        console.log('📋 Profile data:', profileData);
-        setIsAdmin(profileData.is_admin || false);
       } else {
-        console.log('📭 No profile found for user');
-        setIsAdmin(false);
+        console.log('📋 Admin check result:', data);
+        setIsAdmin(data || false);
       }
     } catch (err) {
       console.error('❌ Unexpected error in admin check:', err);
