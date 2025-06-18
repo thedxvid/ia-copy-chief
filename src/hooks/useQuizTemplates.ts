@@ -51,12 +51,19 @@ export const useQuizTemplates = () => {
 
   const fetchTemplates = async () => {
     try {
+      console.log('Fetching quiz templates...');
+      
       const { data, error } = await supabase
         .from('quiz_templates')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching templates:', error);
+        throw error;
+      }
+      
+      console.log('Templates fetched successfully:', data?.length || 0, 'templates');
       setTemplates(data || []);
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -76,31 +83,49 @@ export const useQuizTemplates = () => {
     version: number;
   }) => {
     try {
+      console.log('Creating new template:', templateData.title);
+      
+      // Verificar se o usuário está autenticado
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) {
+        console.error('User not authenticated');
+        throw new Error('Usuário não autenticado');
+      }
+
+      console.log('User authenticated:', user.id);
+
+      const templateToInsert = {
+        quiz_type: templateData.quiz_type,
+        title: templateData.title,
+        description: templateData.description,
+        questions: templateData.questions as unknown as Json,
+        is_default: templateData.is_default,
+        is_active: templateData.is_active,
+        version: templateData.version,
+        created_by: user.id // Garantir que created_by seja sempre definido
+      };
+
+      console.log('Inserting template data:', templateToInsert);
 
       const { data, error } = await supabase
         .from('quiz_templates')
-        .insert([{
-          quiz_type: templateData.quiz_type,
-          title: templateData.title,
-          description: templateData.description,
-          questions: templateData.questions as unknown as Json,
-          is_default: templateData.is_default,
-          is_active: templateData.is_active,
-          version: templateData.version,
-          created_by: user.id
-        }])
+        .insert([templateToInsert])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error creating template:', error);
+        throw error;
+      }
 
+      console.log('Template created successfully:', data);
       setTemplates(prev => [data, ...prev]);
-      toast.success('Template criado!');
+      toast.success('Template criado com sucesso!');
       return data;
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar template');
+      console.error('Error creating template:', error);
+      const errorMessage = error.message || 'Erro ao criar template';
+      toast.error(errorMessage);
       throw error;
     }
   };
@@ -115,6 +140,8 @@ export const useQuizTemplates = () => {
     version?: number;
   }) => {
     try {
+      console.log('Updating template:', id);
+      
       const updateData: any = {};
       
       if (templateData.quiz_type !== undefined) updateData.quiz_type = templateData.quiz_type;
@@ -132,35 +159,55 @@ export const useQuizTemplates = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error updating template:', error);
+        throw error;
+      }
 
+      console.log('Template updated successfully:', data);
       setTemplates(prev => prev.map(t => t.id === id ? data : t));
-      toast.success('Template atualizado!');
+      toast.success('Template atualizado com sucesso!');
       return data;
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao atualizar');
+      console.error('Error updating template:', error);
+      const errorMessage = error.message || 'Erro ao atualizar template';
+      toast.error(errorMessage);
       throw error;
     }
   };
 
   const deleteTemplate = async (id: string) => {
     try {
+      console.log('Deleting template:', id);
+      
       const { error } = await supabase
         .from('quiz_templates')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error deleting template:', error);
+        throw error;
+      }
+
+      console.log('Template deleted successfully');
       setTemplates(prev => prev.filter(t => t.id !== id));
-      toast.success('Template excluído!');
+      toast.success('Template excluído com sucesso!');
     } catch (error: any) {
-      toast.error('Erro ao excluir');
+      console.error('Error deleting template:', error);
+      const errorMessage = error.message || 'Erro ao excluir template';
+      toast.error(errorMessage);
     }
   };
 
   const duplicateTemplate = async (id: string, newTitle: string) => {
     const template = templates.find(t => t.id === id);
-    if (!template) return;
+    if (!template) {
+      toast.error('Template não encontrado');
+      return;
+    }
+
+    console.log('Duplicating template:', id, 'with new title:', newTitle);
 
     return await createTemplate({
       quiz_type: template.quiz_type,
