@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,7 +77,7 @@ export const useQuizTemplates = () => {
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   const { user } = useAuth();
 
-  // Verificar se usuário é admin usando a função do banco
+  // Verificar se usuário é admin APENAS através da tabela profiles
   const checkAdminStatus = async () => {
     if (!user?.id) {
       console.log('🔑 No user ID found');
@@ -88,7 +89,7 @@ export const useQuizTemplates = () => {
     try {
       console.log('🔍 Checking admin status for user:', user.email);
       
-      // Primeiro, verificar se o campo is_admin existe no perfil
+      // Usar APENAS a tabela profiles - nunca auth.users
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('is_admin')
@@ -97,25 +98,13 @@ export const useQuizTemplates = () => {
 
       if (profileError) {
         console.error('❌ Error checking profile:', profileError);
+        setIsAdmin(false);
       } else if (profileData) {
         console.log('📋 Profile data:', profileData);
         setIsAdmin(profileData.is_admin || false);
-        setAdminCheckComplete(true);
-        return;
-      }
-
-      // Fallback: usar a função RPC se o perfil não funcionar
-      console.log('🔄 Trying RPC function as fallback...');
-      const { data: rpcData, error: rpcError } = await supabase.rpc('is_user_admin', {
-        user_id: user.id
-      });
-
-      if (rpcError) {
-        console.error('❌ Error with RPC function:', rpcError);
-        setIsAdmin(false);
       } else {
-        console.log('✅ RPC result:', rpcData);
-        setIsAdmin(rpcData || false);
+        console.log('📭 No profile found for user');
+        setIsAdmin(false);
       }
     } catch (err) {
       console.error('❌ Unexpected error in admin check:', err);
@@ -181,43 +170,49 @@ export const useQuizTemplates = () => {
   };
 
   const createTemplate = async (template: Omit<QuizTemplate, 'id' | 'created_at' | 'updated_at'>) => {
-    console.log('🚀 === INÍCIO DO PROCESSO DE CRIAÇÃO ===');
+    console.log('🚀 === INÍCIO DO PROCESSO DE CRIAÇÃO SIMPLIFICADO ===');
     console.log('👤 User ID:', user?.id);
     console.log('📧 User email:', user?.email);
     console.log('🔐 Admin check complete:', adminCheckComplete);
     console.log('👨‍💼 Is admin:', isAdmin);
 
+    // Verificações básicas
+    if (!user?.id) {
+      console.error('❌ No user ID found');
+      const errorMsg = 'Usuário não autenticado';
+      toast.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
     if (!adminCheckComplete) {
       console.error('❌ Admin check not complete yet');
-      throw new Error('Verificação de administrador ainda em andamento');
+      const errorMsg = 'Verificação de administrador ainda em andamento';
+      toast.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     if (!isAdmin) {
       console.error('❌ User is not admin');
-      throw new Error('Apenas administradores podem criar templates');
-    }
-
-    if (!user?.id) {
-      console.error('❌ No user ID found');
-      throw new Error('Usuário não autenticado');
+      const errorMsg = 'Apenas administradores podem criar templates';
+      toast.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     setIsLoading(true);
     try {
       console.log('📝 Creating new template:', template.title);
-      console.log('🔑 User ID:', user.id);
-      console.log('🔐 Admin status verified:', isAdmin);
       console.log('📋 Template data:', {
         quiz_type: template.quiz_type,
         title: template.title,
         questions_count: template.questions.length
       });
       
+      // Preparar dados EXATAMENTE como o banco espera
       const templateData = {
         quiz_type: template.quiz_type,
         title: template.title,
         description: template.description || null,
-        questions: template.questions as unknown as Database['public']['Tables']['quiz_templates']['Insert']['questions'],
+        questions: template.questions,
         is_default: template.is_default,
         is_active: template.is_active,
         version: template.version,
@@ -225,34 +220,49 @@ export const useQuizTemplates = () => {
       };
 
       console.log('💾 About to insert template data...');
-      console.log('📊 Template payload:', JSON.stringify(templateData, null, 2));
       
+      // Inserir dados diretamente - sem consultas complexas
       const { data, error } = await supabase
         .from('quiz_templates')
-        .insert([templateData])
+        .insert(templateData)
         .select()
         .single();
 
       if (error) {
         console.error('❌ Error creating template:', error);
-        console.error('❌ Error details:', JSON.stringify(error, null, 2));
-        console.error('❌ Error message:', error.message);
         console.error('❌ Error code:', error.code);
-        throw error;
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error details:', error.details);
+        
+        // Mensagem de erro mais específica
+        let errorMessage = 'Erro ao criar template';
+        if (error.code === '42501') {
+          errorMessage = 'Erro de permissão. Verifique se você tem privilégios de administrador.';
+        } else if (error.message) {
+          errorMessage = `Erro: ${error.message}`;
+        }
+        
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
 
       console.log('✅ Template created successfully!');
       console.log('🎉 New template ID:', data.id);
-      console.log('📄 Created template data:', data);
       
+      // Recarregar templates
       await fetchTemplates();
       toast.success('Template criado com sucesso!');
       return convertDbTemplate(data);
+      
     } catch (err) {
       console.error('💥 Error in createTemplate function:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar template';
-      console.error('📝 Error message for user:', errorMessage);
-      toast.error(errorMessage);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao criar template';
+      console.error('📝 Final error message:', errorMessage);
+      
+      // Não fazer toast aqui se já foi feito acima
+      if (!err instanceof Error || !err.message.includes('Erro')) {
+        toast.error(errorMessage);
+      }
       throw err;
     } finally {
       setIsLoading(false);
