@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface QuizQuestion {
   id: string;
@@ -17,13 +18,13 @@ export interface QuizTemplate {
   quiz_type: string;
   title: string;
   description?: string;
-  questions: QuizQuestion[];
+  questions: Json;
   is_default: boolean;
   is_active: boolean;
   version: number;
   created_at: string;
   updated_at: string;
-  user_id: string;
+  created_by: string | null;
 }
 
 export const useQuizTemplates = () => {
@@ -47,7 +48,15 @@ export const useQuizTemplates = () => {
     }
   };
 
-  const createTemplate = async (templateData: Omit<QuizTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+  const createTemplate = async (templateData: {
+    quiz_type: string;
+    title: string;
+    description?: string;
+    questions: QuizQuestion[];
+    is_default: boolean;
+    is_active: boolean;
+    version: number;
+  }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
@@ -55,8 +64,14 @@ export const useQuizTemplates = () => {
       const { data, error } = await supabase
         .from('quiz_templates')
         .insert([{
-          ...templateData,
-          user_id: user.id
+          quiz_type: templateData.quiz_type,
+          title: templateData.title,
+          description: templateData.description,
+          questions: templateData.questions as Json,
+          is_default: templateData.is_default,
+          is_active: templateData.is_active,
+          version: templateData.version,
+          created_by: user.id
         }])
         .select()
         .single();
@@ -72,11 +87,29 @@ export const useQuizTemplates = () => {
     }
   };
 
-  const updateTemplate = async (id: string, templateData: Partial<QuizTemplate>) => {
+  const updateTemplate = async (id: string, templateData: {
+    quiz_type?: string;
+    title?: string;
+    description?: string;
+    questions?: QuizQuestion[];
+    is_default?: boolean;
+    is_active?: boolean;
+    version?: number;
+  }) => {
     try {
+      const updateData: any = {};
+      
+      if (templateData.quiz_type !== undefined) updateData.quiz_type = templateData.quiz_type;
+      if (templateData.title !== undefined) updateData.title = templateData.title;
+      if (templateData.description !== undefined) updateData.description = templateData.description;
+      if (templateData.questions !== undefined) updateData.questions = templateData.questions as Json;
+      if (templateData.is_default !== undefined) updateData.is_default = templateData.is_default;
+      if (templateData.is_active !== undefined) updateData.is_active = templateData.is_active;
+      if (templateData.version !== undefined) updateData.version = templateData.version;
+
       const { data, error } = await supabase
         .from('quiz_templates')
-        .update(templateData)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -114,8 +147,8 @@ export const useQuizTemplates = () => {
     return await createTemplate({
       quiz_type: template.quiz_type,
       title: newTitle,
-      description: template.description,
-      questions: template.questions,
+      description: template.description || undefined,
+      questions: template.questions as QuizQuestion[],
       is_default: false,
       is_active: template.is_active,
       version: 1
