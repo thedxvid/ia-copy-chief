@@ -79,11 +79,17 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({
   const { templates, isLoading: templatesLoading } = useQuizTemplates();
   const [customQuizOptions, setCustomQuizOptions] = useState<QuizOption[]>([]);
 
-  // Converter templates para opções de quiz
+  // Converter templates para opções de quiz - APENAS templates personalizados (não-padrão)
   useEffect(() => {
     if (!templatesLoading && templates) {
-      const activeTemplates = templates.filter(template => template.is_active);
-      const customOptions: QuizOption[] = activeTemplates.map(template => {
+      // Filtrar apenas templates que são personalizados (não são padrão do sistema)
+      const customTemplates = templates.filter(template => 
+        template.is_active && 
+        !template.is_default && // Excluir templates padrão do sistema
+        template.created_by !== null // Garantir que foram criados por usuários
+      );
+      
+      const customOptions: QuizOption[] = customTemplates.map(template => {
         const questionCount = getQuestionsLength(template.questions);
         const estimatedTime = Math.max(3, Math.ceil(questionCount * 0.7));
         
@@ -184,14 +190,14 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({
           </div>
         </div>
 
-        {/* Templates Personalizados */}
+        {/* Templates Personalizados - Apenas templates criados por usuários */}
         {customQuizOptions.length > 0 && (
           <div>
             <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
               <Users className="w-5 h-5 text-yellow-400" />
               Templates Personalizados
               <span className="text-sm text-[#CCCCCC] font-normal">
-                ({customQuizOptions.length} disponível{customQuizOptions.length !== 1 ? 'eis' : ''})
+                ({customQuizOptions.length} criado{customQuizOptions.length !== 1 ? 's' : ''})
               </span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -245,7 +251,7 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({
           </div>
         )}
 
-        {/* Empty state para templates */}
+        {/* Empty state para templates personalizados */}
         {!templatesLoading && customQuizOptions.length === 0 && (
           <div className="bg-[#1E1E1E] border border-[#4B5563]/20 rounded-2xl p-6 text-center">
             <Users className="w-12 h-12 text-[#4B5563] mx-auto mb-3" />
