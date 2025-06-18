@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuizCopySave } from '@/hooks/useQuizCopySave';
 import { useN8nIntegration } from '@/hooks/useN8nIntegration';
+import { useQuizTemplates, parseQuestions } from '@/hooks/useQuizTemplates';
 import { Copy, Download, RotateCcw, History, AlertCircle, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +29,7 @@ const Quiz = () => {
   const { saveQuizCopy, isSaving } = useQuizCopySave();
   const { triggerN8nWorkflow } = useN8nIntegration();
   const { fetchProductDetails } = useProducts();
+  const { templates } = useQuizTemplates();
   const navigate = useNavigate();
 
   const handleSelectQuiz = (quizType: string, productId?: string) => {
@@ -67,16 +69,19 @@ const Quiz = () => {
         console.log('📦 Product info loaded:', productInfo?.name);
       }
 
+      // Determinar o tipo real do quiz e título
+      const { actualQuizType, quizTitle } = getQuizTypeAndTitle(selectedQuizType);
+
       // Construir prompt baseado nas respostas do quiz e informações do produto
-      const prompt = await buildQuizPrompt(answers, selectedQuizType, productInfo);
+      const prompt = await buildQuizPrompt(answers, actualQuizType, productInfo);
       console.log('📝 Built prompt for quiz:', prompt.substring(0, 200) + '...');
       
       // Preparar dados estruturados para o N8n - com tipos explícitos
       const requestData = {
-        type: 'copy_generation' as const, // Explicitly typed as literal
+        type: 'copy_generation' as const,
         user_id: user.id,
         data: {
-          copy_type: selectedQuizType,
+          copy_type: actualQuizType,
           prompt,
           quiz_answers: answers,
           target_audience: answers.target || 'público geral',
@@ -84,7 +89,7 @@ const Quiz = () => {
           briefing: answers
         },
         workflow_id: 'quiz-copy-generation',
-        session_id: `quiz_${selectedQuizType}_${Date.now()}`
+        session_id: `quiz_${actualQuizType}_${Date.now()}`
       };
 
       console.log('🚀 Sending request to N8n integration:', JSON.stringify(requestData, null, 2));
@@ -99,7 +104,7 @@ const Quiz = () => {
       }
 
       const copy = {
-        title: getQuizTitle(selectedQuizType),
+        title: quizTitle,
         content: result.generatedCopy
       };
       
@@ -116,7 +121,7 @@ const Quiz = () => {
         try {
           console.log('💾 Saving copy to history...');
           const savedCopy = await saveQuizCopy({
-            quizType: selectedQuizType,
+            quizType: actualQuizType,
             quizAnswers: answers,
             generatedCopy: copy
           });
@@ -147,6 +152,35 @@ const Quiz = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Função para determinar o tipo real do quiz e título
+  const getQuizTypeAndTitle = (quizType: string): { actualQuizType: string; quizTitle: string } => {
+    // Se for um template personalizado
+    if (quizType.startsWith('template_')) {
+      const templateId = quizType.replace('template_', '');
+      const template = templates.find(t => t.id === templateId);
+      
+      if (template) {
+        return {
+          actualQuizType: template.quiz_type,
+          quizTitle: template.title
+        };
+      }
+    }
+    
+    // Quiz padrão
+    const titles = {
+      vsl: 'Roteiro de Vídeo de Vendas (VSL)',
+      product: 'Estrutura de Oferta',
+      landing: 'Copy de Landing Page',
+      ads: 'Anúncios Pagos'
+    };
+    
+    return {
+      actualQuizType: quizType,
+      quizTitle: titles[quizType as keyof typeof titles] || 'Copy Personalizada'
+    };
   };
 
   const buildQuizPrompt = async (answers: Record<string, string>, quizType: string, productInfo?: any): Promise<string> => {
@@ -228,16 +262,6 @@ Gere pelo menos 3 variações com diferentes abordagens.${productContext ? ' Use
 ${productContext ? `${productContext}\n` : ''}
 RESPOSTAS DO QUIZ:
 ${answersText}${productContext ? '\n\nUse as informações do produto acima como contexto principal.' : ''}`;
-  };
-
-  const getQuizTitle = (quizType: string): string => {
-    const titles = {
-      vsl: 'Roteiro de Vídeo de Vendas (VSL)',
-      product: 'Estrutura de Oferta',
-      landing: 'Copy de Landing Page',
-      ads: 'Anúncios Pagos'
-    };
-    return titles[quizType as keyof typeof titles] || 'Copy Personalizada';
   };
 
   const handleBackToSelector = () => {

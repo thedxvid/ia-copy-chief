@@ -32,6 +32,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const { fetchProductDetails } = useProducts();
   const [productDetails, setProductDetails] = useState<any>(null);
+  const [prefilledFields, setPrefilledFields] = useState<Set<string>>(new Set());
 
   const quizTitle = getQuizTitle(quizType);
   const progress = questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
@@ -58,96 +59,178 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
     }
   }, [quizType]);
 
-  // Função para mapear campos do produto para IDs das perguntas do quiz
+  // Função melhorada para mapear campos do produto para IDs das perguntas do quiz
   const mapProductDataToQuizAnswers = (productDetails: any): Record<string, string> => {
     const mappedAnswers: Record<string, string> = {};
+    const prefilledSet = new Set<string>();
     
-    // Mapeamento comum para diferentes tipos de quiz
-    const fieldMappings = {
+    // Função auxiliar para extrair texto de objetos complexos
+    const extractText = (value: any): string => {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        // Tentar extrair campos comuns de objetos
+        const textFields = ['text', 'content', 'description', 'value', 'headline', 'title', 'body'];
+        for (const field of textFields) {
+          if (value[field] && typeof value[field] === 'string') {
+            return value[field];
+          }
+        }
+        return JSON.stringify(value, null, 2);
+      }
+      if (Array.isArray(value)) {
+        return value.join(', ');
+      }
+      return String(value);
+    };
+
+    // Mapeamento direto de campos básicos
+    const basicFieldMappings = {
       // Nome do produto
       'product': productDetails.name,
       'product_name': productDetails.name,
       'nome_produto': productDetails.name,
-      
-      // Público-alvo
-      'target': productDetails.strategy?.target_audience 
-        ? typeof productDetails.strategy.target_audience === 'string'
-          ? productDetails.strategy.target_audience
-          : JSON.stringify(productDetails.strategy.target_audience)
-        : '',
-      'target_audience': productDetails.strategy?.target_audience 
-        ? typeof productDetails.strategy.target_audience === 'string'
-          ? productDetails.strategy.target_audience
-          : JSON.stringify(productDetails.strategy.target_audience)
-        : '',
-      'publico_alvo': productDetails.strategy?.target_audience 
-        ? typeof productDetails.strategy.target_audience === 'string'
-          ? productDetails.strategy.target_audience
-          : JSON.stringify(productDetails.strategy.target_audience)
-        : '',
-      
-      // Benefícios/Proposta de valor
-      'benefit': productDetails.strategy?.value_proposition || '',
-      'benefits': productDetails.strategy?.value_proposition || '',
-      'value_proposition': productDetails.strategy?.value_proposition || '',
-      'proposta_valor': productDetails.strategy?.value_proposition || '',
-      'product_benefits': productDetails.strategy?.value_proposition || '',
-      
-      // Preço
-      'price': productDetails.offer?.pricing_strategy
-        ? typeof productDetails.offer.pricing_strategy === 'string'
-          ? productDetails.offer.pricing_strategy
-          : JSON.stringify(productDetails.offer.pricing_strategy)
-        : '',
-      'pricing': productDetails.offer?.pricing_strategy
-        ? typeof productDetails.offer.pricing_strategy === 'string'
-          ? productDetails.offer.pricing_strategy
-          : JSON.stringify(productDetails.offer.pricing_strategy)
-        : '',
-      'preco': productDetails.offer?.pricing_strategy
-        ? typeof productDetails.offer.pricing_strategy === 'string'
-          ? productDetails.offer.pricing_strategy
-          : JSON.stringify(productDetails.offer.pricing_strategy)
-        : '',
-      
-      // Oferta principal
-      'offer': productDetails.offer?.main_offer
-        ? typeof productDetails.offer.main_offer === 'string'
-          ? productDetails.offer.main_offer
-          : JSON.stringify(productDetails.offer.main_offer)
-        : '',
-      'main_offer': productDetails.offer?.main_offer
-        ? typeof productDetails.offer.main_offer === 'string'
-          ? productDetails.offer.main_offer
-          : JSON.stringify(productDetails.offer.main_offer)
-        : '',
-      'oferta_principal': productDetails.offer?.main_offer
-        ? typeof productDetails.offer.main_offer === 'string'
-          ? productDetails.offer.main_offer
-          : JSON.stringify(productDetails.offer.main_offer)
-        : '',
+      'produto': productDetails.name,
       
       // Nicho
-      'niche': productDetails.niche || '',
-      'nicho': productDetails.niche || '',
+      'niche': productDetails.niche,
+      'nicho': productDetails.niche,
+      'mercado': productDetails.niche,
       
       // Sub-nicho
-      'sub_niche': productDetails.sub_niche || '',
-      'sub_nicho': productDetails.sub_niche || '',
-      
-      // Posicionamento de mercado
-      'positioning': productDetails.strategy?.market_positioning || '',
-      'market_positioning': productDetails.strategy?.market_positioning || '',
-      'posicionamento': productDetails.strategy?.market_positioning || '',
+      'sub_niche': productDetails.sub_niche,
+      'sub_nicho': productDetails.sub_niche,
+      'submercado': productDetails.sub_niche,
     };
 
-    // Aplicar mapeamentos que têm valores
-    Object.entries(fieldMappings).forEach(([key, value]) => {
-      if (value && typeof value === 'string' && value.trim() !== '') {
-        mappedAnswers[key] = value;
+    // Mapeamento de estratégia
+    if (productDetails.strategy) {
+      const strategyMappings = {
+        // Público-alvo
+        'target': extractText(productDetails.strategy.target_audience),
+        'target_audience': extractText(productDetails.strategy.target_audience),
+        'publico_alvo': extractText(productDetails.strategy.target_audience),
+        'publico': extractText(productDetails.strategy.target_audience),
+        'audience': extractText(productDetails.strategy.target_audience),
+        'cliente': extractText(productDetails.strategy.target_audience),
+        'persona': extractText(productDetails.strategy.target_audience),
+        
+        // Proposta de valor
+        'benefit': productDetails.strategy.value_proposition,
+        'benefits': productDetails.strategy.value_proposition,
+        'value_proposition': productDetails.strategy.value_proposition,
+        'proposta_valor': productDetails.strategy.value_proposition,
+        'produto_benefits': productDetails.strategy.value_proposition,
+        'beneficios': productDetails.strategy.value_proposition,
+        'vantagem': productDetails.strategy.value_proposition,
+        'diferencial': productDetails.strategy.value_proposition,
+        'problema_solucao': productDetails.strategy.value_proposition,
+        'solucao': productDetails.strategy.value_proposition,
+        
+        // Posicionamento
+        'positioning': productDetails.strategy.market_positioning,
+        'market_positioning': productDetails.strategy.market_positioning,
+        'posicionamento': productDetails.strategy.market_positioning,
+        'posicao_mercado': productDetails.strategy.market_positioning,
+      };
+      Object.assign(basicFieldMappings, strategyMappings);
+    }
+
+    // Mapeamento de ofertas
+    if (productDetails.offer) {
+      const offerMappings = {
+        // Oferta principal
+        'offer': extractText(productDetails.offer.main_offer),
+        'main_offer': extractText(productDetails.offer.main_offer),
+        'oferta_principal': extractText(productDetails.offer.main_offer),
+        'oferta': extractText(productDetails.offer.main_offer),
+        'produto_oferta': extractText(productDetails.offer.main_offer),
+        
+        // Preço
+        'price': extractText(productDetails.offer.pricing_strategy),
+        'pricing': extractText(productDetails.offer.pricing_strategy),
+        'preco': extractText(productDetails.offer.pricing_strategy),
+        'valor': extractText(productDetails.offer.pricing_strategy),
+        'investimento': extractText(productDetails.offer.pricing_strategy),
+        'custo': extractText(productDetails.offer.pricing_strategy),
+        
+        // Bônus
+        'bonus': productDetails.offer.bonuses ? productDetails.offer.bonuses.join(', ') : '',
+        'bonuses': productDetails.offer.bonuses ? productDetails.offer.bonuses.join(', ') : '',
+        'extras': productDetails.offer.bonuses ? productDetails.offer.bonuses.join(', ') : '',
+        'adicionais': productDetails.offer.bonuses ? productDetails.offer.bonuses.join(', ') : '',
+        
+        // Upsell/Downsell
+        'upsell': extractText(productDetails.offer.upsell),
+        'downsell': extractText(productDetails.offer.downsell),
+        'order_bump': extractText(productDetails.offer.order_bump),
+      };
+      Object.assign(basicFieldMappings, offerMappings);
+    }
+
+    // Mapeamento de copy existente
+    if (productDetails.copy) {
+      const copyMappings = {
+        'vsl_script': productDetails.copy.vsl_script,
+        'script': productDetails.copy.vsl_script,
+        'roteiro': productDetails.copy.vsl_script,
+        'landing_copy': extractText(productDetails.copy.landing_page_copy),
+        'email_copy': extractText(productDetails.copy.email_campaign),
+        'social_copy': extractText(productDetails.copy.social_media_content),
+        'whatsapp': productDetails.copy.whatsapp_messages ? productDetails.copy.whatsapp_messages.join('\n') : '',
+        'telegram': productDetails.copy.telegram_messages ? productDetails.copy.telegram_messages.join('\n') : '',
+      };
+      Object.assign(basicFieldMappings, copyMappings);
+    }
+
+    // Mapeamento de meta dados
+    if (productDetails.meta) {
+      const metaMappings = {
+        'tags': productDetails.meta.tags ? productDetails.meta.tags.join(', ') : '',
+        'notes': productDetails.meta.private_notes,
+        'notas': productDetails.meta.private_notes,
+        'observacoes': productDetails.meta.private_notes,
+      };
+      Object.assign(basicFieldMappings, metaMappings);
+    }
+
+    // Aplicar mapeamentos que têm valores válidos
+    Object.entries(basicFieldMappings).forEach(([key, value]) => {
+      if (value && typeof value === 'string' && value.trim() !== '' && value !== 'null' && value !== 'undefined') {
+        mappedAnswers[key] = value.trim();
+        prefilledSet.add(key);
       }
     });
 
+    // Mapeamento inteligente baseado em palavras-chave nas perguntas
+    questions.forEach(question => {
+      const questionLower = question.question.toLowerCase();
+      const questionId = question.id.toLowerCase();
+      
+      // Se já foi mapeado diretamente, pular
+      if (mappedAnswers[question.id]) return;
+      
+      // Mapear baseado no conteúdo da pergunta
+      if ((questionLower.includes('público') || questionLower.includes('target') || questionLower.includes('cliente')) && 
+          productDetails.strategy?.target_audience) {
+        mappedAnswers[question.id] = extractText(productDetails.strategy.target_audience);
+        prefilledSet.add(question.id);
+      } else if ((questionLower.includes('benefício') || questionLower.includes('vantagem') || questionLower.includes('solução')) && 
+                 productDetails.strategy?.value_proposition) {
+        mappedAnswers[question.id] = productDetails.strategy.value_proposition;
+        prefilledSet.add(question.id);
+      } else if ((questionLower.includes('preço') || questionLower.includes('valor') || questionLower.includes('custo')) && 
+                 productDetails.offer?.pricing_strategy) {
+        mappedAnswers[question.id] = extractText(productDetails.offer.pricing_strategy);
+        prefilledSet.add(question.id);
+      } else if ((questionLower.includes('oferta') || questionLower.includes('produto') || questionLower.includes('serviço')) && 
+                 productDetails.offer?.main_offer) {
+        mappedAnswers[question.id] = extractText(productDetails.offer.main_offer);
+        prefilledSet.add(question.id);
+      }
+    });
+
+    setPrefilledFields(prefilledSet);
     return mappedAnswers;
   };
 
@@ -163,6 +246,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
           // Mapear dados do produto para respostas do quiz
           const prefilledAnswers = mapProductDataToQuizAnswers(details);
           console.log(`🎯 Pre-filled answers:`, prefilledAnswers);
+          console.log(`📝 Pre-filled fields:`, Array.from(prefilledFields));
           
           // Aplicar respostas pré-preenchidas
           setAnswers(prevAnswers => {
@@ -228,7 +312,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   };
 
   const renderQuestionInput = (question: QuizQuestion) => {
-    const isPrefilledField = productDetails && answers[question.id] && productDetails;
+    const isPrefilledField = prefilledFields.has(question.id) && answers[question.id];
     
     switch (question.type) {
       case 'radio':
@@ -262,8 +346,9 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
               className="min-h-[120px] bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base focus:border-[#3B82F6] focus:ring-[#3B82F6]"
             />
             {isPrefilledField && (
-              <p className="text-xs text-[#3B82F6]">
-                ✓ Campo pré-preenchido baseado no produto selecionado - você pode editar
+              <p className="text-xs text-[#3B82F6] flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Campo pré-preenchido baseado no produto "{productDetails?.name}" - você pode editar
               </p>
             )}
           </div>
@@ -279,8 +364,9 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
               className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base focus:border-[#3B82F6] focus:ring-[#3B82F6]"
             />
             {isPrefilledField && (
-              <p className="text-xs text-[#3B82F6]">
-                ✓ Campo pré-preenchido baseado no produto selecionado - você pode editar
+              <p className="text-xs text-[#3B82F6] flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Campo pré-preenchido baseado no produto "{productDetails?.name}" - você pode editar
               </p>
             )}
           </div>
@@ -297,8 +383,9 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
               className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-[#888888] text-base focus:border-[#3B82F6] focus:ring-[#3B82F6]"
             />
             {isPrefilledField && (
-              <p className="text-xs text-[#3B82F6]">
-                ✓ Campo pré-preenchido baseado no produto selecionado - você pode editar
+              <p className="text-xs text-[#3B82F6] flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Campo pré-preenchido baseado no produto "{productDetails?.name}" - você pode editar
               </p>
             )}
           </div>
@@ -338,6 +425,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   const currentQ = questions[currentQuestion];
   const isAnswered = currentAnswer.trim() !== '';
   const canProceed = !currentQ.required || isAnswered;
+  const prefilledCount = prefilledFields.size;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -359,6 +447,11 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
             {productDetails && (
               <span className="ml-2 text-[#3B82F6]">
                 • Contexto: {productDetails.name}
+                {prefilledCount > 0 && (
+                  <span className="ml-1">
+                    ({prefilledCount} campos pré-preenchidos)
+                  </span>
+                )}
               </span>
             )}
           </p>
@@ -446,9 +539,9 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
       {/* Help text */}
       <div className="text-center text-[#888888] text-sm">
         💡 Responda com o máximo de detalhes possível para obter copies mais precisas via Claude AI
-        {productDetails && (
+        {productDetails && prefilledCount > 0 && (
           <div className="mt-2 text-[#3B82F6]">
-            🎯 Algumas respostas foram pré-preenchidas baseadas no produto "{productDetails.name}" - você pode editá-las
+            🎯 {prefilledCount} campos foram pré-preenchidos baseados no produto "{productDetails.name}" - você pode editá-los conforme necessário
           </div>
         )}
       </div>

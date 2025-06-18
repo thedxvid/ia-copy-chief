@@ -1,12 +1,17 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { QuizQuestion } from '@/hooks/useQuizTemplates';
 
 export interface QuizQuestion {
   id: string;
   question: string;
-  type: 'radio' | 'text' | 'textarea' | 'number';
-  options?: string[];
+  type: 'textarea' | 'text' | 'radio' | 'number' | 'select';
   required: boolean;
   placeholder?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  maxLength?: number;
+  helpText?: string;
 }
 
 export interface QuizData {
@@ -18,292 +23,322 @@ export const quizQuestions: QuizData = {
   vsl: [
     {
       id: 'product',
-      question: 'Qual é o seu produto/serviço?',
-      type: 'textarea',
+      question: 'Qual é o nome do seu produto ou serviço?',
+      type: 'text' as const,
       required: true,
-      placeholder: 'Ex: Curso de copywriting para iniciantes, Consultoria de marketing digital, etc.'
+      placeholder: 'Ex: Curso de Marketing Digital'
     },
     {
-      id: 'avatar',
-      question: 'Quem é seu avatar ideal?',
-      type: 'textarea',
+      id: 'target',
+      question: 'Quem é o seu público-alvo ideal?',
+      type: 'textarea' as const,
       required: true,
-      placeholder: 'Ex: Empreendedores entre 25-45 anos, renda de R$5-15k, que querem escalar seus negócios...'
+      placeholder: 'Descreva detalhadamente seu cliente ideal, suas dores, desejos e características demográficas'
     },
     {
-      id: 'pain',
-      question: 'Qual a principal dor/problema que seu avatar enfrenta?',
-      type: 'textarea',
+      id: 'problem',
+      question: 'Qual é o principal problema que seu produto resolve?',
+      type: 'textarea' as const,
       required: true,
-      placeholder: 'Ex: Dificuldade para criar textos que vendem, baixa conversão nos anúncios...'
+      placeholder: 'Descreva o problema de forma clara e específica'
     },
     {
-      id: 'promise',
-      question: 'Qual é a promessa/resultado principal que você oferece?',
-      type: 'textarea',
+      id: 'benefit',
+      question: 'Qual é o principal benefício que seu produto oferece?',
+      type: 'textarea' as const,
       required: true,
-      placeholder: 'Ex: Aumentar as vendas em 300% em 90 dias, Criar copies que convertem...'
+      placeholder: 'Qual transformação ou resultado seu cliente terá?'
     },
     {
-      id: 'duration',
-      question: 'Quanto tempo seu avatar tem para assistir ao vídeo?',
-      type: 'radio',
+      id: 'proof',
+      question: 'Que prova ou credibilidade você tem para oferecer?',
+      type: 'textarea' as const,
       required: true,
-      options: ['30 segundos (Stories/TikTok)', '1-2 minutos (Reel/Post)', '3-5 minutos (VSL curto)', '10+ minutos (VSL longo)']
-    },
-    {
-      id: 'social_proof',
-      question: 'Que tipo de prova social você tem?',
-      type: 'radio',
-      required: true,
-      options: ['Depoimentos em vídeo', 'Casos de sucesso com números', 'Certificações/autoridade', 'Quantidade de alunos/clientes']
+      placeholder: 'Depoimentos, casos de sucesso, certificações, experiência...'
     },
     {
       id: 'price',
       question: 'Qual é o preço do seu produto?',
-      type: 'radio',
+      type: 'text' as const,
       required: true,
-      options: ['Até R$ 100', 'R$ 100 - R$ 500', 'R$ 500 - R$ 2.000', 'R$ 2.000 - R$ 10.000', 'Acima de R$ 10.000']
+      placeholder: 'Ex: R$ 497 ou 12x de R$ 49,70'
     },
     {
       id: 'urgency',
-      question: 'Há urgência/escassez real na oferta?',
-      type: 'radio',
-      required: true,
-      options: ['Promoção por tempo limitado', 'Vagas limitadas', 'Bônus por tempo limitado', 'Sem urgência real']
+      question: 'Que elemento de urgência ou escassez você pode usar?',
+      type: 'textarea' as const,
+      required: false,
+      placeholder: 'Promoção por tempo limitado, vagas limitadas, bônus exclusivos...'
     },
     {
-      id: 'tone',
-      question: 'Qual o tom ideal para o vídeo?',
-      type: 'radio',
-      required: true,
-      options: ['Motivacional/Inspirador', 'Educativo/Didático', 'Provocativo/Desafiador', 'Emocional/Storytelling']
+      id: 'guarantee',
+      question: 'Que garantia você oferece?',
+      type: 'text' as const,
+      required: false,
+      placeholder: 'Ex: Garantia de 30 dias ou seu dinheiro de volta'
     },
     {
-      id: 'platform',
-      question: 'Onde o vídeo será usado?',
-      type: 'radio',
+      id: 'objections',
+      question: 'Quais são as principais objeções do seu público?',
+      type: 'textarea' as const,
       required: true,
-      options: ['Instagram/TikTok (vertical)', 'Facebook/YouTube (horizontal)', 'Landing Page', 'Anúncios pagos']
+      placeholder: 'Liste as dúvidas e resistências mais comuns dos clientes'
+    },
+    {
+      id: 'cta',
+      question: 'Qual é a sua chamada para ação?',
+      type: 'text' as const,
+      required: true,
+      placeholder: 'Ex: Compre Agora, Inscreva-se Hoje, Acesse Já'
     }
   ],
 
   product: [
     {
-      id: 'main_product',
-      question: 'Qual é o seu produto/serviço principal?',
-      type: 'textarea',
+      id: 'product_name',
+      question: 'Qual é o nome do seu produto?',
+      type: 'text' as const,
       required: true,
-      placeholder: 'Descreva detalhadamente seu produto principal...'
+      placeholder: 'Nome completo do produto'
     },
     {
-      id: 'niche',
-      question: 'Em que nicho/mercado você atua?',
-      type: 'radio',
+      id: 'target_audience',
+      question: 'Descreva seu público-alvo ideal',
+      type: 'textarea' as const,
       required: true,
-      options: ['Marketing Digital', 'Fitness/Saúde', 'Relacionamentos', 'Finanças/Investimentos', 'Desenvolvimento Pessoal', 'Educação', 'Beleza/Estética', 'Outro']
+      placeholder: 'Demografia, psicografia, problemas e desejos'
     },
     {
-      id: 'main_price',
-      question: 'Qual é o preço do produto principal?',
-      type: 'radio',
+      id: 'value_proposition',
+      question: 'Qual é sua proposta de valor única?',
+      type: 'textarea' as const,
       required: true,
-      options: ['R$ 97 - R$ 297', 'R$ 297 - R$ 997', 'R$ 997 - R$ 2.997', 'R$ 2.997 - R$ 9.997', 'Acima de R$ 10.000']
+      placeholder: 'O que torna seu produto único e valioso'
     },
     {
-      id: 'modules',
-      question: 'Quantos módulos/componentes tem seu produto?',
-      type: 'radio',
+      id: 'main_benefits',
+      question: 'Liste os 3 principais benefícios',
+      type: 'textarea' as const,
       required: true,
-      options: ['1-3 módulos', '4-6 módulos', '7-10 módulos', 'Mais de 10 módulos', 'Produto único (sem módulos)']
+      placeholder: 'Benefícios claros e mensuráveis'
+    },
+    {
+      id: 'pricing_strategy',
+      question: 'Qual é sua estratégia de preço?',
+      type: 'textarea' as const,
+      required: true,
+      placeholder: 'Preço, formas de pagamento, comparações de valor'
     },
     {
       id: 'bonuses',
-      question: 'Que bônus você pode incluir na oferta?',
-      type: 'textarea',
-      required: true,
-      placeholder: 'Ex: E-book exclusivo, Templates prontos, Grupo VIP, Consultoria individual...'
+      question: 'Que bônus você pode incluir?',
+      type: 'textarea' as const,
+      required: false,
+      placeholder: 'Liste bônus valiosos que complementam a oferta'
     },
     {
-      id: 'delivery',
-      question: 'Qual é o prazo de entrega/acesso?',
-      type: 'radio',
+      id: 'guarantee_terms',
+      question: 'Que garantia você oferece?',
+      type: 'text' as const,
       required: true,
-      options: ['Acesso imediato', '24-48 horas', '1 semana', 'Liberação por módulos', 'Produto físico (envio)']
+      placeholder: 'Tipo e prazo da garantia'
     },
     {
-      id: 'guarantee',
-      question: 'Você oferece garantia?',
-      type: 'radio',
-      required: true,
-      options: ['7 dias', '15 dias', '30 dias', '60 dias', '90 dias', 'Sem garantia']
+      id: 'scarcity_elements',
+      question: 'Elementos de escassez ou urgência',
+      type: 'textarea' as const,
+      required: false,
+      placeholder: 'Tempo limitado, vagas limitadas, preço promocional...'
     },
     {
-      id: 'differentials',
-      question: 'Como você se diferencia dos concorrentes?',
-      type: 'textarea',
-      required: true,
-      placeholder: 'Ex: Método exclusivo, Mais prático, Resultados mais rápidos, Suporte personalizado...'
+      id: 'social_proof',
+      question: 'Que prova social você tem?',
+      type: 'textarea' as const,
+      required: false,
+      placeholder: 'Depoimentos, números, casos de sucesso'
     },
     {
-      id: 'roi',
-      question: 'Qual ROI/retorno o cliente pode esperar?',
-      type: 'textarea',
+      id: 'call_to_action',
+      question: 'Qual é sua chamada principal para ação?',
+      type: 'text' as const,
       required: true,
-      placeholder: 'Ex: Aumentar vendas em 200%, Economizar 10h por semana, Ganhar R$5k/mês extra...'
-    },
-    {
-      id: 'support',
-      question: 'Que tipo de suporte você oferece?',
-      type: 'radio',
-      required: true,
-      options: ['Grupo exclusivo no Telegram/WhatsApp', 'Suporte por email', 'Calls ao vivo', 'Mentoria 1:1', 'Sem suporte adicional']
+      placeholder: 'Ex: Garantir Minha Vaga Agora'
     }
   ],
 
   landing: [
     {
-      id: 'objective',
-      question: 'Qual é o objetivo da landing page?',
-      type: 'radio',
+      id: 'produto',
+      question: 'Qual produto você está promovendo?',
+      type: 'text' as const,
       required: true,
-      options: ['Capturar leads (email)', 'Venda direta', 'Inscrição em webinar/evento', 'Download de material', 'Agendamento de consultoria']
+      placeholder: 'Nome do produto ou serviço'
     },
     {
-      id: 'traffic_source',
-      question: 'De onde vem o tráfego principal?',
-      type: 'radio',
+      id: 'publico_alvo',
+      question: 'Quem é seu público-alvo?',
+      type: 'textarea' as const,
       required: true,
-      options: ['Google Ads', 'Facebook/Instagram Ads', 'Tráfego orgânico (SEO)', 'Email marketing', 'Indicações diretas']
+      placeholder: 'Descreva detalhadamente seu cliente ideal'
     },
     {
-      id: 'capture_info',
-      question: 'Qual informação você quer capturar?',
-      type: 'radio',
+      id: 'problema_principal',
+      question: 'Qual o principal problema que seu produto resolve?',
+      type: 'textarea' as const,
       required: true,
-      options: ['Apenas email', 'Nome + email', 'Nome + email + telefone', 'Dados completos + empresa', 'Formulário qualificado (múltiplas perguntas)']
+      placeholder: 'O problema mais urgente do seu público'
     },
     {
-      id: 'lead_magnet',
-      question: 'Qual é a oferta/isca digital?',
-      type: 'textarea',
+      id: 'solucao_oferecida',
+      question: 'Como seu produto resolve este problema?',
+      type: 'textarea' as const,
       required: true,
-      placeholder: 'Ex: E-book "7 Estratégias de Vendas", Planilha de controle financeiro, Mini-curso gratuito...'
+      placeholder: 'A solução específica que você oferece'
     },
     {
-      id: 'form_fields',
-      question: 'Quantos campos no formulário?',
-      type: 'radio',
+      id: 'beneficios_principais',
+      question: 'Quais são os 3 principais benefícios?',
+      type: 'textarea' as const,
       required: true,
-      options: ['1 campo (só email)', '2 campos (nome + email)', '3 campos (nome + email + telefone)', '4+ campos (dados completos)']
+      placeholder: 'Benefícios tangíveis e mensuráveis'
     },
     {
-      id: 'urgency_landing',
-      question: 'Há deadline/urgência real na oferta?',
-      type: 'radio',
+      id: 'diferencial_competitivo',
+      question: 'O que torna seu produto único?',
+      type: 'textarea' as const,
       required: true,
-      options: ['Sim, promoção por tempo limitado', 'Sim, vagas limitadas', 'Sim, bônus por tempo limitado', 'Não há urgência real']
+      placeholder: 'Seu diferencial em relação à concorrência'
     },
     {
-      id: 'objections',
-      question: 'Que objeções seu público costuma ter?',
-      type: 'textarea',
-      required: true,
-      placeholder: 'Ex: "Não tenho tempo", "É muito caro", "Já tentei outros métodos", "Não sei se funciona"...'
+      id: 'prova_social',
+      question: 'Que prova social você pode usar?',
+      type: 'textarea' as const,
+      required: false,
+      placeholder: 'Depoimentos, casos de sucesso, números impressionantes'
     },
     {
-      id: 'testimonials',
-      question: 'Você tem depoimentos/cases para incluir?',
-      type: 'radio',
+      id: 'oferta_especifica',
+      question: 'Qual é sua oferta específica?',
+      type: 'textarea' as const,
       required: true,
-      options: ['Sim, vários depoimentos em vídeo', 'Sim, depoimentos escritos', 'Sim, cases de sucesso com resultados', 'Poucos depoimentos', 'Ainda não tenho']
+      placeholder: 'Preço, forma de pagamento, bônus, garantia'
     },
     {
-      id: 'next_step',
-      question: 'Qual é o próximo passo após a conversão?',
-      type: 'radio',
-      required: true,
-      options: ['Envio de email com material', 'Redirecionamento para página de obrigado', 'Ligação da equipe comercial', 'Acesso direto ao produto', 'Inscrição confirmada em evento']
+      id: 'urgencia_escassez',
+      question: 'Elementos de urgência ou escassez',
+      type: 'textarea' as const,
+      required: false,
+      placeholder: 'Tempo limitado, vagas limitadas, desconto especial'
     },
     {
-      id: 'device_priority',
-      question: 'A landing page é otimizada para:',
-      type: 'radio',
+      id: 'cta_principal',
+      question: 'Qual é sua call-to-action principal?',
+      type: 'text' as const,
       required: true,
-      options: ['Mobile-first (maioria mobile)', 'Desktop-first (maioria desktop)', 'Equilibrado (50/50)', 'Focado em tablet']
+      placeholder: 'Ex: Quero Começar Agora, Garantir Minha Vaga'
     }
   ],
 
   ads: [
     {
-      id: 'platform',
-      question: 'Em qual plataforma vai veicular?',
-      type: 'radio',
+      id: 'objetivo_campanha',
+      question: 'Qual é o objetivo da sua campanha?',
+      type: 'radio' as const,
       required: true,
-      options: ['Facebook/Instagram', 'Google Ads (pesquisa)', 'Google Ads (display)', 'LinkedIn', 'TikTok', 'YouTube']
+      options: [
+        'Gerar leads (capturar contatos)',
+        'Vendas diretas',
+        'Reconhecimento de marca',
+        'Tráfego para site/blog',
+        'Engajamento nas redes sociais'
+      ]
     },
     {
-      id: 'campaign_objective',
-      question: 'Qual é o objetivo da campanha?',
-      type: 'radio',
+      id: 'publico_segmentado',
+      question: 'Descreva seu público-alvo para segmentação',
+      type: 'textarea' as const,
       required: true,
-      options: ['Tráfego para landing page', 'Conversões diretas', 'Reconhecimento de marca', 'Engajamento/interação', 'Geração de leads']
+      placeholder: 'Idade, localização, interesses, comportamentos, demografias'
     },
     {
-      id: 'budget',
-      question: 'Qual seu orçamento diário?',
-      type: 'radio',
+      id: 'produto_promovido',
+      question: 'Que produto/serviço você está promovendo?',
+      type: 'text' as const,
       required: true,
-      options: ['R$ 20 - R$ 50/dia', 'R$ 50 - R$ 100/dia', 'R$ 100 - R$ 300/dia', 'R$ 300 - R$ 1.000/dia', 'Acima de R$ 1.000/dia']
+      placeholder: 'Nome e breve descrição'
     },
     {
-      id: 'ad_format',
-      question: 'Qual formato de anúncio?',
-      type: 'radio',
+      id: 'proposta_valor',
+      question: 'Qual é sua proposta de valor em uma frase?',
+      type: 'textarea' as const,
       required: true,
-      options: ['Imagem única', 'Vídeo curto (até 30s)', 'Vídeo longo (1min+)', 'Carrossel de imagens', 'Stories/Reels']
+      placeholder: 'Benefício principal de forma clara e impactante'
     },
     {
-      id: 'audience_temperature',
-      question: 'Sua audiência é:',
-      type: 'radio',
+      id: 'emocao_despertar',
+      question: 'Que emoção você quer despertar?',
+      type: 'radio' as const,
       required: true,
-      options: ['Fria (não conhece você)', 'Morna (já teve contato)', 'Quente (já conhece/segue)', 'Remarketing (visitou site/LP)', 'Lookalike (similar aos clientes)']
+      options: [
+        'Desejo/Aspiração',
+        'Medo/Urgência',
+        'Curiosidade',
+        'Confiança/Segurança',
+        'Alegria/Diversão'
+      ]
     },
     {
-      id: 'targeting',
-      question: 'Há segmentação específica?',
-      type: 'textarea',
+      id: 'call_to_action',
+      question: 'Qual ação você quer que tomem?',
+      type: 'text' as const,
       required: true,
-      placeholder: 'Ex: Empreendedores 25-45 anos, São Paulo, interessados em marketing digital...'
+      placeholder: 'Ex: Clique aqui, Saiba mais, Compre agora'
     },
     {
-      id: 'desired_action',
-      question: 'Qual é a ação desejada?',
-      type: 'radio',
-      required: true,
-      options: ['Clique no link', 'Cadastro com email', 'Compra direta', 'Agendamento de call', 'Download de material', 'Inscrição em evento']
+      id: 'orcamento_diario',
+      question: 'Qual seu orçamento diário aproximado?',
+      type: 'radio' as const,
+      required: false,
+      options: [
+        'Até R$ 50/dia',
+        'R$ 50 - R$ 100/dia',
+        'R$ 100 - R$ 300/dia',
+        'R$ 300 - R$ 500/dia',
+        'Acima de R$ 500/dia'
+      ]
     },
     {
-      id: 'seasonality',
-      question: 'Há sazonalidade no seu negócio?',
-      type: 'radio',
+      id: 'plataforma_prioritaria',
+      question: 'Qual plataforma é prioritária?',
+      type: 'radio' as const,
       required: true,
-      options: ['Sim, Black Friday/datas especiais', 'Sim, início/final do ano', 'Sim, períodos específicos do mês', 'Não há sazonalidade', 'Não sei ainda']
+      options: [
+        'Facebook/Instagram',
+        'Google Ads',
+        'TikTok',
+        'LinkedIn',
+        'YouTube'
+      ]
     },
     {
-      id: 'remarketing',
-      question: 'Você faz remarketing?',
-      type: 'radio',
+      id: 'tom_linguagem',
+      question: 'Que tom de linguagem usar?',
+      type: 'radio' as const,
       required: true,
-      options: ['Sim, pixel configurado + listas', 'Sim, só pixel básico', 'Tenho lista de clientes', 'Não faço remarketing', 'Não sei como fazer']
+      options: [
+        'Formal e profissional',
+        'Casual e amigável',
+        'Divertido e descontraído',
+        'Urgente e persuasivo',
+        'Educativo e informativo'
+      ]
     },
     {
-      id: 'performance_history',
-      question: 'Como está sua performance atual?',
-      type: 'radio',
+      id: 'diferencial_concorrencia',
+      question: 'Como você se diferencia da concorrência?',
+      type: 'textarea' as const,
       required: true,
-      options: ['CTR alto (acima de 2%)', 'CTR médio (1-2%)', 'CTR baixo (abaixo de 1%)', 'CPC muito alto', 'Primeira campanha']
+      placeholder: 'Pontos únicos que te destacam no mercado'
     }
   ]
 };
@@ -324,68 +359,402 @@ const isValidQuizQuestionArray = (questions: any): questions is QuizQuestion[] =
   );
 };
 
-export const getQuizQuestions = async (quizType: string): Promise<QuizQuestion[]> => {
-  // Verificar cache primeiro
-  const now = Date.now();
-  if (templatesCache[quizType] && (now - cacheTimestamp) < CACHE_DURATION) {
-    console.log(`🎯 Using cached template for ${quizType}`);
-    return templatesCache[quizType];
-  }
-
-  try {
-    console.log(`🔍 Fetching template from database for quiz type: ${quizType}`);
-    
-    // Buscar template do banco de dados
-    const { data: template, error } = await supabase
-      .from('quiz_templates')
-      .select('questions')
-      .eq('quiz_type', quizType)
-      .eq('is_active', true)
-      .eq('is_default', true)
-      .maybeSingle();
-
-    if (error) {
-      console.error('❌ Error fetching quiz template:', error);
-      throw error;
-    }
-
-    if (template?.questions && isValidQuizQuestionArray(template.questions)) {
-      console.log(`✅ Found template in database for ${quizType} with ${template.questions.length} questions`);
-      
-      // Atualizar cache
-      templatesCache[quizType] = template.questions;
-      cacheTimestamp = now;
-      
-      return template.questions;
-    } else {
-      console.log(`⚠️ No valid template found in database for ${quizType}, using fallback data`);
-    }
-  } catch (error) {
-    console.error(`💥 Error loading template for ${quizType}:`, error);
-  }
-
-  // Fallback para dados estáticos se não encontrar no banco
-  const fallbackQuestions = quizQuestions[quizType] || [];
-  console.log(`📋 Using fallback data for ${quizType} with ${fallbackQuestions.length} questions`);
-  
-  // Cache do fallback também
-  templatesCache[quizType] = fallbackQuestions;
-  cacheTimestamp = now;
-  
-  return fallbackQuestions;
-};
-
 export const getQuizTitle = (quizType: string): string => {
   const titles = {
-    vsl: 'Quiz para Vídeo de Vendas (VSL)',
-    product: 'Quiz para Estrutura de Oferta',
-    landing: 'Quiz para Landing Page',
-    ads: 'Quiz para Anúncios Pagos'
+    vsl: 'Vídeo de Vendas (VSL)',
+    product: 'Estrutura de Oferta',
+    landing: 'Landing Page',
+    ads: 'Anúncios Pagos',
+    email_marketing: 'Email Marketing',
+    sales_letter: 'Carta de Vendas',
+    social_media: 'Social Media'
   };
-  return titles[quizType as keyof typeof titles] || 'Quiz';
+  
+  return titles[quizType as keyof typeof titles] || 'Quiz Personalizado';
 };
 
-// Função para invalidar cache (útil após edições)
+export const getQuizQuestions = async (quizType: string): Promise<QuizQuestion[]> => {
+  console.log(`🔍 Loading questions for quiz type: ${quizType}`);
+  
+  // Se for um template personalizado
+  if (quizType.startsWith('template_')) {
+    const templateId = quizType.replace('template_', '');
+    console.log(`📋 Loading custom template questions for ID: ${templateId}`);
+    
+    try {
+      const { data: template, error } = await supabase
+        .from('quiz_templates')
+        .select('questions, title')
+        .eq('id', templateId)
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        console.error('❌ Error loading template questions:', error);
+        throw error;
+      }
+
+      if (!template) {
+        console.error('❌ Template not found or inactive');
+        throw new Error('Template não encontrado ou inativo');
+      }
+
+      console.log(`✅ Template loaded: ${template.title}`);
+      
+      // Processar perguntas do template
+      let questions: QuizQuestion[] = [];
+      if (Array.isArray(template.questions)) {
+        questions = template.questions as unknown as QuizQuestion[];
+      } else {
+        console.warn('⚠️ Template questions not in expected format, returning empty array');
+      }
+
+      console.log(`📝 Loaded ${questions.length} questions from template`);
+      return questions;
+    } catch (error) {
+      console.error('💥 Error loading template questions:', error);
+      throw error;
+    }
+  }
+  
+  // Quiz padrões existentes
+  console.log(`📚 Loading standard quiz questions for: ${quizType}`);
+  
+  const standardQuestions = {
+    vsl: [
+      {
+        id: 'product',
+        question: 'Qual é o nome do seu produto ou serviço?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Ex: Curso de Marketing Digital'
+      },
+      {
+        id: 'target',
+        question: 'Quem é o seu público-alvo ideal?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Descreva detalhadamente seu cliente ideal, suas dores, desejos e características demográficas'
+      },
+      {
+        id: 'problem',
+        question: 'Qual é o principal problema que seu produto resolve?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Descreva o problema de forma clara e específica'
+      },
+      {
+        id: 'benefit',
+        question: 'Qual é o principal benefício que seu produto oferece?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Qual transformação ou resultado seu cliente terá?'
+      },
+      {
+        id: 'proof',
+        question: 'Que prova ou credibilidade você tem para oferecer?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Depoimentos, casos de sucesso, certificações, experiência...'
+      },
+      {
+        id: 'price',
+        question: 'Qual é o preço do seu produto?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Ex: R$ 497 ou 12x de R$ 49,70'
+      },
+      {
+        id: 'urgency',
+        question: 'Que elemento de urgência ou escassez você pode usar?',
+        type: 'textarea' as const,
+        required: false,
+        placeholder: 'Promoção por tempo limitado, vagas limitadas, bônus exclusivos...'
+      },
+      {
+        id: 'guarantee',
+        question: 'Que garantia você oferece?',
+        type: 'text' as const,
+        required: false,
+        placeholder: 'Ex: Garantia de 30 dias ou seu dinheiro de volta'
+      },
+      {
+        id: 'objections',
+        question: 'Quais são as principais objeções do seu público?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Liste as dúvidas e resistências mais comuns dos clientes'
+      },
+      {
+        id: 'cta',
+        question: 'Qual é a sua chamada para ação?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Ex: Compre Agora, Inscreva-se Hoje, Acesse Já'
+      }
+    ],
+    
+    product: [
+      {
+        id: 'product_name',
+        question: 'Qual é o nome do seu produto?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Nome completo do produto'
+      },
+      {
+        id: 'target_audience',
+        question: 'Descreva seu público-alvo ideal',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Demografia, psicografia, problemas e desejos'
+      },
+      {
+        id: 'value_proposition',
+        question: 'Qual é sua proposta de valor única?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'O que torna seu produto único e valioso'
+      },
+      {
+        id: 'main_benefits',
+        question: 'Liste os 3 principais benefícios',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Benefícios claros e mensuráveis'
+      },
+      {
+        id: 'pricing_strategy',
+        question: 'Qual é sua estratégia de preço?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Preço, formas de pagamento, comparações de valor'
+      },
+      {
+        id: 'bonuses',
+        question: 'Que bônus você pode incluir?',
+        type: 'textarea' as const,
+        required: false,
+        placeholder: 'Liste bônus valiosos que complementam a oferta'
+      },
+      {
+        id: 'guarantee_terms',
+        question: 'Que garantia você oferece?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Tipo e prazo da garantia'
+      },
+      {
+        id: 'scarcity_elements',
+        question: 'Elementos de escassez ou urgência',
+        type: 'textarea' as const,
+        required: false,
+        placeholder: 'Tempo limitado, vagas limitadas, preço promocional...'
+      },
+      {
+        id: 'social_proof',
+        question: 'Que prova social você tem?',
+        type: 'textarea' as const,
+        required: false,
+        placeholder: 'Depoimentos, números, casos de sucesso'
+      },
+      {
+        id: 'call_to_action',
+        question: 'Qual é sua chamada principal para ação?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Ex: Garantir Minha Vaga Agora'
+      }
+    ],
+    
+    landing: [
+      {
+        id: 'produto',
+        question: 'Qual produto você está promovendo?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Nome do produto ou serviço'
+      },
+      {
+        id: 'publico_alvo',
+        question: 'Quem é seu público-alvo?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Descreva detalhadamente seu cliente ideal'
+      },
+      {
+        id: 'problema_principal',
+        question: 'Qual o principal problema que seu produto resolve?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'O problema mais urgente do seu público'
+      },
+      {
+        id: 'solucao_oferecida',
+        question: 'Como seu produto resolve este problema?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'A solução específica que você oferece'
+      },
+      {
+        id: 'beneficios_principais',
+        question: 'Quais são os 3 principais benefícios?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Benefícios tangíveis e mensuráveis'
+      },
+      {
+        id: 'diferencial_competitivo',
+        question: 'O que torna seu produto único?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Seu diferencial em relação à concorrência'
+      },
+      {
+        id: 'prova_social',
+        question: 'Que prova social você pode usar?',
+        type: 'textarea' as const,
+        required: false,
+        placeholder: 'Depoimentos, casos de sucesso, números impressionantes'
+      },
+      {
+        id: 'oferta_especifica',
+        question: 'Qual é sua oferta específica?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Preço, forma de pagamento, bônus, garantia'
+      },
+      {
+        id: 'urgencia_escassez',
+        question: 'Elementos de urgência ou escassez',
+        type: 'textarea' as const,
+        required: false,
+        placeholder: 'Tempo limitado, vagas limitadas, desconto especial'
+      },
+      {
+        id: 'cta_principal',
+        question: 'Qual é sua call-to-action principal?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Ex: Quero Começar Agora, Garantir Minha Vaga'
+      }
+    ],
+    
+    ads: [
+      {
+        id: 'objetivo_campanha',
+        question: 'Qual é o objetivo da sua campanha?',
+        type: 'radio' as const,
+        required: true,
+        options: [
+          'Gerar leads (capturar contatos)',
+          'Vendas diretas',
+          'Reconhecimento de marca',
+          'Tráfego para site/blog',
+          'Engajamento nas redes sociais'
+        ]
+      },
+      {
+        id: 'publico_segmentado',
+        question: 'Descreva seu público-alvo para segmentação',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Idade, localização, interesses, comportamentos, demografias'
+      },
+      {
+        id: 'produto_promovido',
+        question: 'Que produto/serviço você está promovendo?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Nome e breve descrição'
+      },
+      {
+        id: 'proposta_valor',
+        question: 'Qual é sua proposta de valor em uma frase?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Benefício principal de forma clara e impactante'
+      },
+      {
+        id: 'emocao_despertar',
+        question: 'Que emoção você quer despertar?',
+        type: 'radio' as const,
+        required: true,
+        options: [
+          'Desejo/Aspiração',
+          'Medo/Urgência',
+          'Curiosidade',
+          'Confiança/Segurança',
+          'Alegria/Diversão'
+        ]
+      },
+      {
+        id: 'call_to_action',
+        question: 'Qual ação você quer que tomem?',
+        type: 'text' as const,
+        required: true,
+        placeholder: 'Ex: Clique aqui, Saiba mais, Compre agora'
+      },
+      {
+        id: 'orcamento_diario',
+        question: 'Qual seu orçamento diário aproximado?',
+        type: 'radio' as const,
+        required: false,
+        options: [
+          'Até R$ 50/dia',
+          'R$ 50 - R$ 100/dia',
+          'R$ 100 - R$ 300/dia',
+          'R$ 300 - R$ 500/dia',
+          'Acima de R$ 500/dia'
+        ]
+      },
+      {
+        id: 'plataforma_prioritaria',
+        question: 'Qual plataforma é prioritária?',
+        type: 'radio' as const,
+        required: true,
+        options: [
+          'Facebook/Instagram',
+          'Google Ads',
+          'TikTok',
+          'LinkedIn',
+          'YouTube'
+        ]
+      },
+      {
+        id: 'tom_linguagem',
+        question: 'Que tom de linguagem usar?',
+        type: 'radio' as const,
+        required: true,
+        options: [
+          'Formal e profissional',
+          'Casual e amigável',
+          'Divertido e descontraído',
+          'Urgente e persuasivo',
+          'Educativo e informativo'
+        ]
+      },
+      {
+        id: 'diferencial_concorrencia',
+        question: 'Como você se diferencia da concorrência?',
+        type: 'textarea' as const,
+        required: true,
+        placeholder: 'Pontos únicos que te destacam no mercado'
+      }
+    ]
+  };
+
+  const questions = standardQuestions[quizType as keyof typeof standardQuestions];
+  
+  if (!questions) {
+    console.warn(`⚠️ No questions found for quiz type: ${quizType}`);
+    return [];
+  }
+
+  console.log(`✅ Loaded ${questions.length} standard questions for ${quizType}`);
+  return questions;
+};
+
 export const invalidateQuizTemplatesCache = () => {
   templatesCache = {};
   cacheTimestamp = 0;
