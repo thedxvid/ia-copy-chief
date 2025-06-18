@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { ChatMessage, Agent, ChatState } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
@@ -97,12 +98,18 @@ export const useChatAgent = (selectedProductId?: string) => {
     try {
       console.log('Salvando sessão:', session.id);
       
+      // Determinar se é agente customizado
+      const isCustomAgent = selectedAgent?.id.startsWith('custom-');
+      const actualAgentId = isCustomAgent 
+        ? selectedAgent.id.replace('custom-', '') 
+        : selectedAgent?.id || session.agent_id || '';
+      
       const sessionData = {
         id: session.id,
         user_id: user.id,
         title: session.title,
         agent_name: selectedAgent?.name || session.agent_name || '',
-        agent_id: selectedAgent?.id || session.agent_id || '',
+        agent_id: actualAgentId,
         product_id: selectedProductId || session.product_id || null,
         is_active: true,
         message_count: session.messages.length,
@@ -291,6 +298,9 @@ INSTRUÇÕES IMPORTANTES:
 `;
       }
 
+      // Determinar se é agente customizado
+      const isCustomAgent = selectedAgent.id.startsWith('custom-');
+
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: content,
@@ -300,7 +310,8 @@ INSTRUÇÕES IMPORTANTES:
             content: msg.content
           })),
           agentName: selectedAgent.name,
-          isCustomAgent: false,
+          isCustomAgent,
+          customAgentId: isCustomAgent ? selectedAgent.id.replace('custom-', '') : null,
           productId: selectedProductId
         }
       });

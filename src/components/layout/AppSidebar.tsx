@@ -1,160 +1,155 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, Brain, Megaphone, Video, FileText, PenTool, History, Bot, Settings, HelpCircle, Users, User, LogOut, Shield } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
-import { ProfileSettings } from '@/components/profile/ProfileSettings';
 
-const menuItems = [{
-  title: "Dashboard",
-  url: "/dashboard",
-  icon: LayoutDashboard
-}, {
-  title: "Produtos",
-  url: "/products",
-  icon: Package
-}, {
-  title: "Agentes IA",
-  url: "/chat",
-  icon: Bot
-}, {
-  title: "Quiz IA",
-  url: "/quiz",
-  icon: Brain
-}, {
-  title: "Anúncios",
-  url: "/ads",
-  icon: Megaphone
-}, {
-  title: "Vídeos de Venda",
-  url: "/sales-videos",
-  icon: Video
-}, {
-  title: "Páginas",
-  url: "/pages",
-  icon: FileText
-}, {
-  title: "Conteúdos",
-  url: "/content",
-  icon: PenTool
-}, {
-  title: "Histórico",
-  url: "/history",
-  icon: History
-}];
+import { useState } from "react"
+import { 
+  LayoutDashboard, 
+  Package, 
+  History, 
+  MessageSquare, 
+  Bot,
+  HelpCircle, 
+  Video, 
+  Megaphone, 
+  FileText, 
+  PenTool,
+  LogOut,
+  User
+} from "lucide-react"
+import { NavLink, useLocation } from "react-router-dom"
+import { useAuth } from "@/contexts/AuthContext"
+
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
+  SidebarFooter,
+} from "@/components/ui/sidebar"
+
+const mainItems = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Produtos", url: "/products", icon: Package },
+  { title: "Chat IA", url: "/chat", icon: MessageSquare },
+  { title: "Agentes", url: "/agents", icon: Bot },
+  { title: "Histórico", url: "/history", icon: History },
+]
+
+const toolItems = [
+  { title: "Quiz IA", url: "/quiz", icon: HelpCircle },
+  { title: "Vídeos de Vendas", url: "/sales-videos", icon: Video },
+  { title: "Anúncios", url: "/ads", icon: Megaphone },
+  { title: "Landing Pages", url: "/pages", icon: FileText },
+  { title: "Conteúdo", url: "/content", icon: PenTool },
+]
 
 export function AppSidebar() {
-  const location = useLocation();
-  const {
-    signOut,
-    user
-  } = useAuth();
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { collapsed } = useSidebar()
+  const location = useLocation()
+  const { signOut, user } = useAuth()
+  const currentPath = location.pathname
 
-  // Lista de emails de admin
-  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
+  const isActive = (path: string) => currentPath === path
+  const isMainExpanded = mainItems.some((i) => isActive(i.url))
+  const isToolsExpanded = toolItems.some((i) => isActive(i.url))
 
-  // Verificar se é admin
-  const isAdmin = user?.email && adminEmails.includes(user.email);
-  return <Sidebar className="!bg-zinc-950 md:!bg-[#1A1A1A]/95 border-r border-[#2A2A2A] backdrop-blur-xl z-50 transition-all duration-300 ease-in-out" collapsible="icon" style={{
-    backgroundColor: '#0a0a0a'
-  }}>
-      <SidebarHeader className="p-3 sm:p-4 border-b border-[#2A2A2A] !bg-zinc-950 transition-all duration-300 ease-in-out" style={{
-      backgroundColor: '#0a0a0a'
-    }}>
-        <div className="flex items-center gap-2 sm:gap-3 group-data-[collapsible=icon]:justify-center transition-all duration-300 ease-in-out">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#3B82F6] flex items-center justify-center flex-shrink-0 rounded-xl transition-all duration-300 ease-in-out">
-            <Bot className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
-          </div>
-          <div className="group-data-[collapsible=icon]:hidden transition-all duration-300 ease-in-out overflow-hidden">
-            <h1 className="text-base sm:text-lg font-bold text-white whitespace-nowrap">CopyChief</h1>
-            <p className="text-xs text-[#CCCCCC] whitespace-nowrap">Marketing Digital</p>
-          </div>
-        </div>
-      </SidebarHeader>
+  const getNavCls = ({ isActive }: { isActive: boolean }) =>
+    isActive 
+      ? "bg-[#3B82F6] text-white font-medium hover:bg-[#2563EB]" 
+      : "text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
 
-      <SidebarContent className="!bg-zinc-950 transition-all duration-300 ease-in-out" style={{
-      backgroundColor: '#0a0a0a'
-    }}>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider px-2 transition-all duration-300 ease-in-out">
-            <span className="group-data-[collapsible=icon]:hidden transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap">Menu Principal</span>
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+    }
+  }
+
+  return (
+    <Sidebar
+      className={`${collapsed ? "w-14" : "w-60"} bg-[#1A1A1A] border-r border-[#333333]`}
+      collapsible
+    >
+      <SidebarTrigger className="m-2 self-end text-white hover:bg-[#2A2A2A]" />
+
+      <SidebarContent>
+        <SidebarGroup open={isMainExpanded}>
+          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider">
+            Principal
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map(item => <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild size="sm" className={`text-white hover:bg-[#2A2A2A] hover:text-[#3B82F6] transition-all duration-200 ease-in-out ${location.pathname === item.url ? 'bg-[#3B82F6]/20 text-[#3B82F6] border-r-2 border-[#3B82F6]' : ''}`}>
-                    <Link to={item.url}>
-                      <item.icon className="w-5 h-5 flex-shrink-0 transition-all duration-300 ease-in-out" />
-                      <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base font-normal transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap">{item.title}</span>
-                    </Link>
+              {mainItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to={item.url} 
+                      end 
+                      className={({ isActive }) => `${getNavCls({ isActive })} flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
                   </SidebarMenuButton>
-                </SidebarMenuItem>)}
-              
-              {/* Item Admin (apenas para administradores) */}
-              {isAdmin && <SidebarMenuItem>
-                  <SidebarMenuButton asChild size="sm" className={`text-white hover:bg-[#2A2A2A] hover:text-[#3B82F6] transition-all duration-200 ease-in-out ${location.pathname === '/admin' ? 'bg-[#3B82F6]/20 text-[#3B82F6] border-r-2 border-[#3B82F6]' : ''}`}>
-                    <Link to="/admin">
-                      <Shield className="w-5 h-5 flex-shrink-0 transition-all duration-300 ease-in-out" />
-                      <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base font-normal transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap">Admin</span>
-                    </Link>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup open={isToolsExpanded}>
+          <SidebarGroupLabel className="text-[#CCCCCC] text-xs uppercase tracking-wider">
+            Ferramentas
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {toolItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to={item.url} 
+                      end 
+                      className={({ isActive }) => `${getNavCls({ isActive })} flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
                   </SidebarMenuButton>
-                </SidebarMenuItem>}
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      
-      <SidebarFooter className="p-3 sm:p-4 border-t border-[#2A2A2A] !bg-zinc-950 transition-all duration-300 ease-in-out" style={{
-      backgroundColor: '#0a0a0a'
-    }}>
-        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 group-data-[collapsible=icon]:justify-center transition-all duration-300 ease-in-out">
-          <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-            <SheetTrigger asChild>
-              <button className="flex items-center gap-2 sm:gap-3 hover:bg-[#2A2A2A] rounded-xl p-1 transition-all duration-200 ease-in-out group-data-[collapsible=icon]:justify-center w-full">
-                <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 transition-all duration-300 ease-in-out">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden text-left transition-all duration-300 ease-in-out overflow-hidden">
-                  <p className="text-xs sm:text-sm font-medium text-white truncate">
-                    {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
-                  </p>
-                  <p className="text-xs text-[#CCCCCC] truncate">
-                    {user?.email}
-                  </p>
-                </div>
+
+      <SidebarFooter className="border-t border-[#333333] p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center space-x-3 px-3 py-2 text-[#CCCCCC] hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                {!collapsed && <span>Sair</span>}
               </button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Configurações do Perfil</SheetTitle>
-              </SheetHeader>
-              <ProfileSettings onClose={() => setIsProfileOpen(false)} />
-            </SheetContent>
-          </Sheet>
-        </div>
-        
-        <div className="space-y-1 group-data-[collapsible=icon]:space-y-2 transition-all duration-300 ease-in-out">
-          <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0 transition-all duration-200 ease-in-out">
-                <Settings className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2 transition-all duration-300 ease-in-out" />
-                <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base font-normal transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap">Configurações</span>
-              </Button>
-            </SheetTrigger>
-          </Sheet>
-          
-          <Button variant="ghost" onClick={signOut} size="sm" className="w-full justify-start text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:p-0 transition-all duration-200 ease-in-out">
-            <LogOut className="w-4 h-4 flex-shrink-0 group-data-[collapsible=icon]:mr-0 mr-2 transition-all duration-300 ease-in-out" />
-            <span className="group-data-[collapsible=icon]:hidden text-sm sm:text-base font-normal transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap">Sair</span>
-          </Button>
-        </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          {!collapsed && user && (
+            <div className="px-3 py-2 text-xs text-[#666666] border-t border-[#333333] mt-2">
+              <div className="flex items-center space-x-2">
+                <User className="h-3 w-3" />
+                <span className="truncate">{user.email}</span>
+              </div>
+            </div>
+          )}
+        </SidebarMenu>
       </SidebarFooter>
-    </Sidebar>;
+    </Sidebar>
+  )
 }

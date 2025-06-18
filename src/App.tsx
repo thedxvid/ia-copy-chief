@@ -1,154 +1,135 @@
 
-import { Suspense, lazy } from "react";
-import { Toaster } from "@/components/ui/sonner";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "./contexts/AuthContext";
-import { AppProvider } from "./contexts/AppContext";
-import { TutorialProvider } from "./contexts/TutorialContext";
-import { TutorialOverlay } from "./components/tutorial/TutorialOverlay";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { AppProvider } from "@/contexts/AppContext";
+import { TutorialProvider } from "@/contexts/TutorialContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
-// Import todas as páginas principais diretamente (sem lazy loading para melhor performance)
-import Dashboard from "./pages/Dashboard";
-import Quiz from "./pages/Quiz";
-import History from "./pages/History";
-import Products from "./pages/Products";
-import Ads from "./pages/Ads";
-import Content from "./pages/Content";
-import Pages from "./pages/Pages";
-import SalesVideos from "./pages/SalesVideos";
-import Chat from "./pages/Chat";
+// Pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import Products from "./pages/Products";
+import History from "./pages/History";
+import Chat from "./pages/Chat";
+import Agents from "./pages/Agents";
+import Quiz from "./pages/Quiz";
+import SalesVideos from "./pages/SalesVideos";
+import Ads from "./pages/Ads";
+import Pages from "./pages/Pages";
+import Content from "./pages/Content";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import NotFound from "./pages/NotFound";
+import EmailConfirmation from "./pages/EmailConfirmation";
+import EmailConfirmed from "./pages/EmailConfirmed";
+import Admin from "./pages/Admin";
+import Checkout from "./pages/Checkout";
 
-// Lazy load apenas páginas menos críticas
-const About = lazy(() => import("./pages/About"));
-const Contact = lazy(() => import("./pages/Contact"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
-const Checkout = lazy(() => import("./pages/Checkout"));
-const EmailConfirmation = lazy(() => import("./pages/EmailConfirmation"));
-const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
-const Admin = lazy(() => import("./pages/Admin"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+const queryClient = new QueryClient();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 10 * 60 * 1000, // 10 minutos
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
-
-const FastLoading = () => (
-  <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-    <div className="flex flex-col items-center space-y-4">
-      <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin"></div>
-      <div className="text-[#CCCCCC] text-xs">Carregando...</div>
-    </div>
-  </div>
-);
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <AppProvider>
-        <TutorialProvider>
-          <BrowserRouter>
-            <div className="min-h-screen bg-background font-inter">
-              <Routes>
-                {/* Páginas principais - carregamento direto */}
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                
-                {/* Protected Routes - Carregamento direto para melhor performance */}
-                <Route path="/dashboard" element={
-                  <ProtectedRoute><Dashboard /></ProtectedRoute>
-                } />
-                <Route path="/quiz" element={
-                  <ProtectedRoute><Quiz /></ProtectedRoute>
-                } />
-                <Route path="/history" element={
-                  <ProtectedRoute><History /></ProtectedRoute>
-                } />
-                <Route path="/products" element={
-                  <ProtectedRoute><Products /></ProtectedRoute>
-                } />
-                <Route path="/ads" element={
-                  <ProtectedRoute><Ads /></ProtectedRoute>
-                } />
-                <Route path="/content" element={
-                  <ProtectedRoute><Content /></ProtectedRoute>
-                } />
-                <Route path="/pages" element={
-                  <ProtectedRoute><Pages /></ProtectedRoute>
-                } />
-                <Route path="/sales-videos" element={
-                  <ProtectedRoute><SalesVideos /></ProtectedRoute>
-                } />
-                <Route path="/chat" element={
-                  <ProtectedRoute><Chat /></ProtectedRoute>
-                } />
-                
-                {/* Páginas menos críticas - lazy loading */}
-                <Route path="/about" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <About />
-                  </Suspense>
-                } />
-                <Route path="/contact" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <Contact />
-                  </Suspense>
-                } />
-                <Route path="/privacy" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <Privacy />
-                  </Suspense>
-                } />
-                <Route path="/terms" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <Terms />
-                  </Suspense>
-                } />
-                <Route path="/checkout" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <Checkout />
-                  </Suspense>
-                } />
-                <Route path="/email-confirmation" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <EmailConfirmation />
-                  </Suspense>
-                } />
-                <Route path="/email-confirmed" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <EmailConfirmed />
-                  </Suspense>
-                } />
-                <Route path="/admin" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <ProtectedRoute><Admin /></ProtectedRoute>
-                  </Suspense>
-                } />
-                
-                <Route path="*" element={
-                  <Suspense fallback={<FastLoading />}>
-                    <NotFound />
-                  </Suspense>
-                } />
-              </Routes>
-              <TutorialOverlay />
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <AppProvider>
+            <TutorialProvider>
               <Toaster />
-            </div>
-          </BrowserRouter>
-        </TutorialProvider>
-      </AppProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/email-confirmation" element={<EmailConfirmation />} />
+                  <Route path="/email-confirmed" element={<EmailConfirmed />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/products" element={
+                    <ProtectedRoute>
+                      <Products />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/history" element={
+                    <ProtectedRoute>
+                      <History />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/chat" element={
+                    <ProtectedRoute>
+                      <Chat />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/agents" element={
+                    <ProtectedRoute>
+                      <Agents />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/quiz" element={
+                    <ProtectedRoute>
+                      <Quiz />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/sales-videos" element={
+                    <ProtectedRoute>
+                      <SalesVideos />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/ads" element={
+                    <ProtectedRoute>
+                      <Ads />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/pages" element={
+                    <ProtectedRoute>
+                      <Pages />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/content" element={
+                    <ProtectedRoute>
+                      <Content />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/admin" element={
+                    <ProtectedRoute>
+                      <Admin />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TutorialProvider>
+          </AppProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;

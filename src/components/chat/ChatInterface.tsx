@@ -9,14 +9,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Trash2, MessageSquare, Menu, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AgentEditor } from '@/components/agents/AgentEditor';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isAgentEditorOpen, setIsAgentEditorOpen] = useState(false);
   const { products } = useProducts();
   const isMobile = useIsMobile();
   const location = useLocation();
+  const navigate = useNavigate();
   const {
     sessions,
     activeSession,
@@ -57,6 +60,11 @@ export const ChatInterface = () => {
     if (isMobile) {
       setShowSidebar(false);
     }
+  };
+
+  // Função para abrir gerenciamento de agentes
+  const handleManageAgents = () => {
+    navigate('/agents');
   };
 
   // Create a custom ChatMessages component that receives messages directly
@@ -188,6 +196,7 @@ export const ChatInterface = () => {
         <AgentSelector
           selectedAgent={selectedAgent}
           onAgentChange={setSelectedAgent}
+          onManageAgents={handleManageAgents}
         />
         
         <button
@@ -282,6 +291,12 @@ export const ChatInterface = () => {
           />
         )}
       </div>
+
+      {/* Agent Editor Modal */}
+      <AgentEditor
+        isOpen={isAgentEditorOpen}
+        onClose={() => setIsAgentEditorOpen(false)}
+      />
     </div>
   );
 };
