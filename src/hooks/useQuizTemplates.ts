@@ -27,6 +27,20 @@ export interface QuizTemplate {
   created_by: string | null;
 }
 
+// Helper function to safely convert Json to QuizQuestion[]
+const parseQuestions = (questions: Json): QuizQuestion[] => {
+  if (Array.isArray(questions)) {
+    return questions as QuizQuestion[];
+  }
+  return [];
+};
+
+// Helper function to safely get questions array length
+export const getQuestionsLength = (questions: Json): number => {
+  const parsedQuestions = parseQuestions(questions);
+  return parsedQuestions.length;
+};
+
 export const useQuizTemplates = () => {
   const [templates, setTemplates] = useState<QuizTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,7 +81,7 @@ export const useQuizTemplates = () => {
           quiz_type: templateData.quiz_type,
           title: templateData.title,
           description: templateData.description,
-          questions: templateData.questions as Json,
+          questions: templateData.questions as unknown as Json,
           is_default: templateData.is_default,
           is_active: templateData.is_active,
           version: templateData.version,
@@ -102,7 +116,7 @@ export const useQuizTemplates = () => {
       if (templateData.quiz_type !== undefined) updateData.quiz_type = templateData.quiz_type;
       if (templateData.title !== undefined) updateData.title = templateData.title;
       if (templateData.description !== undefined) updateData.description = templateData.description;
-      if (templateData.questions !== undefined) updateData.questions = templateData.questions as Json;
+      if (templateData.questions !== undefined) updateData.questions = templateData.questions as unknown as Json;
       if (templateData.is_default !== undefined) updateData.is_default = templateData.is_default;
       if (templateData.is_active !== undefined) updateData.is_active = templateData.is_active;
       if (templateData.version !== undefined) updateData.version = templateData.version;
@@ -148,7 +162,7 @@ export const useQuizTemplates = () => {
       quiz_type: template.quiz_type,
       title: newTitle,
       description: template.description || undefined,
-      questions: template.questions as QuizQuestion[],
+      questions: parseQuestions(template.questions),
       is_default: false,
       is_active: template.is_active,
       version: 1
@@ -165,6 +179,7 @@ export const useQuizTemplates = () => {
     createTemplate,
     updateTemplate,
     deleteTemplate,
-    duplicateTemplate
+    duplicateTemplate,
+    parseQuestions
   };
 };

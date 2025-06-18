@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { QuizTemplate, useQuizTemplates } from '@/hooks/useQuizTemplates';
+import { QuizTemplate, useQuizTemplates, getQuestionsLength } from '@/hooks/useQuizTemplates';
 import { QuizTemplateEditor } from './QuizTemplateEditor';
 import { Plus, Edit, Copy, Trash2, Eye, Search, Filter } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -199,7 +199,7 @@ export const QuizTemplatesManager: React.FC = () => {
               <CardContent>
                 <div className="space-y-3">
                   <div className="text-sm text-[#CCCCCC]">
-                    <span className="font-medium">{template.questions.length}</span> perguntas
+                    <span className="font-medium">{getQuestionsLength(template.questions)}</span> perguntas
                   </div>
                   
                   <div className="text-xs text-[#888888]">

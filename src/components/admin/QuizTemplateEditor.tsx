@@ -24,7 +24,7 @@ export const QuizTemplateEditor: React.FC<QuizTemplateEditorProps> = ({
   onBack,
   onSave
 }) => {
-  const { createTemplate, updateTemplate } = useQuizTemplates();
+  const { createTemplate, updateTemplate, parseQuestions } = useQuizTemplates();
   const [formData, setFormData] = useState({
     quiz_type: template?.quiz_type || '',
     title: template?.title || '',
@@ -33,7 +33,9 @@ export const QuizTemplateEditor: React.FC<QuizTemplateEditorProps> = ({
     is_active: template?.is_active ?? true
   });
   
-  const [questions, setQuestions] = useState<QuizQuestion[]>(template?.questions || []);
+  const [questions, setQuestions] = useState<QuizQuestion[]>(
+    template ? parseQuestions(template.questions) : []
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const quizTypes = [
