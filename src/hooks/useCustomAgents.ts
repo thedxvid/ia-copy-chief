@@ -12,7 +12,7 @@ interface CustomAgent {
   prompt: string;
   icon_name: string;
   status: 'active' | 'inactive';
-  knowledge_base: Record<string, any>;
+  knowledge_base: any; // Changed from Record<string, any> to any
   created_at: string;
   updated_at: string;
   user_id: string;
@@ -51,10 +51,21 @@ export const useCustomAgents = () => {
         throw error;
       }
 
-      setCustomAgents((data || []).map(agent => ({
-        ...agent,
-        status: agent.status as 'active' | 'inactive'
-      })));
+      // Convert Supabase data to CustomAgent format
+      const convertedAgents: CustomAgent[] = (data || []).map(agent => ({
+        id: agent.id,
+        name: agent.name,
+        description: agent.description,
+        prompt: agent.prompt,
+        icon_name: agent.icon_name || '🤖',
+        status: agent.status as 'active' | 'inactive',
+        knowledge_base: agent.knowledge_base || {},
+        created_at: agent.created_at,
+        updated_at: agent.updated_at,
+        user_id: agent.user_id
+      }));
+
+      setCustomAgents(convertedAgents);
     } catch (err) {
       console.error('Erro ao buscar agentes customizados:', err);
       setError('Erro ao carregar agentes personalizados');
@@ -94,9 +105,18 @@ export const useCustomAgents = () => {
         throw error;
       }
 
-      const newAgent = {
-        ...data,
-        status: data.status as 'active' | 'inactive'
+      // Convert the returned data to CustomAgent format
+      const newAgent: CustomAgent = {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        prompt: data.prompt,
+        icon_name: data.icon_name || '🤖',
+        status: data.status as 'active' | 'inactive',
+        knowledge_base: data.knowledge_base || {},
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        user_id: data.user_id
       };
 
       setCustomAgents(prev => [newAgent, ...prev]);
@@ -131,9 +151,18 @@ export const useCustomAgents = () => {
         throw error;
       }
 
-      const updatedAgent = {
-        ...data,
-        status: data.status as 'active' | 'inactive'
+      // Convert the returned data to CustomAgent format
+      const updatedAgent: CustomAgent = {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        prompt: data.prompt,
+        icon_name: data.icon_name || '🤖',
+        status: data.status as 'active' | 'inactive',
+        knowledge_base: data.knowledge_base || {},
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        user_id: data.user_id
       };
 
       setCustomAgents(prev => 
