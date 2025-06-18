@@ -7,10 +7,14 @@ import type { Json } from '@/integrations/supabase/types';
 export interface QuizQuestion {
   id: string;
   question: string;
-  type: 'textarea' | 'text' | 'radio' | 'number';
+  type: 'textarea' | 'text' | 'radio' | 'number' | 'select';
   required: boolean;
   placeholder?: string;
   options?: string[];
+  min?: number;
+  max?: number;
+  maxLength?: number;
+  helpText?: string;
 }
 
 export interface QuizTemplate {
