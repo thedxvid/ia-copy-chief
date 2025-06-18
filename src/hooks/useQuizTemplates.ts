@@ -83,14 +83,20 @@ export const useQuizTemplates = () => {
     setError(null);
     
     try {
+      console.log('🔍 Fetching quiz templates...');
+      
       const { data, error } = await supabase
         .from('quiz_templates')
         .select('*')
         .eq('is_active', true)
         .order('quiz_type', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching quiz templates:', error);
+        throw error;
+      }
       
+      console.log(`✅ Found ${data?.length || 0} templates in database`);
       const convertedTemplates = (data || []).map(convertDbTemplate);
       setTemplates(convertedTemplates);
     } catch (err) {
@@ -103,6 +109,8 @@ export const useQuizTemplates = () => {
 
   const getTemplateByType = async (quizType: string): Promise<QuizTemplate | null> => {
     try {
+      console.log(`🔍 Fetching template for type: ${quizType}`);
+      
       const { data, error } = await supabase
         .from('quiz_templates')
         .select('*')
@@ -111,7 +119,11 @@ export const useQuizTemplates = () => {
         .eq('is_default', true)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching template by type:', error);
+        throw error;
+      }
+      
       return data ? convertDbTemplate(data) : null;
     } catch (err) {
       console.error('Error fetching template by type:', err);
@@ -124,8 +136,14 @@ export const useQuizTemplates = () => {
       throw new Error('Apenas administradores podem criar templates');
     }
 
+    if (!user?.id) {
+      throw new Error('Usuário não autenticado');
+    }
+
     setIsLoading(true);
     try {
+      console.log('📝 Creating new template:', template.title);
+      
       // Converter QuizQuestion[] para Json compatível usando unknown como intermediário
       const templateData = {
         quiz_type: template.quiz_type,
@@ -135,7 +153,7 @@ export const useQuizTemplates = () => {
         is_default: template.is_default,
         is_active: template.is_active,
         version: template.version,
-        created_by: user?.id
+        created_by: user.id
       };
 
       const { data, error } = await supabase
@@ -144,8 +162,12 @@ export const useQuizTemplates = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error creating template:', error);
+        throw error;
+      }
 
+      console.log('✅ Template created successfully:', data.id);
       await fetchTemplates();
       toast.success('Template criado com sucesso!');
       return convertDbTemplate(data);
@@ -166,6 +188,8 @@ export const useQuizTemplates = () => {
 
     setIsLoading(true);
     try {
+      console.log('📝 Updating template:', id);
+      
       // Converter updates para formato do banco
       const updateData: any = {};
       
@@ -186,8 +210,12 @@ export const useQuizTemplates = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error updating template:', error);
+        throw error;
+      }
 
+      console.log('✅ Template updated successfully:', data.id);
       await fetchTemplates();
       toast.success('Template atualizado com sucesso!');
       return convertDbTemplate(data);
@@ -229,13 +257,19 @@ export const useQuizTemplates = () => {
 
     setIsLoading(true);
     try {
+      console.log('🗑️ Deleting template:', id);
+      
       const { error } = await supabase
         .from('quiz_templates')
         .update({ is_active: false })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error deleting template:', error);
+        throw error;
+      }
 
+      console.log('✅ Template deleted successfully');
       await fetchTemplates();
       toast.success('Template excluído com sucesso!');
     } catch (err) {
