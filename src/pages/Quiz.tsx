@@ -1,13 +1,14 @@
-
 import React, { useState } from 'react';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { QuizFlow } from '@/components/quiz/QuizFlow';
+import { QuizTemplateManager } from '@/components/quiz/QuizTemplateManager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuizCopySave } from '@/hooks/useQuizCopySave';
 import { useN8nIntegration } from '@/hooks/useN8nIntegration';
-import { Copy, Download, RotateCcw, History, AlertCircle } from 'lucide-react';
+import { Copy, Download, RotateCcw, History, AlertCircle, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -21,6 +22,7 @@ const Quiz = () => {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [savedCopyId, setSavedCopyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'quiz' | 'templates'>('quiz');
   
   const { user } = useAuth();
   const { saveQuizCopy, isSaving } = useQuizCopySave();
@@ -244,6 +246,7 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
     setGeneratedCopy(null);
     setQuizAnswers({});
     setSavedCopyId(null);
+    setActiveTab('quiz');
     // Manter o produto selecionado para facilitar a experiência do usuário
   };
 
@@ -305,11 +308,39 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
   if (currentStep === 'selector') {
     return (
       <DashboardLayout>
-        <QuizSelector 
-          onSelectQuiz={handleSelectQuiz} 
-          selectedProductId={selectedProductId}
-          onProductChange={handleProductChange}
-        />
+        <div className="px-4 sm:px-6 lg:px-8">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quiz' | 'templates')} className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white mb-2">Gerador de Copy com Quiz</h1>
+                <p className="text-[#CCCCCC]">
+                  Crie copy personalizada respondendo perguntas específicas
+                </p>
+              </div>
+              <TabsList className="bg-[#1E1E1E] border border-[#4B5563]/20">
+                <TabsTrigger value="quiz" className="data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
+                  Quiz
+                </TabsTrigger>
+                <TabsTrigger value="templates" className="data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Templates
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="quiz">
+              <QuizSelector 
+                onSelectQuiz={handleSelectQuiz} 
+                selectedProductId={selectedProductId}
+                onProductChange={handleProductChange}
+              />
+            </TabsContent>
+
+            <TabsContent value="templates">
+              <QuizTemplateManager />
+            </TabsContent>
+          </Tabs>
+        </div>
       </DashboardLayout>
     );
   }
@@ -330,140 +361,180 @@ ${answersText}${productContext ? '\n\nUse as informações do produto acima como
     );
   }
 
-  return (
-    <DashboardLayout>
-      <div className="px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              🎉 Sua Copy Está Pronta!
-            </h1>
-            <p className="text-[#CCCCCC]">
-              Copy personalizada gerada com IA
-              {savedCopyId && (
-                <span className="ml-2 text-[#3B82F6]">
-                  • Salva no histórico ✓
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={handleBackToQuiz}
-              className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Refazer Quiz
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleBackToSelector}
-              className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
-            >
-              Novo Quiz
-            </Button>
-          </div>
-        </div>
-
-        {/* Result Card */}
-        <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
-          <CardHeader>
-            <CardTitle className="text-white text-xl flex items-center gap-3">
-              <Copy className="w-6 h-6 text-[#3B82F6]" />
-              {generatedCopy?.title}
-            </CardTitle>
-            <CardDescription className="text-[#CCCCCC]">
-              Sua copy personalizada baseada no quiz respondido
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent className="space-y-6">
-            {/* Copy Content */}
-            <div className="bg-[#2A2A2A] rounded-lg p-6 border border-[#4B5563]/20">
-              <pre className="text-white text-sm leading-relaxed whitespace-pre-wrap font-['Inter']">
-                {generatedCopy?.content}
-              </pre>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-[#4B5563]/20">
-              <Button
-                onClick={handleCopyToClipboard}
-                className="bg-[#3B82F6] hover:bg-[#2563EB] text-white flex-1"
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copiar para Área de Transferência
-              </Button>
-              
-              <Button
-                onClick={handleDownload}
-                variant="outline"
-                className="border-[#4B5563] text-white hover:bg-[#2A2A2A] flex-1"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Baixar como TXT
-              </Button>
-
-              {savedCopyId && (
-                <Button
-                  onClick={handleViewInHistory}
-                  variant="outline"
-                  className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 flex-1"
-                >
-                  <History className="w-4 h-4 mr-2" />
-                  Ver no Histórico
-                </Button>
-              )}
-            </div>
-
-            {/* Save Status */}
-            {user && (
-              <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-[#3B82F6]"></div>
-                  <div>
-                    <h4 className="text-[#3B82F6] font-medium">
-                      {savedCopyId ? 'Copy salva automaticamente!' : 'Salvando copy...'}
-                    </h4>
-                    <p className="text-[#CCCCCC] text-sm">
-                      {savedCopyId 
-                        ? 'Sua copy foi salva no histórico e pode ser acessada a qualquer momento.'
-                        : 'Aguarde enquanto salvamos sua copy no histórico...'
-                      }
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tips */}
-            <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-4">
-              <h4 className="text-[#3B82F6] font-medium mb-2">💡 Dicas para usar sua copy:</h4>
-              <ul className="text-[#CCCCCC] text-sm space-y-1">
-                <li>• Personalize os textos com informações específicas do seu negócio</li>
-                <li>• Teste diferentes variações para ver qual converte melhor</li>
-                <li>• Acompanhe as métricas de performance sugeridas</li>
-                <li>• Faça ajustes baseados nos resultados obtidos</li>
-              </ul>
-            </div>
-
-            {/* Next Steps */}
-            <div className="text-center">
-              <p className="text-[#888888] text-sm mb-4">
-                Quer criar outro tipo de copy para completar sua estratégia?
+  if (currentStep === 'result') {
+    return (
+      <DashboardLayout>
+        <div className="px-4 sm:px-6 lg:px-8 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                🎉 Sua Copy Está Pronta!
+              </h1>
+              <p className="text-[#CCCCCC]">
+                Copy personalizada gerada com IA
+                {savedCopyId && (
+                  <span className="ml-2 text-[#3B82F6]">
+                    • Salva no histórico ✓
+                  </span>
+                )}
               </p>
+            </div>
+            <div className="flex gap-3">
               <Button
-                onClick={handleBackToSelector}
                 variant="outline"
+                onClick={handleBackToQuiz}
                 className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
               >
-                Fazer Outro Quiz
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Refazer Quiz
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleBackToSelector}
+                className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
+              >
+                Novo Quiz
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Result Card */}
+          <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
+            <CardHeader>
+              <CardTitle className="text-white text-xl flex items-center gap-3">
+                <Copy className="w-6 h-6 text-[#3B82F6]" />
+                {generatedCopy?.title}
+              </CardTitle>
+              <CardDescription className="text-[#CCCCCC]">
+                Sua copy personalizada baseada no quiz respondido
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              {/* Copy Content */}
+              <div className="bg-[#2A2A2A] rounded-lg p-6 border border-[#4B5563]/20">
+                <pre className="text-white text-sm leading-relaxed whitespace-pre-wrap font-['Inter']">
+                  {generatedCopy?.content}
+                </pre>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-[#4B5563]/20">
+                <Button
+                  onClick={handleCopyToClipboard}
+                  className="bg-[#3B82F6] hover:bg-[#2563EB] text-white flex-1"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar para Área de Transferência
+                </Button>
+                
+                <Button
+                  onClick={handleDownload}
+                  variant="outline"
+                  className="border-[#4B5563] text-white hover:bg-[#2A2A2A] flex-1"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar como TXT
+                </Button>
+
+                {savedCopyId && (
+                  <Button
+                    onClick={handleViewInHistory}
+                    variant="outline"
+                    className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 flex-1"
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    Ver no Histórico
+                  </Button>
+                )}
+              </div>
+
+              {/* Save Status */}
+              {user && (
+                <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-[#3B82F6]"></div>
+                    <div>
+                      <h4 className="text-[#3B82F6] font-medium">
+                        {savedCopyId ? 'Copy salva automaticamente!' : 'Salvando copy...'}
+                      </h4>
+                      <p className="text-[#CCCCCC] text-sm">
+                        {savedCopyId 
+                          ? 'Sua copy foi salva no histórico e pode ser acessada a qualquer momento.'
+                          : 'Aguarde enquanto salvamos sua copy no histórico...'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tips */}
+              <div className="bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-lg p-4">
+                <h4 className="text-[#3B82F6] font-medium mb-2">💡 Dicas para usar sua copy:</h4>
+                <ul className="text-[#CCCCCC] text-sm space-y-1">
+                  <li>• Personalize os textos com informações específicas do seu negócio</li>
+                  <li>• Teste diferentes variações para ver qual converte melhor</li>
+                  <li>• Acompanhe as métricas de performance sugeridas</li>
+                  <li>• Faça ajustes baseados nos resultados obtidos</li>
+                </ul>
+              </div>
+
+              {/* Next Steps */}
+              <div className="text-center">
+                <p className="text-[#888888] text-sm mb-4">
+                  Quer criar outro tipo de copy para completar sua estratégia?
+                </p>
+                <Button
+                  onClick={handleBackToSelector}
+                  variant="outline"
+                  className="border-[#4B5563] text-white hover:bg-[#2A2A2A]"
+                >
+                  Fazer Outro Quiz
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="px-4 sm:px-6 lg:px-8">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'quiz' | 'templates')} className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Gerador de Copy com Quiz</h1>
+              <p className="text-[#CCCCCC]">
+                Crie copy personalizada respondendo perguntas específicas
+              </p>
+            </div>
+            <TabsList className="bg-[#1E1E1E] border border-[#4B5563]/20">
+              <TabsTrigger value="quiz" className="data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
+                Quiz
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
+                <Settings className="w-4 h-4 mr-2" />
+                Templates
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="quiz">
+            <QuizSelector 
+              onSelectQuiz={handleSelectQuiz} 
+              selectedProductId={selectedProductId}
+              onProductChange={handleProductChange}
+            />
+          </TabsContent>
+
+          <TabsContent value="templates">
+            <QuizTemplateManager />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
