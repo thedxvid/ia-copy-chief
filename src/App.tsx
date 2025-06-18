@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,6 +30,7 @@ import EmailConfirmation from "./pages/EmailConfirmation";
 import EmailConfirmed from "./pages/EmailConfirmed";
 import Admin from "./pages/Admin";
 import Checkout from "./pages/Checkout";
+import ChangePassword from "./pages/ChangePassword";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +54,12 @@ function App() {
                   <Route path="/email-confirmation" element={<EmailConfirmation />} />
                   <Route path="/email-confirmed" element={<EmailConfirmed />} />
                   <Route path="/checkout" element={<Checkout />} />
+                  
+                  <Route path="/change-password" element={
+                    <ProtectedRoute>
+                      <ChangePassword />
+                    </ProtectedRoute>
+                  } />
                   
                   <Route path="/dashboard" element={
                     <ProtectedRoute>

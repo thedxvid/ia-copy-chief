@@ -13,7 +13,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isFirstLogin } = useAuth();
   const { subscription, loading: subscriptionLoading, isSubscriptionActive } = useSubscription();
 
   // Lista de emails de administradores definitivos
@@ -31,6 +31,11 @@ const Auth = () => {
   }
 
   if (user) {
+    // Se é primeiro login, redirecionar para alteração de senha
+    if (isFirstLogin) {
+      return <Navigate to="/change-password" replace />;
+    }
+    
     // Se é admin, redirecionar direto para dashboard
     if (isAdmin) {
       return <Navigate to="/dashboard" replace />;

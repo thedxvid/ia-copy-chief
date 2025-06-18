@@ -7,10 +7,12 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isFirstLogin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName?: string, checkoutUrl?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
+  checkFirstLogin: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,23 +21,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
+
+  const checkFirstLogin = async (): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('first_login')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error checking first login:', error);
+        return false;
+      }
+
+      const isFirst = profile?.first_login === true;
+      setIsFirstLogin(isFirst);
+      return isFirst;
+    } catch (error) {
+      console.error('Error in checkFirstLogin:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Check first login status when user logs in
+        if (session?.user && event === 'SIGNED_IN') {
+          setTimeout(async () => {
+            await checkFirstLogin();
+          }, 100);
+        } else if (!session?.user) {
+          setIsFirstLogin(false);
+        }
+        
         setLoading(false);
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        await checkFirstLogin();
+      }
+      
       setLoading(false);
     });
 
@@ -75,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear local state first
       setUser(null);
       setSession(null);
+      setIsFirstLogin(false);
       
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
@@ -110,10 +153,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     session,
     loading,
+    isFirstLogin,
     signIn,
     signUp,
     signOut,
     resetPassword,
+    checkFirstLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
