@@ -92,7 +92,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       <Button
         type="submit"
         disabled={loading || !email || !password}
-        className="w-full bg-primary hover:bg-primary/90 text-white"
+        className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
       >
         {loading ? (
           <div className="flex items-center gap-2">
@@ -110,7 +110,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             type="button"
             variant="link"
             onClick={onSwitchToForgot}
-            className="text-primary hover:text-primary/80"
+            className="text-[#3B82F6] hover:text-[#2563EB]"
           >
             Esqueci minha senha
           </Button>
@@ -125,7 +125,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               type="button"
               variant="link"
               onClick={onSwitchToSignUp}
-              className="text-primary hover:text-primary/80 p-0"
+              className="text-[#3B82F6] hover:text-[#2563EB] p-0"
             >
               Criar conta
             </Button>

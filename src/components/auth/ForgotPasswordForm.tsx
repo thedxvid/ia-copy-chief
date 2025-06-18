@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -39,8 +40,8 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackTo
   if (emailSent) {
     return (
       <div className="text-center space-y-4">
-        <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center">
-          <Mail className="w-8 h-8 text-primary" />
+        <div className="mx-auto w-16 h-16 bg-[#3B82F6]/20 rounded-full flex items-center justify-center">
+          <Mail className="w-8 h-8 text-[#3B82F6]" />
         </div>
         
         <div className="space-y-2">
@@ -72,7 +73,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackTo
           <Button
             variant="link"
             onClick={onBackToLogin}
-            className="text-primary hover:text-primary/80"
+            className="text-[#3B82F6] hover:text-[#2563EB]"
           >
             <ArrowLeft size={16} className="mr-2" />
             Voltar ao login
@@ -104,7 +105,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackTo
         <Button
           type="submit"
           disabled={loading || !email}
-          className="w-full bg-primary hover:bg-primary/90 text-white"
+          className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
         >
           {loading ? (
             <div className="flex items-center gap-2">
@@ -126,8 +127,8 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackTo
             <ArrowLeft size={16} className="mr-2" />
             Voltar ao login
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </form>
   );
 };

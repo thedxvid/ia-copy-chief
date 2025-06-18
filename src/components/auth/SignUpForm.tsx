@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -203,7 +204,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
       <Button
         type="submit"
         disabled={loading || !formData.fullName || !formData.email || !isPasswordValid || !doPasswordsMatch}
-        className="w-full bg-primary hover:bg-primary/90 text-white"
+        className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
       >
         {loading ? (
           <div className="flex items-center gap-2">
@@ -223,7 +224,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
               type="button"
               variant="link"
               onClick={onSwitchToLogin}
-              className="text-primary hover:text-primary/80 p-0"
+              className="text-[#3B82F6] hover:text-[#2563EB] p-0"
             >
               Fazer login
             </Button>
