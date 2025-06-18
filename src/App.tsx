@@ -14,7 +14,6 @@ import Dashboard from "./pages/Dashboard";
 import Quiz from "./pages/Quiz";
 import History from "./pages/History";
 import Products from "./pages/Products";
-import Tools from "./pages/Tools";
 import Ads from "./pages/Ads";
 import Content from "./pages/Content";
 import Pages from "./pages/Pages";
@@ -77,9 +76,6 @@ const App = () => (
                 } />
                 <Route path="/products" element={
                   <ProtectedRoute><Products /></ProtectedRoute>
-                } />
-                <Route path="/tools" element={
-                  <ProtectedRoute><Tools /></ProtectedRoute>
                 } />
                 <Route path="/ads" element={
                   <ProtectedRoute><Ads /></ProtectedRoute>
