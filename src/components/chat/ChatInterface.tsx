@@ -76,11 +76,19 @@ export const ChatInterface = () => {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-      setShowScrollButton(!isNearBottom && scrollHeight > clientHeight);
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50; // Mais sensível
+      
+      // Mostrar botão apenas se:
+      // 1. Não estiver próximo do final
+      // 2. E houver conteúdo suficiente para rolar
+      const shouldShowButton = !isNearBottom && scrollHeight > clientHeight + 100;
+      setShowScrollButton(shouldShowButton);
     };
 
     container.addEventListener('scroll', handleScroll);
+    // Verificar estado inicial
+    handleScroll();
+    
     return () => container.removeEventListener('scroll', handleScroll);
   }, [activeSession]);
 
@@ -202,10 +210,12 @@ export const ChatInterface = () => {
         {showScrollButton && (
           <button
             onClick={scrollToBottom}
-            className="fixed bottom-24 right-6 z-10 w-12 h-12 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center animate-fade-in"
+            className={`fixed ${isMobile ? 'bottom-[140px] right-4' : 'bottom-[140px] right-8'} z-10 w-10 h-10 bg-[#3B82F6]/80 hover:bg-[#3B82F6] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center ${
+              showScrollButton ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+            }`}
             title="Ir para o final da conversa"
           >
-            <ArrowDown className="w-5 h-5" />
+            <ArrowDown className="w-4 h-4" />
           </button>
         )}
       </div>
