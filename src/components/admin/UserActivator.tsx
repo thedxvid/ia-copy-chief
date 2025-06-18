@@ -5,12 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { UserCheck, Loader2, AlertCircle, CheckCircle, Mail } from 'lucide-react';
+import { UserCheck, Loader2, AlertCircle, CheckCircle, Mail, Bug } from 'lucide-react';
 
 export const UserActivator: React.FC = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastActivated, setLastActivated] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const { toast } = useToast();
 
   const validateEmail = (email: string) => {
@@ -38,46 +39,57 @@ export const UserActivator: React.FC = () => {
     }
 
     setLoading(true);
+    setDebugInfo(null);
+    
     try {
-      console.log("Attempting to activate user:", email.trim());
+      console.log("=== ADMIN: Starting user activation ===");
+      console.log("Email:", email.trim());
       
       const { data, error } = await supabase.functions.invoke('activate-user', {
         body: { email: email.trim().toLowerCase() },
       });
 
-      console.log("Function response:", { data, error });
+      console.log("=== ADMIN: Function response ===");
+      console.log("Data:", data);
+      console.log("Error:", error);
 
       if (error) {
-        console.error("Function error:", error);
+        console.error("Function invocation error:", error);
+        setDebugInfo(`Erro na função: ${JSON.stringify(error)}`);
         throw new Error(error.message || "Erro desconhecido na função");
       }
 
       if (data?.error) {
-        console.error("Data error:", data.error);
+        console.error("Function returned error:", data.error);
+        setDebugInfo(`Erro retornado: ${data.error}`);
         throw new Error(data.error);
       }
 
+      // Sucesso
       const successMessage = data?.isNewUser 
-        ? `✅ Usuário criado e ativado! Email de boas-vindas enviado para ${email.trim()}`
+        ? `✅ Usuário criado e ativado! ${data?.emailSent ? 'Email enviado com sucesso' : 'Atenção: Email pode não ter sido enviado'}`
         : `✅ Usuário ativado! ${email.trim()} foi ativado por 30 dias com 25.000 tokens`;
 
       toast({
         title: data?.isNewUser ? "🎉 Novo Usuário Criado!" : "✅ Usuário Ativado!",
         description: data?.isNewUser 
-          ? `${email.trim()} foi criado e ativado com sucesso. Email de boas-vindas enviado!`
+          ? `${email.trim()} foi criado e ativado com sucesso. ${data?.emailSent ? 'Email de boas-vindas enviado!' : 'Verifique os logs para o status do email.'}`
           : `${email.trim()} foi ativado por 30 dias com 25.000 tokens`,
       });
 
       setLastActivated(email.trim());
       setEmail('');
+      setDebugInfo(`Sucesso! ${data?.isNewUser ? 'Novo usuário criado' : 'Usuário existente ativado'}. Email: ${data?.emailSent ? 'Enviado' : 'Status desconhecido'}`);
       
     } catch (error: any) {
-      console.error('Error activating user:', error);
+      console.error('=== ADMIN: Error activating user ===', error);
       
       let errorMessage = "Erro ao ativar usuário";
       if (error.message) {
         errorMessage = error.message;
       }
+      
+      setDebugInfo(`Erro: ${errorMessage}`);
       
       toast({
         title: "❌ Erro",
@@ -150,6 +162,22 @@ export const UserActivator: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {debugInfo && (
+        <Card className="bg-[#2A2A2A] border-[#4B5563] max-w-md">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-2 text-xs">
+              <Bug className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="text-blue-300">
+                <strong>Debug Info:</strong>
+                <div className="mt-1 text-[#CCCCCC] font-mono break-all">
+                  {debugInfo}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {lastActivated && (
         <Card className="bg-[#065F46] border-[#10B981] max-w-md">

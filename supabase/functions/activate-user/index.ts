@@ -20,7 +20,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { email } = await req.json();
 
-    console.log("Attempting to activate user:", email);
+    console.log("=== ACTIVATE USER START ===");
+    console.log("Email to activate:", email);
 
     if (!email || !email.includes('@')) {
       console.error("Invalid email provided:", email);
@@ -33,7 +34,8 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Primeiro, verificar se o usuário já existe
+    // Verificar se o usuário já existe
+    console.log("Checking if user exists...");
     const { data: users, error: userError } = await supabase.auth.admin.listUsers();
     
     if (userError) {
@@ -49,9 +51,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const user = users.users.find(u => u.email === email);
     let isNewUser = false;
+    let userId = "";
     
     if (!user) {
-      console.log("User not found, attempting to create:", email);
+      console.log("User not found, creating new user:", email);
       isNewUser = true;
       
       // Criar usuário se não existir
@@ -73,26 +76,34 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       console.log("User created successfully:", newUser.user?.email);
-      
-      // Usar o usuário recém-criado
-      const userId = newUser.user?.id;
-      if (!userId) {
-        return new Response(
-          JSON.stringify({ error: "Erro ao obter ID do usuário criado" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
-        );
-      }
+      userId = newUser.user?.id || "";
+    } else {
+      console.log("User found, activating existing user:", email);
+      userId = user.id;
+    }
 
-      // Criar perfil e ativar subscription
-      await activateUserSubscription(supabase, userId, email);
+    if (!userId) {
+      console.error("No user ID available");
+      return new Response(
+        JSON.stringify({ error: "Erro ao obter ID do usuário" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Ativar subscription
+    console.log("Activating user subscription for user ID:", userId);
+    await activateUserSubscription(supabase, userId, email);
+    
+    // Enviar email de boas-vindas para novo usuário
+    if (isNewUser) {
+      console.log("=== SENDING WELCOME EMAIL ===");
+      console.log("Sending welcome email to new user:", email);
       
-      // Enviar email de boas-vindas para novo usuário
       try {
-        console.log("Sending welcome email to new user:", email);
-        const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-welcome-email', {
           body: { 
             email: email,
             name: email.split('@')[0],
@@ -100,22 +111,24 @@ const handler = async (req: Request): Promise<Response> => {
           },
         });
 
+        console.log("Email function response data:", emailData);
+        console.log("Email function response error:", emailError);
+
         if (emailError) {
-          console.error("Error sending welcome email:", emailError);
-          // Não falhar a ativação por causa do email
+          console.error("Error from email function:", emailError);
+          // Não falhar a ativação, mas logar o erro
+          console.error("Warning: Welcome email failed to send, but user activation was successful");
         } else {
           console.log("Welcome email sent successfully to:", email);
         }
-      } catch (emailErr) {
-        console.error("Exception sending welcome email:", emailErr);
-        // Não falhar a ativação por causa do email
+      } catch (emailException) {
+        console.error("Exception while sending welcome email:", emailException);
+        // Não falhar a ativação, mas logar o erro
+        console.error("Warning: Welcome email failed with exception, but user activation was successful");
       }
-      
-    } else {
-      console.log("User found, activating subscription:", email);
-      await activateUserSubscription(supabase, user.id, email);
     }
 
+    console.log("=== ACTIVATION COMPLETED ===");
     console.log("User activation completed successfully:", email);
 
     return new Response(
@@ -132,6 +145,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
   } catch (error: any) {
+    console.error("=== ACTIVATION ERROR ===");
     console.error("Error in activate-user function:", error);
     return new Response(
       JSON.stringify({ error: "Erro interno: " + error.message }),
@@ -144,6 +158,10 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function activateUserSubscription(supabase: any, userId: string, email: string) {
+  console.log("=== ACTIVATING SUBSCRIPTION ===");
+  console.log("User ID:", userId);
+  console.log("Email:", email);
+  
   // Data de expiração: 30 dias a partir de agora
   const subscriptionExpiresAt = new Date();
   subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
@@ -156,6 +174,7 @@ async function activateUserSubscription(supabase: any, userId: string, email: st
     .single();
 
   if (existingProfile) {
+    console.log("Updating existing profile for user:", email);
     // Atualizar perfil existente
     const { error: updateError } = await supabase
       .from("profiles")
@@ -174,7 +193,9 @@ async function activateUserSubscription(supabase: any, userId: string, email: st
       console.error("Error updating existing profile:", updateError);
       throw new Error("Erro ao atualizar perfil existente: " + updateError.message);
     }
+    console.log("Profile updated successfully");
   } else {
+    console.log("Creating new profile for user:", email);
     // Criar novo perfil
     const { error: insertError } = await supabase
       .from("profiles")
@@ -194,9 +215,10 @@ async function activateUserSubscription(supabase: any, userId: string, email: st
       console.error("Error creating profile:", insertError);
       throw new Error("Erro ao criar perfil: " + insertError.message);
     }
+    console.log("Profile created successfully");
   }
 
-  console.log("Profile updated/created successfully for user:", email);
+  console.log("=== SUBSCRIPTION ACTIVATED ===");
 }
 
 serve(handler);
