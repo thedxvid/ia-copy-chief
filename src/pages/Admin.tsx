@@ -1,17 +1,70 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { TokenMonitoringDashboard } from '@/components/tokens/TokenMonitoringDashboard';
 import { UserActivator } from '@/components/admin/UserActivator';
 import { QuizTemplatesManager } from '@/components/admin/QuizTemplatesManager';
 import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings, Users, HelpCircle, BarChart3 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Admin = () => {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<'overview' | 'tokens' | 'users' | 'quiz'>('overview');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminCheckLoading, setAdminCheckLoading] = useState(true);
+
+  // Verificar se usuário é admin usando a função do banco
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user?.id) {
+        setIsAdmin(false);
+        setAdminCheckLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.rpc('is_user_admin', {
+          user_id: user.id
+        });
+
+        if (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(data || false);
+        }
+      } catch (err) {
+        console.error('Error in admin check:', err);
+        setIsAdmin(false);
+      } finally {
+        setAdminCheckLoading(false);
+      }
+    };
+
+    if (user) {
+      checkAdminStatus();
+    } else {
+      setAdminCheckLoading(false);
+    }
+  }, [user]);
+
+  // Mostrar loading enquanto verifica admin
+  if (adminCheckLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#121212]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3B82F6]"></div>
+      </div>
+    );
+  }
+
+  // Se não é admin, redirecionar para dashboard
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const adminSections = [
     {
@@ -55,7 +108,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="text-white text-xl">🔧 Painel Administrativo</CardTitle>
                 <CardDescription>
-                  Bem-vindo, {user?.email}! Você tem acesso às funções administrativas da plataforma.
+                  Bem-vindo, {user.email}! Você tem acesso às funções administrativas da plataforma.
                 </CardDescription>
               </CardHeader>
             </Card>
