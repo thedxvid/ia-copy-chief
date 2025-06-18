@@ -3,15 +3,18 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Play, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, Filter, Play, Eye, Trash2, Copy } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateVideoModal } from './CreateVideoModal';
+import { ViewCopyModal } from '../ViewCopyModal';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 export const SalesVideosPageContent = () => {
   const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('sales-videos');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedCopy, setSelectedCopy] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
@@ -39,6 +42,11 @@ export const SalesVideosPageContent = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleViewCopy = (copy: any) => {
+    setSelectedCopy(copy);
+    setShowViewModal(true);
   };
 
   const getVideoTypeIcon = (videoType: string) => {
@@ -162,9 +170,14 @@ export const SalesVideosPageContent = () => {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Button size="sm" variant="outline" className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]">
-                    <Edit className="w-4 h-4 mr-1" />
-                    Editar
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => handleViewCopy(copy)}
+                    className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Ver
                   </Button>
                   <Button 
                     size="sm" 
@@ -194,6 +207,13 @@ export const SalesVideosPageContent = () => {
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateVideo}
         isLoading={isCreating}
+      />
+
+      <ViewCopyModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        copyData={selectedCopy}
+        copyType="sales-videos"
       />
     </div>
   );

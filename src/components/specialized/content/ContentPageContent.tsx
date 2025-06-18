@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, PenTool, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, Filter, PenTool, Eye, Trash2, Copy } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateContentModal } from './CreateContentModal';
+import { ViewCopyModal } from '../ViewCopyModal';
 import { Input } from '@/components/ui/input';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { toast } from 'sonner';
@@ -13,6 +14,8 @@ import { toast } from 'sonner';
 export const ContentPageContent = () => {
   const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('content');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedCopy, setSelectedCopy] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
@@ -40,6 +43,11 @@ export const ContentPageContent = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleViewCopy = (copy: any) => {
+    setSelectedCopy(copy);
+    setShowViewModal(true);
   };
 
   const getContentTypeIcon = (contentType: string) => {
@@ -161,9 +169,14 @@ export const ContentPageContent = () => {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Button size="sm" variant="outline" className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]">
-                    <Edit className="w-4 h-4 mr-1" />
-                    Editar
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => handleViewCopy(copy)}
+                    className="flex-1 border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Ver
                   </Button>
                   <Button 
                     size="sm" 
@@ -193,6 +206,13 @@ export const ContentPageContent = () => {
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateContent}
         isLoading={isCreating}
+      />
+
+      <ViewCopyModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        copyData={selectedCopy}
+        copyType="content"
       />
     </div>
   );
