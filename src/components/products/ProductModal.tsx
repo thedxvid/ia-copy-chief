@@ -206,82 +206,61 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         productId = newProduct.id;
       }
 
-      // Update strategy - sempre fazer upsert se há dados preenchidos
-      if (targetAudience.trim() || marketPositioning.trim() || valueProposition.trim()) {
-        const strategyData = {
-          product_id: productId,
-          target_audience: targetAudience.trim() ? { description: targetAudience.trim() } : null,
-          market_positioning: marketPositioning.trim() || null,
-          value_proposition: valueProposition.trim() || null,
-        };
+      // Sempre atualizar estratégia (inclusive valores vazios para limpar dados)
+      const strategyData = {
+        product_id: productId,
+        target_audience: targetAudience.trim() ? { description: targetAudience.trim() } : null,
+        market_positioning: marketPositioning.trim() || null,
+        value_proposition: valueProposition.trim() || null,
+      };
 
-        const { error } = await supabase
-          .from('product_strategy')
-          .upsert(strategyData, { onConflict: 'product_id' });
+      const { error: strategyError } = await supabase
+        .from('product_strategy')
+        .upsert(strategyData, { onConflict: 'product_id' });
 
-        if (error) {
-          console.error('Error upserting strategy:', error);
-          // Tente inserir se falhar o upsert
-          const { error: insertError } = await supabase
-            .from('product_strategy')
-            .insert(strategyData);
-          
-          if (insertError) throw insertError;
-        }
+      if (strategyError) {
+        console.error('Error saving strategy:', strategyError);
+        throw strategyError;
       }
 
-      // Update copy - sempre fazer upsert se há dados preenchidos
-      if (vslScript.trim() || headline.trim() || subtitle.trim() || benefits.trim() || socialProof.trim()) {
-        const copyData = {
-          product_id: productId,
-          vsl_script: vslScript.trim() || null,
-          landing_page_copy: {
-            headline: headline.trim() || null,
-            subtitle: subtitle.trim() || null,
-            benefits: benefits.trim() || null,
-            social_proof: socialProof.trim() || null,
-          },
-        };
+      // Sempre atualizar copy (inclusive valores vazios para limpar dados)
+      const copyData = {
+        product_id: productId,
+        vsl_script: vslScript.trim() || null,
+        landing_page_copy: {
+          headline: headline.trim() || null,
+          subtitle: subtitle.trim() || null,
+          benefits: benefits.trim() || null,
+          social_proof: socialProof.trim() || null,
+        },
+      };
 
-        const { error } = await supabase
-          .from('product_copy')
-          .upsert(copyData, { onConflict: 'product_id' });
+      const { error: copyError } = await supabase
+        .from('product_copy')
+        .upsert(copyData, { onConflict: 'product_id' });
 
-        if (error) {
-          console.error('Error upserting copy:', error);
-          // Tente inserir se falhar o upsert
-          const { error: insertError } = await supabase
-            .from('product_copy')
-            .insert(copyData);
-          
-          if (insertError) throw insertError;
-        }
+      if (copyError) {
+        console.error('Error saving copy:', copyError);
+        throw copyError;
       }
 
-      // Update offer - sempre fazer upsert se há dados preenchidos
-      if (mainOfferPromise.trim() || mainOfferDescription.trim() || mainOfferPrice.trim()) {
-        const offerData = {
-          product_id: productId,
-          main_offer: {
-            promise: mainOfferPromise.trim() || null,
-            description: mainOfferDescription.trim() || null,
-            price: mainOfferPrice.trim() || null,
-          },
-        };
+      // Sempre atualizar oferta (inclusive valores vazios para limpar dados)
+      const offerData = {
+        product_id: productId,
+        main_offer: {
+          promise: mainOfferPromise.trim() || null,
+          description: mainOfferDescription.trim() || null,
+          price: mainOfferPrice.trim() || null,
+        },
+      };
 
-        const { error } = await supabase
-          .from('product_offer')
-          .upsert(offerData, { onConflict: 'product_id' });
+      const { error: offerError } = await supabase
+        .from('product_offer')
+        .upsert(offerData, { onConflict: 'product_id' });
 
-        if (error) {
-          console.error('Error upserting offer:', error);
-          // Tente inserir se falhar o upsert
-          const { error: insertError } = await supabase
-            .from('product_offer')
-            .insert(offerData);
-          
-          if (insertError) throw insertError;
-        }
+      if (offerError) {
+        console.error('Error saving offer:', offerError);
+        throw offerError;
       }
 
       toast({
