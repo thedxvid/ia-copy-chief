@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,13 +28,36 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentAnswer, setCurrentAnswer] = useState('');
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
   const { fetchProductDetails } = useProducts();
   const [productDetails, setProductDetails] = useState<any>(null);
   const [hasPrefilledData, setHasPrefilledData] = useState(false);
 
-  const questions = getQuizQuestions(quizType);
   const quizTitle = getQuizTitle(quizType);
-  const progress = ((currentQuestion + 1) / questions.length) * 100;
+  const progress = questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
+
+  // Carregar perguntas do quiz
+  useEffect(() => {
+    const loadQuestions = async () => {
+      setQuestionsLoading(true);
+      try {
+        console.log(`🔄 Loading questions for quiz type: ${quizType}`);
+        const loadedQuestions = await getQuizQuestions(quizType);
+        console.log(`✅ Loaded ${loadedQuestions.length} questions for ${quizType}`);
+        setQuestions(loadedQuestions);
+      } catch (error) {
+        console.error('❌ Error loading quiz questions:', error);
+        setQuestions([]);
+      } finally {
+        setQuestionsLoading(false);
+      }
+    };
+
+    if (quizType) {
+      loadQuestions();
+    }
+  }, [quizType]);
 
   // Carregar detalhes do produto se ID foi fornecido
   useEffect(() => {
@@ -218,10 +240,25 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
     }
   };
 
+  if (questionsLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-4">Carregando Quiz</h2>
+          <p className="text-[#CCCCCC]">Preparando as perguntas personalizadas...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (questions.length === 0) {
     return (
       <div className="text-center py-16">
         <h2 className="text-2xl font-bold text-white mb-4">Quiz não encontrado</h2>
+        <p className="text-[#CCCCCC] mb-6">
+          Não foi possível carregar as perguntas para este tipo de quiz.
+        </p>
         <Button onClick={onBack} variant="outline">
           Voltar à seleção
         </Button>

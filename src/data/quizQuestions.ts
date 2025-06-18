@@ -1,3 +1,4 @@
+import { supabase } from '@/integrations/supabase/client';
 
 export interface QuizQuestion {
   id: string;
@@ -12,6 +13,7 @@ export interface QuizData {
   [key: string]: QuizQuestion[];
 }
 
+// Fallback data - será usado se não houver template no banco
 export const quizQuestions: QuizData = {
   vsl: [
     {
@@ -306,8 +308,60 @@ export const quizQuestions: QuizData = {
   ]
 };
 
-export const getQuizQuestions = (quizType: string): QuizQuestion[] => {
-  return quizQuestions[quizType] || [];
+// Cache para templates
+let templatesCache: { [key: string]: QuizQuestion[] } = {};
+let cacheTimestamp = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
+export const getQuizQuestions = async (quizType: string): Promise<QuizQuestion[]> => {
+  // Verificar cache primeiro
+  const now = Date.now();
+  if (templatesCache[quizType] && (now - cacheTimestamp) < CACHE_DURATION) {
+    console.log(`🎯 Using cached template for ${quizType}`);
+    return templatesCache[quizType];
+  }
+
+  try {
+    console.log(`🔍 Fetching template from database for quiz type: ${quizType}`);
+    
+    // Buscar template do banco de dados
+    const { data: template, error } = await supabase
+      .from('quiz_templates')
+      .select('questions')
+      .eq('quiz_type', quizType)
+      .eq('is_active', true)
+      .eq('is_default', true)
+      .maybeSingle();
+
+    if (error) {
+      console.error('❌ Error fetching quiz template:', error);
+      throw error;
+    }
+
+    if (template && template.questions) {
+      console.log(`✅ Found template in database for ${quizType} with ${template.questions.length} questions`);
+      
+      // Atualizar cache
+      templatesCache[quizType] = template.questions;
+      cacheTimestamp = now;
+      
+      return template.questions;
+    } else {
+      console.log(`⚠️ No template found in database for ${quizType}, using fallback data`);
+    }
+  } catch (error) {
+    console.error(`💥 Error loading template for ${quizType}:`, error);
+  }
+
+  // Fallback para dados estáticos se não encontrar no banco
+  const fallbackQuestions = quizQuestions[quizType] || [];
+  console.log(`📋 Using fallback data for ${quizType} with ${fallbackQuestions.length} questions`);
+  
+  // Cache do fallback também
+  templatesCache[quizType] = fallbackQuestions;
+  cacheTimestamp = now;
+  
+  return fallbackQuestions;
 };
 
 export const getQuizTitle = (quizType: string): string => {
@@ -318,4 +372,11 @@ export const getQuizTitle = (quizType: string): string => {
     ads: 'Quiz para Anúncios Pagos'
   };
   return titles[quizType as keyof typeof titles] || 'Quiz';
+};
+
+// Função para invalidar cache (útil após edições)
+export const invalidateQuizTemplatesCache = () => {
+  templatesCache = {};
+  cacheTimestamp = 0;
+  console.log('🗑️ Quiz templates cache invalidated');
 };
