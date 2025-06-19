@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { ChatMessage, Agent, ChatState } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
@@ -307,6 +306,9 @@ INSTRUÇÕES IMPORTANTES:
 
       console.log('Chamando chat function com userId:', user?.id);
 
+      // Toast melhorado para feedback do usuário
+      const loadingToast = toast.loading('Processando sua mensagem... Isso pode levar alguns momentos para respostas complexas.');
+
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: content,
@@ -319,29 +321,33 @@ INSTRUÇÕES IMPORTANTES:
           isCustomAgent,
           customAgentId: isCustomAgent ? selectedAgent.id.replace('custom-', '') : null,
           productId: selectedProductId,
-          userId: user?.id // Garantir que o userId seja enviado
+          userId: user?.id
         }
       });
+
+      // Remover toast de loading
+      toast.dismiss(loadingToast);
 
       console.log('Resposta da função:', { data, error });
 
       if (error) {
         console.error('Error calling chat function:', error);
         
-        // Tratamento especial para administradores
-        if (isAdmin) {
-          console.log('Erro detectado para admin, verificando detalhes:', error);
-          
-          // Se for erro relacionado a créditos da API, mostrar mensagem específica para admin
-          if (error.message?.includes('credit balance') || error.message?.includes('API')) {
-            toast.error('Erro na API de IA: Verifique os créditos da conta Anthropic nas configurações do sistema.');
-          } else {
-            toast.error(`Erro no sistema de chat: ${error.message || 'Erro desconhecido'}`);
-          }
-        } else {
-          // Para usuários normais, mensagem mais genérica
-          toast.error('Erro temporário no chat. Tente novamente em alguns instantes.');
+        // Tratamento melhorado de erros
+        let errorMessage = 'Erro temporário no chat. Tente novamente em alguns instantes.';
+        
+        if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+          errorMessage = 'A IA está demorando para responder. Tente uma pergunta mais simples ou divida em partes menores.';
+        } else if (error.message?.includes('Rate limit exceeded')) {
+          errorMessage = 'Muitas mensagens enviadas rapidamente. Aguarde um momento antes de tentar novamente.';
         }
+        
+        if (isAdmin) {
+          console.log('Erro detectado para admin, detalhes:', error);
+          errorMessage += ` (Admin - Detalhes: ${error.message})`;
+        }
+        
+        toast.error(errorMessage);
         return;
       }
 
@@ -355,11 +361,20 @@ INSTRUÇÕES IMPORTANTES:
       // Verificar se há erro na resposta
       if (data.error) {
         console.error('Erro na resposta:', data.error);
-        if (isAdmin) {
-          toast.error(`Erro da API: ${data.error} - ${data.details || ''}`);
-        } else {
-          toast.error('Erro temporário no chat. Tente novamente.');
+        
+        let errorMessage = 'Erro temporário no chat. Tente novamente.';
+        
+        if (data.error.includes('timeout') || data.error.includes('Claude API timeout')) {
+          errorMessage = 'A IA está demorando para responder. Tente uma pergunta mais simples.';
+        } else if (data.retryable === false) {
+          errorMessage = 'Erro de configuração. Entre em contato com o suporte.';
         }
+        
+        if (isAdmin) {
+          errorMessage += ` (${data.details || data.error})`;
+        }
+        
+        toast.error(errorMessage);
         return;
       }
 
@@ -394,15 +409,30 @@ INSTRUÇÕES IMPORTANTES:
         await saveSessionToSupabase(finalSession);
       }
 
+      // Toast de sucesso sutil
+      if (data.tokensUsed) {
+        console.log(`Resposta gerada usando ${data.tokensUsed} tokens`);
+      }
+
     } catch (error) {
       console.error('Chat error:', error);
       
       // Tratamento de erro mais específico
-      if (isAdmin) {
-        toast.error(`Erro técnico: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Verifique os logs para mais detalhes.`);
-      } else {
-        toast.error('Erro ao processar mensagem. Tente novamente.');
+      let errorMessage = 'Erro ao processar mensagem. Tente novamente.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Timeout na resposta. Tente uma pergunta mais simples.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+        }
+        
+        if (isAdmin) {
+          errorMessage += ` (Erro técnico: ${error.message})`;
+        }
       }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

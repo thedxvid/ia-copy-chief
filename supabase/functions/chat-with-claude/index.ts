@@ -7,10 +7,93 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
+// Função para retry com backoff exponencial
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 2,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Tentativa ${attempt + 1} falhou:`, error.message);
+      
+      if (attempt === maxRetries) {
+        throw lastError;
+      }
+      
+      // Backoff exponencial: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.log(`Aguardando ${delay}ms antes da próxima tentativa...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
+}
+
+// Função melhorada para chamar Claude
+async function callClaudeAPI(systemPrompt: string, messages: any[]) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
+  
+  try {
+    console.log('Iniciando chamada para Claude API...', {
+      messageCount: messages.length,
+      systemPromptLength: systemPrompt.length,
+      timeout: '60s'
+    });
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022', // Modelo atualizado
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: messages
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    
+    console.log('Claude API respondeu:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Claude API Error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+    
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Claude API timeout - A resposta está demorando mais que o esperado');
+    }
+    
+    throw error;
+  }
+}
+
 serve(async (req) => {
   console.log('=== INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE ===');
   console.log('Method:', req.method);
-  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+  console.log('Timestamp:', new Date().toISOString());
 
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -25,7 +108,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
         { 
-          status: 200, // Sempre retornar 200
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -46,7 +129,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('ANTHROPIC_API_KEY encontrada:', anthropicApiKey ? 'Sim' : 'Não');
+    console.log('ANTHROPIC_API_KEY configurada:', anthropicApiKey ? 'Sim' : 'Não');
 
     // Validar token de autenticação
     const authHeader = req.headers.get('Authorization');
@@ -67,7 +150,7 @@ serve(async (req) => {
     let rawBody;
     try {
       rawBody = await req.json();
-      console.log('Body recebido:', JSON.stringify(rawBody, null, 2));
+      console.log('Body recebido com sucesso, campos:', Object.keys(rawBody));
     } catch (error) {
       console.error('Erro ao parsear JSON:', error);
       return new Response(
@@ -116,7 +199,8 @@ serve(async (req) => {
       userId,
       messageLength: message.length,
       agentName,
-      productId
+      productId,
+      hasHistory: Array.isArray(chatHistory) && chatHistory.length > 0
     });
 
     // Rate limiting por usuário (20 requests por minuto)
@@ -125,7 +209,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'Rate limit exceeded', 
-          details: 'Please try again later' 
+          details: 'Muitas requisições. Aguarde um momento antes de tentar novamente.' 
         }),
         { 
           status: 200,
@@ -138,7 +222,11 @@ serve(async (req) => {
 
     // Preparar prompt do sistema
     let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
-    console.log('System prompt length:', systemPrompt.length);
+    console.log('System prompt preparado:', {
+      length: systemPrompt.length,
+      isCustomAgent,
+      agentName
+    });
     
     // Preparar mensagens para Claude
     const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-20) : [];
@@ -152,115 +240,50 @@ serve(async (req) => {
       content: message
     });
 
-    console.log('Preparando chamada para Claude:', {
-      systemPromptLength: systemPrompt.length,
-      messageCount: claudeMessages.length,
+    console.log('Mensagens preparadas para Claude:', {
+      totalMessages: claudeMessages.length,
+      historyMessages: conversationMessages.length,
       lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length
     });
 
-    // Chamada para Claude com timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
-
-    let claudeResponse;
+    // Chamada para Claude com retry
+    let claudeData;
     try {
-      claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': anthropicApiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022', // Modelo correto Claude 3.5 Sonnet
-          max_tokens: 4000,
-          system: systemPrompt,
-          messages: claudeMessages
-        }),
-        signal: controller.signal
+      console.log('🚀 Iniciando chamada para Claude com retry...');
+      
+      claudeData = await retryWithBackoff(async () => {
+        return await callClaudeAPI(systemPrompt, claudeMessages);
+      }, 2, 2000); // 2 tentativas, delay inicial de 2s
+      
+      console.log('✅ Claude respondeu com sucesso:', {
+        hasContent: !!claudeData.content,
+        contentLength: claudeData.content?.[0]?.text?.length || 0,
+        type: claudeData.type,
+        model: claudeData.model
       });
+      
     } catch (error) {
-      clearTimeout(timeoutId);
-      console.error('Erro na requisição para Claude:', error);
+      console.error('❌ Erro final na chamada para Claude após retries:', error);
       
-      if (error.name === 'AbortError') {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Request timeout', 
-            details: 'Claude API request timed out' 
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
+      let errorMessage = 'Erro temporário na IA. Tente novamente.';
+      let errorDetails = error.message;
       
-      return new Response(
-        JSON.stringify({ 
-          error: 'Network error', 
-          details: error.message 
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    clearTimeout(timeoutId);
-
-    console.log('Resposta Claude recebida:', {
-      status: claudeResponse.status,
-      statusText: claudeResponse.statusText,
-      ok: claudeResponse.ok
-    });
-
-    if (!claudeResponse.ok) {
-      const errorText = await claudeResponse.text();
-      console.error('Erro da API Claude:', {
-        status: claudeResponse.status,
-        statusText: claudeResponse.statusText,
-        body: errorText
-      });
-      
-      // Retornar erro específico mas com status 200
-      let errorMessage = 'AI service temporarily unavailable';
-      if (claudeResponse.status === 401) {
-        errorMessage = 'AI service authentication failed';
-      } else if (claudeResponse.status === 429) {
-        errorMessage = 'AI service rate limit exceeded';
-      } else if (claudeResponse.status === 400) {
-        errorMessage = 'Invalid request to AI service';
+      if (error.message.includes('timeout') || error.message.includes('Claude API timeout')) {
+        errorMessage = 'A IA está demorando para responder. Tente uma pergunta mais simples ou aguarde um momento.';
+        errorDetails = 'Timeout na API do Claude após múltiplas tentativas';
+      } else if (error.message.includes('credit balance') || error.message.includes('quota')) {
+        errorMessage = 'Limite de uso da IA atingido. Tente novamente mais tarde.';
+      } else if (error.message.includes('401')) {
+        errorMessage = 'Erro de configuração da IA. Entre em contato com o suporte.';
+      } else if (error.message.includes('429')) {
+        errorMessage = 'Muitas requisições simultâneas. Aguarde um momento.';
       }
       
       return new Response(
         JSON.stringify({ 
           error: errorMessage,
-          details: `Claude API returned ${claudeResponse.status}: ${errorText}`
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    let claudeData;
-    try {
-      claudeData = await claudeResponse.json();
-      console.log('Claude response parsed:', {
-        hasContent: !!claudeData.content,
-        contentLength: claudeData.content?.[0]?.text?.length || 0,
-        type: claudeData.type,
-        hasError: !!claudeData.error
-      });
-    } catch (error) {
-      console.error('Erro ao parsear resposta do Claude:', error);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid response from AI service',
-          details: error.message
+          details: errorDetails,
+          retryable: !error.message.includes('401')
         }),
         { 
           status: 200,
@@ -318,16 +341,18 @@ serve(async (req) => {
     const completionTokens = aiResponse.length / 4;
     const totalTokens = Math.ceil(promptTokens + completionTokens);
 
-    console.log('Processamento concluído com sucesso:', {
+    console.log('✅ Processamento concluído com sucesso:', {
       userId,
       tokensUsed: totalTokens,
-      responseLength: aiResponse.length
+      responseLength: aiResponse.length,
+      processingTime: Date.now()
     });
 
     return new Response(
       JSON.stringify({
         response: aiResponse,
-        tokensUsed: totalTokens
+        tokensUsed: totalTokens,
+        model: 'claude-3-5-sonnet-20241022'
       }),
       {
         status: 200,
@@ -340,15 +365,16 @@ serve(async (req) => {
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    console.error('Timestamp:', new Date().toISOString());
     
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message,
-        stack: error.stack
+        details: 'Erro interno do servidor. Tente novamente.',
+        timestamp: new Date().toISOString()
       }),
       { 
-        status: 200, // SEMPRE 200 para evitar o erro no frontend
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
