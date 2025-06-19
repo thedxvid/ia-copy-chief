@@ -47,10 +47,10 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
-// Função otimizada para chamar Claude SEM TIMEOUT FORÇADO
+// Função otimizada para chamar Claude com limites aumentados
 async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: number = 1) {
   try {
-    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt}) - SEM TIMEOUT FORÇADO...`, {
+    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt}) - LIMITES AUMENTADOS...`, {
       messageCount: messages.length,
       systemPromptLength: systemPrompt.length,
       timestamp: new Date().toISOString(),
@@ -59,30 +59,32 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 
     const startTime = Date.now();
 
-    // Otimizar payload - sem truncar system prompt drasticamente
+    // Otimizar payload - sem truncar mensagens drasticamente (aumento para 20k)
     const optimizedMessages = messages.map(msg => ({
       role: msg.role,
-      content: typeof msg.content === 'string' && msg.content.length > 8000 
-        ? msg.content.substring(0, 8000) + '...' 
+      content: typeof msg.content === 'string' && msg.content.length > 20000 
+        ? msg.content.substring(0, 20000) + '...' 
         : msg.content
     }));
 
-    // AUMENTADO: Limite do system prompt para 20.000 caracteres para preservar contexto do produto
+    // AUMENTADO: Limite do system prompt para 100.000 caracteres para preservar documentação completa
     const payload = {
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000, // Aumentado para permitir respostas mais longas
-      system: systemPrompt.length > 20000 ? systemPrompt.substring(0, 20000) + '...' : systemPrompt,
+      max_tokens: 8000, // AUMENTADO: De 4k para 8k tokens para respostas mais completas
+      system: systemPrompt.length > 100000 ? systemPrompt.substring(0, 100000) + '...' : systemPrompt,
       messages: optimizedMessages,
       temperature: 0.7
     };
 
-    console.log(`📤 Payload otimizado para preservar contexto do produto:`, {
+    console.log(`📤 Payload otimizado para preservar documentação completa:`, {
       systemPromptFinal: payload.system.length,
       systemPromptOriginal: systemPrompt.length,
       messagesCount: payload.messages.length,
       estimatedTokens: Math.ceil(JSON.stringify(payload).length / 4),
       maxTokens: payload.max_tokens,
-      contextPreserved: systemPrompt.length <= 20000 ? 'COMPLETO' : 'TRUNCADO'
+      contextPreserved: systemPrompt.length <= 100000 ? 'COMPLETO' : 'TRUNCADO',
+      systemPromptLimit: '100k chars',
+      responseTokenLimit: '8k tokens'
     });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -97,7 +99,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 
     const responseTime = Date.now() - startTime;
     
-    console.log(`📥 Claude API respondeu (sem timeout forçado):`, {
+    console.log(`📥 Claude API respondeu (limites aumentados):`, {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
@@ -130,14 +132,15 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 
     const responseData = await response.json();
     
-    console.log(`✅ Claude API - Resposta processada com sucesso (sem timeout):`, {
+    console.log(`✅ Claude API - Resposta processada com sucesso (limites aumentados):`, {
       hasContent: !!responseData.content,
       contentLength: responseData.content?.[0]?.text?.length || 0,
       type: responseData.type,
       model: responseData.model,
       responseTime: `${responseTime}ms`,
       attempt,
-      usage: responseData.usage || 'N/A'
+      usage: responseData.usage || 'N/A',
+      maxTokensUsed: `${responseData.usage?.output_tokens || 0}/8000`
     });
 
     return responseData;
@@ -156,7 +159,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 }
 
 serve(async (req) => {
-  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE - CONTEXTO OTIMIZADO ===');
+  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE - LIMITES AUMENTADOS ===');
   console.log('Method:', req.method);
   console.log('Timestamp:', new Date().toISOString());
   console.log('URL:', req.url);
@@ -270,14 +273,20 @@ serve(async (req) => {
       );
     }
 
-    console.log('✅ Dados validados com contexto otimizado:', {
+    console.log('✅ Dados validados com limites aumentados:', {
       userId,
       messageLength: message.length,
       agentName,
       productId: productId || 'NENHUM',
       hasHistory: Array.isArray(chatHistory) && chatHistory.length > 0,
       systemPromptLength: agentPrompt?.length || 0,
-      hasProductContext: !!productId
+      hasProductContext: !!productId,
+      systemPromptWillFit: (agentPrompt?.length || 0) <= 100000,
+      newLimits: {
+        systemPrompt: '100k chars',
+        responseTokens: '8k tokens',
+        messageLimit: '20k chars'
+      }
     });
 
     // Rate limiting por usuário mais permissivo (20 requests por minuto)
@@ -299,19 +308,21 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Preparar prompt do sistema com contexto preservado
+    // Preparar prompt do sistema com documentação completa preservada
     let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
     
-    console.log('📝 System prompt preparado com contexto preservado:', {
+    console.log('📝 System prompt preparado com documentação completa:', {
       length: systemPrompt.length,
       isCustomAgent,
       agentName,
       hasProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
-      willBeTruncated: systemPrompt.length > 20000
+      willBeTruncated: systemPrompt.length > 100000,
+      preservedPercentage: systemPrompt.length <= 100000 ? 100 : Math.round((100000 / systemPrompt.length) * 100),
+      newLimit: '100k chars'
     });
     
-    // Preparar mensagens para Claude (histórico mais amplo para contexto)
-    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-12) : [];
+    // Preparar mensagens para Claude (histórico amplo para contexto - aumentado)
+    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-15) : [];
     const claudeMessages = conversationMessages.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content || ''
@@ -326,28 +337,32 @@ serve(async (req) => {
       totalMessages: claudeMessages.length,
       historyMessages: conversationMessages.length,
       lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length,
-      totalTokensEstimate: Math.ceil(JSON.stringify(claudeMessages).length / 4)
+      totalTokensEstimate: Math.ceil(JSON.stringify(claudeMessages).length / 4),
+      newMessageLimit: '20k chars per message',
+      newHistoryLimit: '15 messages'
     });
 
-    // Chamada para Claude com retry otimizado SEM TIMEOUT FORÇADO
+    // Chamada para Claude com retry otimizado e limites aumentados
     let claudeData;
     try {
-      console.log('🚀 Iniciando chamada para Claude com contexto preservado...');
+      console.log('🚀 Iniciando chamada para Claude com limites aumentados...');
       
       claudeData = await retryWithBackoff(async () => {
         return await callClaudeAPI(systemPrompt, claudeMessages);
-      }, 3, 3000, 'Claude API call - Contexto Preservado');
+      }, 3, 3000, 'Claude API call - Limites Aumentados');
       
-      console.log('🎉 Claude respondeu com sucesso (contexto preservado):', {
+      console.log('🎉 Claude respondeu com sucesso (limites aumentados):', {
         hasContent: !!claudeData.content,
         contentLength: claudeData.content?.[0]?.text?.length || 0,
         type: claudeData.type,
         model: claudeData.model,
-        totalAttempts: 'success'
+        totalAttempts: 'success',
+        tokensUsed: claudeData.usage?.output_tokens || 0,
+        maxTokensAvailable: 8000
       });
       
     } catch (error) {
-      console.error('💥 Erro final na chamada para Claude após retries (contexto preservado):', {
+      console.error('💥 Erro final na chamada para Claude após retries (limites aumentados):', {
         error: error.message,
         type: error.name,
         stack: error.stack?.split('\n')[0]
@@ -452,7 +467,7 @@ serve(async (req) => {
     const completionTokens = Math.ceil(aiResponse.length / 4);
     const totalTokens = promptTokens + completionTokens;
 
-    console.log('🎯 Processamento concluído com contexto preservado:', {
+    console.log('🎯 Processamento concluído com limites aumentados:', {
       userId,
       tokensUsed: totalTokens,
       promptTokens,
@@ -460,7 +475,14 @@ serve(async (req) => {
       responseLength: aiResponse.length,
       processingTime: Date.now(),
       model: 'claude-sonnet-4-20250514',
-      hadProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO')
+      hadProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
+      systemPromptPreserved: systemPrompt.length <= 100000,
+      responseTokensUsed: `${claudeData.usage?.output_tokens || 0}/8000`,
+      limitsApplied: {
+        systemPrompt: '100k chars',
+        responseTokens: '8k tokens',
+        messageLimit: '20k chars'
+      }
     });
 
     return new Response(
@@ -469,7 +491,10 @@ serve(async (req) => {
         tokensUsed: totalTokens,
         model: 'claude-sonnet-4-20250514',
         processingTime: Date.now(),
-        contextPreserved: systemPrompt.length <= 20000
+        contextPreserved: systemPrompt.length <= 100000,
+        limitsIncreased: true,
+        responseTokensUsed: claudeData.usage?.output_tokens || 0,
+        maxResponseTokens: 8000
       }),
       {
         status: 200,
@@ -478,7 +503,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 ERRO CRÍTICO NA FUNÇÃO COM CONTEXTO PRESERVADO');
+    console.error('💥 ERRO CRÍTICO NA FUNÇÃO COM LIMITES AUMENTADOS');
     console.error('Error details:', {
       name: error.name,
       message: error.message,
@@ -489,7 +514,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: 'Erro interno do servidor para processamento com contexto. Tente novamente.',
+        details: 'Erro interno do servidor para processamento com limites aumentados. Tente novamente.',
         timestamp: new Date().toISOString(),
         retryable: true
       }),
