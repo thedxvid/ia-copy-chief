@@ -12,18 +12,8 @@ export const corsHeaders = {
 };
 
 export const createSecureResponse = (data: any, status: number = 200) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] Creating secure response:`, { 
-    status, 
-    hasData: !!data,
-    success: data?.success,
-    error: data?.error
-  });
-  
-  return new Response(JSON.stringify({
-    ...data,
-    timestamp
-  }), {
+  console.log('Creating secure response:', { status, hasData: !!data });
+  return new Response(JSON.stringify(data), {
     status: 200, // SEMPRE 200 para evitar erros no frontend
     headers: {
       'Content-Type': 'application/json',
@@ -32,17 +22,12 @@ export const createSecureResponse = (data: any, status: number = 200) => {
   });
 };
 
-export const createErrorResponse = (message: string, originalStatus: number = 500, details?: any) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] Creating error response:`, { message, originalStatus, details });
-  
+export const createErrorResponse = (message: string, originalStatus: number = 500) => {
+  console.log('Creating error response:', { message, originalStatus });
   return new Response(
     JSON.stringify({ 
       error: message,
-      success: false,
-      originalStatus: originalStatus,
-      details,
-      timestamp
+      originalStatus: originalStatus 
     }), 
     {
       status: 200, // SEMPRE 200 para evitar erros no frontend
@@ -54,75 +39,59 @@ export const createErrorResponse = (message: string, originalStatus: number = 50
   );
 };
 
-// Rate limiting melhorado com cleanup automático
-const rateLimitStore = new Map<string, { count: number; resetTime: number; firstRequest: number }>();
+// Rate limiting usando Redis-like storage (simulado com Map para desenvolvimento)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 export const checkRateLimit = (
   identifier: string, 
-  maxRequests: number = 20, 
+  maxRequests: number = 10, 
   windowMs: number = 60000 // 1 minuto
 ): boolean => {
   try {
     const now = Date.now();
-    const windowKey = `${identifier}:${Math.floor(now / windowMs)}`;
+    const key = `${identifier}:${Math.floor(now / windowMs)}`;
     
-    // Cleanup de entradas antigas automaticamente
-    cleanupExpiredEntries(now);
-    
-    const current = rateLimitStore.get(windowKey);
+    const current = rateLimitStore.get(key);
     
     if (!current) {
-      rateLimitStore.set(windowKey, { 
-        count: 1, 
-        resetTime: now + windowMs,
-        firstRequest: now
-      });
-      console.log(`Rate limit: nova janela criada para ${identifier}`);
+      rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+      console.log('Rate limit: new window created for', identifier);
       return true;
     }
     
     if (current.count >= maxRequests) {
-      const timeToReset = Math.ceil((current.resetTime - now) / 1000);
-      console.log(`Rate limit excedido para ${identifier}: ${current.count}/${maxRequests} requests. Reset em ${timeToReset}s`);
+      console.log('Rate limit exceeded for', identifier, 'count:', current.count);
       return false;
     }
     
     current.count++;
-    console.log(`Rate limit: ${identifier} - ${current.count}/${maxRequests} requests na janela atual`);
+    console.log('Rate limit: incremented count for', identifier, 'to', current.count);
     return true;
   } catch (error) {
-    console.error('Erro no rate limiting:', error);
+    console.error('Error in rate limiting:', error);
     return true; // Em caso de erro, permitir a requisição
   }
 };
 
-// Cleanup automático mais eficiente
-const cleanupExpiredEntries = (now: number) => {
+export const cleanupRateLimit = () => {
   try {
+    const now = Date.now();
     let cleaned = 0;
-    const entries = Array.from(rateLimitStore.entries());
-    
-    for (const [key, value] of entries) {
+    for (const [key, value] of rateLimitStore.entries()) {
       if (now > value.resetTime) {
         rateLimitStore.delete(key);
         cleaned++;
       }
     }
-    
     if (cleaned > 0) {
-      console.log(`Rate limit cleanup: removidas ${cleaned} entradas expiradas`);
+      console.log('Rate limit cleanup: removed', cleaned, 'expired entries');
     }
   } catch (error) {
-    console.error('Erro no cleanup do rate limit:', error);
+    console.error('Error cleaning up rate limit:', error);
   }
 };
 
-// Cleanup periódico (roda a cada 5 minutos)
-setInterval(() => {
-  cleanupExpiredEntries(Date.now());
-}, 5 * 60 * 1000);
-
-// Função melhorada para validar JWT
+// Função para validar JWT de forma mais segura
 export const validateAuthToken = (authHeader: string | null): boolean => {
   try {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -138,12 +107,6 @@ export const validateAuthToken = (authHeader: string | null): boolean => {
       return false;
     }
     
-    // Verificar se não é um token vazio ou muito curto
-    if (token.length < 50) {
-      console.log('Auth validation failed: token too short');
-      return false;
-    }
-    
     console.log('Auth validation passed');
     return true;
   } catch (error) {
@@ -152,7 +115,7 @@ export const validateAuthToken = (authHeader: string | null): boolean => {
   }
 };
 
-// Sanitização melhorada de entrada para prevenir ataques
+// Sanitização de entrada para prevenir ataques
 export const sanitizeInput = (input: any): any => {
   try {
     if (typeof input === 'string') {
@@ -160,26 +123,17 @@ export const sanitizeInput = (input: any): any => {
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
         .replace(/javascript:/gi, '') // Remove javascript:
         .replace(/on\w+\s*=/gi, '') // Remove event handlers
-        .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '') // Remove iframes
-        .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '') // Remove objects
-        .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '') // Remove embeds
         .trim();
     }
     
     if (Array.isArray(input)) {
-      return input.map(item => sanitizeInput(item)).slice(0, 100); // Limite de 100 itens
+      return input.map(item => sanitizeInput(item));
     }
     
     if (typeof input === 'object' && input !== null) {
       const sanitized: any = {};
-      let keyCount = 0;
-      
       for (const [key, value] of Object.entries(input)) {
-        if (keyCount >= 50) break; // Limite de 50 chaves por objeto
-        
-        const sanitizedKey = typeof key === 'string' ? sanitizeInput(key) : key;
-        sanitized[sanitizedKey] = sanitizeInput(value);
-        keyCount++;
+        sanitized[sanitizeInput(key)] = sanitizeInput(value);
       }
       return sanitized;
     }
@@ -189,19 +143,4 @@ export const sanitizeInput = (input: any): any => {
     console.error('Error sanitizing input:', error);
     return input; // Retornar input original em caso de erro
   }
-};
-
-// Função para monitorar saúde do sistema
-export const getSystemHealth = () => {
-  const now = Date.now();
-  const activeRateLimits = Array.from(rateLimitStore.entries())
-    .filter(([_, value]) => now < value.resetTime)
-    .length;
-  
-  return {
-    timestamp: new Date().toISOString(),
-    activeRateLimits,
-    totalRateLimitEntries: rateLimitStore.size,
-    uptime: process.uptime?.() || 'unknown'
-  };
 };
