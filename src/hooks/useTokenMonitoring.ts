@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -50,7 +49,7 @@ export const useTokenMonitoring = () => {
 
       console.log('🔍 Iniciando busca de estatísticas de créditos...');
 
-      // Buscar todos os usuários com JOIN para obter emails
+      // Buscar todos os usuários da tabela profiles
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select(`
@@ -61,7 +60,8 @@ export const useTokenMonitoring = () => {
           total_tokens_used,
           tokens_reset_date,
           subscription_status
-        `);
+        `)
+        .order('created_at', { ascending: false });
 
       console.log('📊 Resultado da busca de profiles:', { 
         profiles: usersData?.length || 0, 
@@ -87,41 +87,43 @@ export const useTokenMonitoring = () => {
         return;
       }
 
-      // Buscar emails dos usuários usando a função RPC criada
-      const { data: emailsData, error: emailsError } = await supabase
-        .rpc('get_user_emails', {
-          user_ids: usersData.map(u => u.id)
-        });
-
-      if (emailsError) {
-        console.warn('⚠️ Não foi possível buscar emails:', emailsError);
-      }
-
-      console.log('📧 Emails encontrados:', emailsData?.length || 0);
-
-      // Criar mapa de emails por ID
-      const emailMap: { [key: string]: string } = {};
-      if (emailsData && Array.isArray(emailsData)) {
-        (emailsData as UserEmail[]).forEach((item) => {
-          emailMap[item.id] = item.email;
-        });
-      }
-
-      console.log('✅ Profiles encontrados:', usersData.map(p => ({ 
+      console.log('👥 Profiles encontrados:', usersData.length);
+      console.log('📋 Detalhes dos profiles:', usersData.map(p => ({ 
         id: p.id.slice(0, 8), 
-        name: p.full_name, 
-        email: emailMap[p.id] || 'Sem email',
+        name: p.full_name || 'Sem nome',
         monthly: p.monthly_tokens, 
         extra: p.extra_tokens 
       })));
 
+      // Buscar emails dos usuários usando a função RPC
+      let emailMap: { [key: string]: string } = {};
+      
+      try {
+        const { data: emailsData, error: emailsError } = await supabase
+          .rpc('get_user_emails', {
+            user_ids: usersData.map(u => u.id)
+          });
+
+        if (emailsError) {
+          console.warn('⚠️ Erro ao buscar emails via RPC:', emailsError);
+          console.log('📧 Continuando sem emails...');
+        } else if (emailsData && Array.isArray(emailsData)) {
+          console.log('📧 Emails encontrados via RPC:', emailsData.length);
+          (emailsData as UserEmail[]).forEach((item) => {
+            emailMap[item.id] = item.email;
+          });
+        }
+      } catch (rpcError) {
+        console.warn('⚠️ Fallback: RPC não disponível, continuando sem emails:', rpcError);
+      }
+
       // Processar dados dos usuários
       const processedUsers: UserTokenData[] = usersData.map(profile => {
         const totalAvailable = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0);
-        const monthlyLimit = 25000; // Limite padrão mensal
-        const tokensUsed = Math.max(0, monthlyLimit - (profile.monthly_tokens || 0));
-        const usagePercentage = monthlyLimit > 0 
-          ? Math.round((tokensUsed / monthlyLimit) * 100)
+        const monthlyLimit = 100000; // Limite padrão mensal atual
+        const tokensUsed = profile.total_tokens_used || 0;
+        const usagePercentage = totalAvailable > 0 
+          ? Math.round((tokensUsed / (tokensUsed + totalAvailable)) * 100)
           : 0;
 
         return {
@@ -130,7 +132,7 @@ export const useTokenMonitoring = () => {
           email: emailMap[profile.id] || null,
           monthly_tokens: profile.monthly_tokens || 0,
           extra_tokens: profile.extra_tokens || 0,
-          total_tokens_used: profile.total_tokens_used || 0,
+          total_tokens_used: tokensUsed,
           tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
           total_available: totalAvailable,
           usage_percentage: Math.max(0, Math.min(100, usagePercentage))
@@ -138,11 +140,12 @@ export const useTokenMonitoring = () => {
       });
 
       console.log('🔄 Usuários processados:', processedUsers.length);
-      console.log('👥 Detalhes dos usuários:', processedUsers.map(u => ({
+      console.log('👥 Detalhes dos usuários processados:', processedUsers.map(u => ({
         id: u.id.slice(0, 8),
         name: u.full_name || 'Sem nome',
         email: u.email || 'Sem email',
-        available: u.total_available
+        available: u.total_available,
+        used: u.total_tokens_used
       })));
 
       // Calcular estatísticas
@@ -171,15 +174,14 @@ export const useTokenMonitoring = () => {
       console.log('📈 Estatísticas calculadas:', calculatedStats);
 
       setStats(calculatedStats);
-      setUserDetails(processedUsers.sort((a, b) => b.usage_percentage - a.usage_percentage));
+      setUserDetails(processedUsers.sort((a, b) => b.total_available - a.total_available));
 
-      console.log('✅ Dados atualizados com sucesso');
+      console.log('✅ Dados atualizados com sucesso - Total de usuários:', processedUsers.length);
 
     } catch (err) {
       console.error('❌ Erro ao buscar estatísticas de créditos:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       
-      // Toast para informar o erro ao usuário
       toast.error('Erro ao carregar dados', {
         description: 'Falha ao buscar informações dos usuários. Verifique os logs do console.',
         duration: 5000,
