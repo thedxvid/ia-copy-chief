@@ -8,29 +8,81 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
 serve(async (req) => {
+  console.log('=== INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE ===');
+  console.log('Method:', req.method);
+  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
+    console.log('Retornando resposta CORS OPTIONS');
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     // Validar método HTTP
     if (req.method !== 'POST') {
-      return createErrorResponse('Method not allowed', 405);
+      console.error('Método HTTP inválido:', req.method);
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }),
+        { 
+          status: 200, // Sempre retornar 200
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
+
+    // Verificar se API key existe
+    if (!anthropicApiKey) {
+      console.error('ANTHROPIC_API_KEY não encontrada nas variáveis de ambiente');
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service not configured', 
+          details: 'ANTHROPIC_API_KEY missing' 
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('ANTHROPIC_API_KEY encontrada:', anthropicApiKey ? 'Sim' : 'Não');
 
     // Validar token de autenticação
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header presente:', !!authHeader);
+    
     if (!validateAuthToken(authHeader)) {
-      return createErrorResponse('Unauthorized', 401);
+      console.error('Token de autenticação inválido');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Obter dados da requisição
-    const rawBody = await req.json();
+    let rawBody;
+    try {
+      rawBody = await req.json();
+      console.log('Body recebido:', JSON.stringify(rawBody, null, 2));
+    } catch (error) {
+      console.error('Erro ao parsear JSON:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body',
+          details: error.message 
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     const body = sanitizeInput(rawBody);
-
-    console.log('Request body received:', JSON.stringify(body, null, 2));
-
     const { 
       message, 
       agentPrompt, 
@@ -44,28 +96,52 @@ serve(async (req) => {
 
     // Validar campos obrigatórios
     if (!message || !userId) {
-      console.error('Missing required fields:', { message: !!message, userId: !!userId });
-      return createErrorResponse('Missing required fields: message and userId are required', 400);
+      console.error('Campos obrigatórios ausentes:', { 
+        message: !!message, 
+        userId: !!userId 
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields', 
+          details: 'message and userId are required' 
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
+
+    console.log('Dados validados:', {
+      userId,
+      messageLength: message.length,
+      agentName,
+      productId
+    });
 
     // Rate limiting por usuário (20 requests por minuto)
     if (!checkRateLimit(`chat:${userId}`, 20, 60000)) {
-      return createErrorResponse('Rate limit exceeded. Please try again later.', 429);
+      console.error('Rate limit excedido para usuário:', userId);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded', 
+          details: 'Please try again later' 
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verificar se o Anthropic API key está configurado
-    if (!anthropicApiKey) {
-      console.error('ANTHROPIC_API_KEY not configured');
-      return createErrorResponse('AI service not configured', 500);
-    }
-
     // Preparar prompt do sistema
     let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
+    console.log('System prompt length:', systemPrompt.length);
     
     // Preparar mensagens para Claude
-    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-20) : []; // Máximo 20 mensagens
+    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-20) : [];
     const claudeMessages = conversationMessages.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content || ''
@@ -76,53 +152,120 @@ serve(async (req) => {
       content: message
     });
 
-    console.log('Calling Claude API with:', {
-      systemPrompt: systemPrompt.substring(0, 100) + '...',
+    console.log('Preparando chamada para Claude:', {
+      systemPromptLength: systemPrompt.length,
       messageCount: claudeMessages.length,
-      lastMessage: claudeMessages[claudeMessages.length - 1]?.content?.substring(0, 100) + '...'
+      lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length
     });
 
-    // Chamada para Claude
-    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: claudeMessages
-      })
+    // Chamada para Claude com timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
+
+    let claudeResponse;
+    try {
+      claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicApiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022', // Modelo atualizado
+          max_tokens: 4000,
+          system: systemPrompt,
+          messages: claudeMessages
+        }),
+        signal: controller.signal
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('Erro na requisição para Claude:', error);
+      
+      if (error.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Request timeout', 
+            details: 'Claude API request timed out' 
+          }),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Network error', 
+          details: error.message 
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    clearTimeout(timeoutId);
+
+    console.log('Resposta Claude recebida:', {
+      status: claudeResponse.status,
+      statusText: claudeResponse.statusText,
+      ok: claudeResponse.ok
     });
 
     if (!claudeResponse.ok) {
       const errorText = await claudeResponse.text();
-      console.error('Claude API error:', {
+      console.error('Erro da API Claude:', {
         status: claudeResponse.status,
         statusText: claudeResponse.statusText,
-        error: errorText
+        body: errorText
       });
       
-      // Retornar erro mais específico baseado no status
+      // Retornar erro específico mas com status 200
+      let errorMessage = 'AI service temporarily unavailable';
       if (claudeResponse.status === 401) {
-        return createErrorResponse('AI service authentication failed', 401);
+        errorMessage = 'AI service authentication failed';
       } else if (claudeResponse.status === 429) {
-        return createErrorResponse('AI service rate limit exceeded. Please try again later.', 429);
+        errorMessage = 'AI service rate limit exceeded';
       } else if (claudeResponse.status === 400) {
-        return createErrorResponse('Invalid request to AI service', 400);
-      } else {
-        return createErrorResponse('AI service temporarily unavailable', 503);
+        errorMessage = 'Invalid request to AI service';
       }
+      
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          details: `Claude API returned ${claudeResponse.status}: ${errorText}`
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    const claudeData = await claudeResponse.json();
-    console.log('Claude response received:', {
-      hasContent: !!claudeData.content,
-      contentLength: claudeData.content?.[0]?.text?.length || 0
-    });
+    let claudeData;
+    try {
+      claudeData = await claudeResponse.json();
+      console.log('Claude response parsed:', {
+        hasContent: !!claudeData.content,
+        contentLength: claudeData.content?.[0]?.text?.length || 0
+      });
+    } catch (error) {
+      console.error('Erro ao parsear resposta do Claude:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid response from AI service',
+          details: error.message
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     const aiResponse = claudeData.content?.[0]?.text || 'Resposta não disponível';
 
@@ -131,27 +274,39 @@ serve(async (req) => {
     const completionTokens = aiResponse.length / 4;
     const totalTokens = Math.ceil(promptTokens + completionTokens);
 
-    console.log('Request processed successfully:', {
+    console.log('Processamento concluído com sucesso:', {
       userId,
       tokensUsed: totalTokens,
       responseLength: aiResponse.length
     });
 
-    return createSecureResponse({
-      response: aiResponse,
-      tokensUsed: totalTokens
-    });
+    return new Response(
+      JSON.stringify({
+        response: aiResponse,
+        tokensUsed: totalTokens
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error) {
-    console.error('Unexpected error in chat function:', error);
+    console.error('=== ERRO CRÍTICO NA FUNÇÃO ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     
-    // Log detalhado para debugging
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-    
-    return createErrorResponse('Internal server error', 500);
+    return new Response(
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message,
+        stack: error.stack
+      }),
+      { 
+        status: 200, // SEMPRE 200 para evitar o erro no frontend
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
