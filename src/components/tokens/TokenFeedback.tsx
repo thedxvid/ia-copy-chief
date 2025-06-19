@@ -71,8 +71,7 @@ export const useTokenFeedback = () => {
     feature?: string;
   }>({ show: false });
 
-  const showFeedback = (tok
-ensUsed: number, feature: string = 'ação') => {
+  const showFeedback = (tokensUsed: number, feature: string = 'ação') => {
     setFeedback({ show: true, tokensUsed, feature });
   };
 
