@@ -56,14 +56,21 @@ export const TokenWidget = () => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#1E1E1E] rounded-lg border border-[#2A2A2A] cursor-pointer">
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#1E1E1E] rounded-lg border border-red-500/50 cursor-pointer">
               <Coins className="h-4 w-4 text-red-500" />
               <span className="text-xs text-red-500">Erro</span>
-              <RefreshCw className="h-3 w-3 text-gray-400 hover:text-white" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={forceReconnect}
+                className="h-5 w-5 p-0 text-red-400 hover:text-red-300"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Erro ao carregar créditos. Sistema offline.</p>
+            <p>Erro ao carregar créditos. Clique em refresh para tentar novamente.</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -109,7 +116,7 @@ export const TokenWidget = () => {
       case 'connecting':
         return <RefreshCw className="h-3 w-3 text-yellow-500 animate-spin" />;
       case 'error':
-        return <AlertCircle className="h-3 w-3 text-red-500" />;
+        return <AlertCircle className="h-3 w-3 text-red-500 animate-pulse" />;
       default:
         return <WifiOff className="h-3 w-3 text-gray-500" />;
     }
@@ -122,9 +129,22 @@ export const TokenWidget = () => {
       case 'connecting':
         return 'Conectando...';
       case 'error':
-        return `Erro (${retryCount}/3)`;
+        return `Erro (${retryCount}/5)`;
       default:
         return 'Offline';
+    }
+  };
+
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return 'text-green-400';
+      case 'connecting':
+        return 'text-yellow-400';
+      case 'error':
+        return 'text-red-400';
+      default:
+        return 'text-gray-400';
     }
   };
 
@@ -139,6 +159,10 @@ export const TokenWidget = () => {
                 className={`hidden md:flex items-center gap-2 px-3 py-2 bg-[#1E1E1E] rounded-lg border transition-all duration-300 cursor-pointer group ${
                   pulseAnimation 
                     ? 'border-[#3B82F6] shadow-lg shadow-[#3B82F6]/20 scale-105' 
+                    : connectionStatus === 'error' 
+                    ? 'border-red-500/50 hover:border-red-500/70'
+                    : connectionStatus === 'connected'
+                    ? 'border-green-500/30 hover:border-[#3B82F6]/50'
                     : 'border-[#2A2A2A] hover:border-[#3B82F6]/50'
                 }`}
                 onClick={() => setShowAnalytics(true)}
@@ -152,7 +176,7 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 
-                {/* Indicador de conexão realtime melhorado */}
+                {/* Indicador de conexão realtime */}
                 <div className="relative flex items-center gap-1">
                   {getConnectionIcon()}
                   {connectionStatus === 'error' && (
@@ -163,7 +187,7 @@ export const TokenWidget = () => {
                         e.stopPropagation();
                         forceReconnect();
                       }}
-                      className="h-5 w-5 p-0 text-gray-400 hover:text-white"
+                      className="h-5 w-5 p-0 text-red-400 hover:text-red-300"
                     >
                       <RefreshCw className="h-3 w-3" />
                     </Button>
@@ -178,7 +202,7 @@ export const TokenWidget = () => {
                   {formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)}
                 </span>
                 
-                {/* Barra de progresso aprimorada */}
+                {/* Barra de progresso */}
                 <div className="w-16 h-2 rounded-full bg-[#2A2A2A] overflow-hidden relative">
                   <div 
                     className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${getProgressBarColor()}`}
@@ -189,7 +213,7 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 
-                {/* Mini indicador de última atualização */}
+                {/* Indicador de última atualização */}
                 {lastUpdate && (
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 )}
@@ -211,11 +235,7 @@ export const TokenWidget = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <strong>Conexão:</strong>
-                  <span className={
-                    connectionStatus === 'connected' ? 'text-green-400' :
-                    connectionStatus === 'connecting' ? 'text-yellow-400' :
-                    'text-red-400'
-                  }>
+                  <span className={getConnectionColor()}>
                     {getConnectionStatus()}
                   </span>
                   {getConnectionIcon()}
@@ -250,6 +270,10 @@ export const TokenWidget = () => {
                 className={`md:hidden flex items-center gap-1 px-2 py-1.5 bg-[#1E1E1E] rounded-lg border transition-all duration-300 cursor-pointer ${
                   pulseAnimation 
                     ? 'border-[#3B82F6] shadow-lg shadow-[#3B82F6]/20' 
+                    : connectionStatus === 'error' 
+                    ? 'border-red-500/50'
+                    : connectionStatus === 'connected'
+                    ? 'border-green-500/30'
                     : 'border-[#2A2A2A]'
                 }`}
                 onClick={() => setShowAnalytics(true)}
@@ -280,7 +304,7 @@ export const TokenWidget = () => {
                       e.stopPropagation();
                       forceReconnect();
                     }}
-                    className="h-4 w-4 p-0 text-gray-400 hover:text-white"
+                    className="h-4 w-4 p-0 text-red-400 hover:text-red-300"
                   >
                     <RefreshCw className="h-2.5 w-2.5" />
                   </Button>
@@ -294,11 +318,7 @@ export const TokenWidget = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <strong>Conexão:</strong>
-                  <span className={
-                    connectionStatus === 'connected' ? 'text-green-400' :
-                    connectionStatus === 'connecting' ? 'text-yellow-400' :
-                    'text-red-400'
-                  }>
+                  <span className={getConnectionColor()}>
                     {getConnectionStatus()}
                   </span>
                 </div>
