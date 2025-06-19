@@ -15,6 +15,8 @@ export const useChatAgent = (selectedProductId?: string) => {
   useEffect(() => {
     if (!user) {
       console.log('useChatAgent: Usuário não logado, não carregando sessões');
+      setSessions([]);
+      setActiveSession(null);
       return;
     }
 
@@ -33,33 +35,43 @@ export const useChatAgent = (selectedProductId?: string) => {
           return;
         }
 
-        console.log('useChatAgent: Sessões carregadas do banco:', data?.length || 0);
+        console.log('useChatAgent: Dados retornados do banco:', data);
 
-        if (data) {
+        if (data && Array.isArray(data)) {
           const loadedSessions: ChatSession[] = data.map(session => ({
-            ...session,
-            messages: [] // Inicializa as mensagens como um array vazio
+            id: session.id,
+            user_id: session.user_id,
+            created_at: session.created_at,
+            updated_at: session.updated_at,
+            title: session.title || 'Nova conversa',
+            messages: [], // Inicializa as mensagens como um array vazio
+            agent_id: session.agent_id || 'default',
+            agent_name: session.agent_name || 'Assistente',
+            product_id: session.product_id,
+            message_count: session.message_count || 0,
+            is_active: session.is_active !== false
           }));
           
-          console.log('useChatAgent: Atualizando estado com sessões:', loadedSessions.length);
+          console.log('useChatAgent: Sessões processadas:', loadedSessions.length);
           setSessions(loadedSessions);
-
-          // Se não há sessão ativa e existem sessões carregadas, não selecionar automaticamente
-          // Deixar o usuário escolher qual sessão abrir
-          console.log('useChatAgent: Sessões carregadas com sucesso');
+          console.log('useChatAgent: Estado das sessões atualizado com sucesso');
+        } else {
+          console.log('useChatAgent: Nenhuma sessão encontrada');
+          setSessions([]);
         }
       } catch (error) {
         console.error('useChatAgent: Erro ao carregar sessões:', error);
+        setSessions([]);
       }
     };
 
     loadSessions();
-  }, [supabase, user]);
+  }, [supabase, user?.id]); // Dependência mais específica
 
   // Load messages for active session
   useEffect(() => {
-    if (!activeSession) {
-      console.log('useChatAgent: Nenhuma sessão ativa, não carregando mensagens');
+    if (!activeSession || !user) {
+      console.log('useChatAgent: Nenhuma sessão ativa ou usuário não logado, não carregando mensagens');
       return;
     }
 
@@ -78,10 +90,15 @@ export const useChatAgent = (selectedProductId?: string) => {
           return;
         }
 
-        if (data) {
+        if (data && Array.isArray(data)) {
           const loadedMessages: ChatMessage[] = data.map(message => ({
-            ...message,
-            timestamp: new Date(message.created_at)
+            id: message.id,
+            role: message.role as 'user' | 'assistant',
+            content: message.content,
+            timestamp: new Date(message.created_at),
+            session_id: message.session_id,
+            tokens_used: message.tokens_used,
+            model_used: message.model_used
           }));
 
           console.log('useChatAgent: Mensagens carregadas:', loadedMessages.length);
@@ -100,7 +117,7 @@ export const useChatAgent = (selectedProductId?: string) => {
     };
 
     loadMessages();
-  }, [supabase, activeSession]);
+  }, [supabase, activeSession?.id, user?.id]);
 
   const createNewSession = async () => {
     if (!user) {
@@ -108,31 +125,50 @@ export const useChatAgent = (selectedProductId?: string) => {
       return;
     }
 
-    console.log('useChatAgent: Criando nova sessão...');
+    if (!selectedAgent) {
+      console.error('useChatAgent: Nenhum agente selecionado, não é possível criar sessão');
+      return;
+    }
+
+    console.log('useChatAgent: Criando nova sessão com agente:', selectedAgent.name);
 
     const newSessionId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    
     const newSession: ChatSession = {
       id: newSessionId,
       user_id: user.id,
-      created_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
       title: 'Nova conversa',
       messages: [],
-      agent_id: selectedAgent?.id || 'default',
-      agent_name: selectedAgent?.name || 'Assistente'
+      agent_id: selectedAgent.id,
+      agent_name: selectedAgent.name,
+      product_id: selectedProductId,
+      message_count: 0,
+      is_active: true
     };
 
     try {
-      console.log('useChatAgent: Inserindo nova sessão no banco:', newSessionId);
+      console.log('useChatAgent: Inserindo nova sessão no banco:', {
+        id: newSessionId,
+        agent_id: selectedAgent.id,
+        agent_name: selectedAgent.name
+      });
       
       const { error } = await supabase
         .from('chat_sessions')
         .insert([{
           id: newSession.id,
           user_id: user.id,
-          created_at: new Date().toISOString(),
+          created_at: now,
+          updated_at: now,
           title: 'Nova conversa',
-          agent_id: selectedAgent?.id || 'default',
-          agent_name: selectedAgent?.name || 'Assistente'
+          agent_id: selectedAgent.id,
+          agent_name: selectedAgent.name,
+          product_id: selectedProductId,
+          message_count: 0,
+          is_active: true
         }]);
 
       if (error) {
@@ -140,14 +176,17 @@ export const useChatAgent = (selectedProductId?: string) => {
         return;
       }
 
-      console.log('useChatAgent: Nova sessão criada com sucesso, atualizando estado');
+      console.log('useChatAgent: Nova sessão criada com sucesso no banco');
       
       // Adicionar a nova sessão no início da lista
-      setSessions(prev => [newSession, ...prev]);
+      setSessions(prev => {
+        const updatedSessions = [newSession, ...prev];
+        console.log('useChatAgent: Sessions atualizadas:', updatedSessions.length);
+        return updatedSessions;
+      });
       
       // Definir como sessão ativa
       setActiveSession(newSession);
-      
       console.log('useChatAgent: Nova sessão definida como ativa:', newSessionId);
       
     } catch (error) {
@@ -362,6 +401,16 @@ export const useChatAgent = (selectedProductId?: string) => {
 
     await sendMessage(lastMessage.content);
   };
+
+  // Log do estado atual para debug
+  useEffect(() => {
+    console.log('useChatAgent: Estado atual:', {
+      sessionsCount: sessions.length,
+      activeSessionId: activeSession?.id,
+      selectedAgentId: selectedAgent?.id,
+      userLoggedIn: !!user
+    });
+  }, [sessions.length, activeSession?.id, selectedAgent?.id, user]);
 
   return {
     sessions,
