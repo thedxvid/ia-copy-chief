@@ -425,10 +425,23 @@ INSTRUÇÕES IMPORTANTES:
         await saveSessionToSupabase(finalSession);
       }
 
-      // Toast de sucesso sutil com informações de performance
+      // Toast de sucesso com feedback de tokens
       if (data.tokensUsed) {
         console.log(`✅ Resposta gerada usando ${data.tokensUsed} tokens`);
-        toast.success(`🎯 Resposta gerada com sucesso! (${data.tokensUsed} tokens)`);
+        
+        // Toast mais informativo com feedback de tokens
+        const getTokenIcon = (tokens: number) => {
+          if (tokens > 2000) return '🔥';
+          if (tokens > 1000) return '⚡';
+          return '✨';
+        };
+
+        const tokenIcon = getTokenIcon(data.tokensUsed);
+        
+        toast.success(`${tokenIcon} Resposta gerada!`, {
+          description: `${data.tokensUsed.toLocaleString()} tokens consumidos nesta conversa`,
+          duration: 4000,
+        });
       }
 
     } catch (error) {
