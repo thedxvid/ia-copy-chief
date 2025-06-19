@@ -28,14 +28,92 @@ function extractNameFromEmail(email: string): string {
   return username.charAt(0).toUpperCase() + username.slice(1);
 }
 
+// Função para validar email
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Função para registrar webhook na auditoria
+async function logWebhookToAudit(supabase: any, body: any) {
+  try {
+    console.log('📝 Registrando webhook na tabela de auditoria...');
+    const { error: webhookError } = await supabase
+      .from('kiwify_webhooks')
+      .insert({
+        event_type: body.webhook_event_type || body.event || 'unknown',
+        kiwify_order_id: body.order_id || body.order?.id || 'unknown',
+        customer_email: body.Customer?.email || body.order?.Customer?.email || '',
+        customer_id: body.Customer?.id || body.order?.Customer?.id || null,
+        status: body.order_status || body.order?.order_status || 'unknown',
+        raw_data: body,
+        processed: false
+      });
+
+    if (webhookError) {
+      console.error('❌ Erro ao registrar webhook na auditoria:', webhookError);
+    } else {
+      console.log('✅ Webhook registrado com sucesso na auditoria');
+    }
+  } catch (error) {
+    console.error('❌ Erro crítico ao registrar auditoria:', error);
+  }
+}
+
+// Função para verificar se webhook já foi processado
+async function checkDuplicateWebhook(supabase: any, orderId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('kiwify_webhooks')
+      .select('id, processed')
+      .eq('kiwify_order_id', orderId)
+      .eq('processed', true)
+      .limit(1);
+
+    if (error) {
+      console.error('❌ Erro ao verificar webhook duplicado:', error);
+      return false;
+    }
+
+    const isDuplicate = data && data.length > 0;
+    if (isDuplicate) {
+      console.log('⚠️ Webhook duplicado detectado para order:', orderId);
+    }
+    
+    return isDuplicate;
+  } catch (error) {
+    console.error('❌ Erro ao verificar duplicação:', error);
+    return false;
+  }
+}
+
 serve(async (req) => {
-  console.log('🚀 WEBHOOK KIWIFY INICIADO - Método:', req.method);
-  console.log('🔗 Headers recebidos:', Object.fromEntries(req.headers.entries()));
+  const timestamp = new Date().toISOString();
+  console.log(`🚀 WEBHOOK KIWIFY INICIADO - ${timestamp}`);
+  console.log('📊 Método:', req.method);
+  console.log('🌐 URL:', req.url);
+  console.log('🔗 Headers:', Object.fromEntries(req.headers.entries()));
 
   // Handle CORS
   if (req.method === 'OPTIONS') {
     console.log('✅ Respondendo a requisição OPTIONS (CORS)');
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // Endpoint de teste GET
+  if (req.method === 'GET') {
+    console.log('🧪 Endpoint de teste acessado');
+    return new Response(
+      JSON.stringify({ 
+        status: 'OK', 
+        message: 'Kiwify webhook is active and running',
+        timestamp: timestamp
+      }), 
+      { 
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      }
+    );
   }
 
   try {
@@ -53,7 +131,8 @@ serve(async (req) => {
 
     // Obter dados do webhook
     const rawBody = await req.text();
-    console.log('📦 Raw body recebido:', rawBody);
+    console.log('📦 Raw body recebido (tamanho):', rawBody.length);
+    console.log('📦 Raw body preview:', rawBody.substring(0, 500) + '...');
 
     let body;
     try {
@@ -69,19 +148,59 @@ serve(async (req) => {
       );
     }
 
-    console.log('🎯 Webhook Kiwify processado:', {
-      event: body.event,
-      orderId: body.order?.id,
-      customerEmail: body.order?.Customer?.email,
-      status: body.order?.order_status,
-      fullPayload: body
-    });
+    console.log('🎯 Webhook processado com campos:', Object.keys(body));
+    console.log('📧 Event type:', body.webhook_event_type || body.event);
+    console.log('🆔 Order ID:', body.order_id || body.order?.id);
+    console.log('📊 Order status:', body.order_status || body.order?.order_status);
+    console.log('👤 Customer email:', body.Customer?.email || body.order?.Customer?.email);
 
-    // Validar estrutura básica do webhook
-    if (!body.event || !body.order || !body.order.id) {
-      console.error('❌ Estrutura inválida do webhook:', body);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Registrar webhook para auditoria SEMPRE
+    await logWebhookToAudit(supabase, body);
+
+    // Validar estrutura do webhook - adaptada para diferentes formatos
+    const orderId = body.order_id || body.order?.id;
+    const customerEmail = body.Customer?.email || body.order?.Customer?.email;
+    const eventType = body.webhook_event_type || body.event;
+    const orderStatus = body.order_status || body.order?.order_status;
+
+    console.log('🔍 Dados extraídos:');
+    console.log('  - Order ID:', orderId);
+    console.log('  - Customer Email:', customerEmail);
+    console.log('  - Event Type:', eventType);
+    console.log('  - Order Status:', orderStatus);
+
+    // Validações obrigatórias
+    const validationErrors = [];
+    
+    if (!orderId) {
+      validationErrors.push('Order ID is missing');
+    }
+    
+    if (!customerEmail) {
+      validationErrors.push('Customer email is missing');
+    } else if (!isValidEmail(customerEmail)) {
+      validationErrors.push('Customer email format is invalid');
+    }
+    
+    if (!eventType) {
+      validationErrors.push('Event type is missing');
+    }
+
+    if (validationErrors.length > 0) {
+      console.error('❌ Validação falhou:', validationErrors);
       return new Response(
-        JSON.stringify({ error: 'Invalid webhook payload structure' }), 
+        JSON.stringify({ 
+          error: 'Validation failed', 
+          details: validationErrors,
+          received_data: {
+            orderId,
+            customerEmail,
+            eventType,
+            orderStatus
+          }
+        }), 
         { 
           status: 400,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
@@ -89,43 +208,30 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Registrar webhook para auditoria
-    console.log('📝 Registrando webhook na tabela de auditoria...');
-    const { error: webhookError } = await supabase
-      .from('kiwify_webhooks')
-      .insert({
-        event_type: body.event,
-        kiwify_order_id: body.order.id,
-        customer_email: body.order.Customer?.email || '',
-        customer_id: body.order.Customer?.id || null,
-        status: body.order.order_status || '',
-        raw_data: body,
-        processed: false
-      });
-
-    if (webhookError) {
-      console.error('❌ Erro ao registrar webhook:', webhookError);
-    } else {
-      console.log('✅ Webhook registrado com sucesso na auditoria');
+    // Verificar webhook duplicado
+    const isDuplicate = await checkDuplicateWebhook(supabase, orderId);
+    if (isDuplicate) {
+      console.log('⚠️ Webhook duplicado ignorado para order:', orderId);
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: 'Webhook already processed (duplicate)',
+          orderId: orderId
+        }), 
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
     }
 
     // Processar apenas eventos de pagamento aprovado
-    if (body.event === 'order_paid' && body.order.order_status === 'paid') {
-      const customerEmail = body.order.Customer?.email;
-      
-      if (!customerEmail) {
-        console.error('❌ Email do cliente não encontrado');
-        return new Response(
-          JSON.stringify({ error: 'Customer email not found' }), 
-          { 
-            status: 400,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders }
-          }
-        );
-      }
+    const shouldProcess = (
+      (eventType === 'order_paid' && orderStatus === 'paid') ||
+      (eventType === 'order_approved' && orderStatus === 'paid')
+    );
 
+    if (shouldProcess) {
       console.log('💰 Processando pagamento aprovado para:', customerEmail);
 
       // Buscar usuário pelo email de forma segura
@@ -147,13 +253,14 @@ serve(async (req) => {
 
       if (targetUser) {
         // FLUXO EXISTENTE: Usuário já existe, apenas ativar assinatura
-        console.log('👤 Usuário existente encontrado, ativando assinatura');
+        console.log('👤 Usuário existente encontrado:', targetUser.id);
+        console.log('📝 Ativando assinatura para usuário existente...');
         
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
             subscription_status: 'active',
-            kiwify_customer_id: body.order.Customer.id,
+            kiwify_customer_id: body.Customer?.id || body.order?.Customer?.id,
             payment_approved_at: new Date().toISOString(),
             subscription_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
           })
@@ -174,12 +281,12 @@ serve(async (req) => {
         
       } else {
         // NOVO FLUXO: Usuário não existe, criar conta e enviar credenciais
-        console.log('🆕 Novo usuário detectado, criando conta');
+        console.log('🆕 Novo usuário detectado, iniciando criação de conta...');
         
         const temporaryPassword = generateTemporaryPassword();
         const customerName = extractNameFromEmail(customerEmail);
         
-        console.log('🔐 Senha temporária gerada:', temporaryPassword);
+        console.log('🔐 Senha temporária gerada para:', customerEmail);
         console.log('👤 Nome extraído do email:', customerName);
         
         try {
@@ -192,7 +299,7 @@ serve(async (req) => {
             user_metadata: {
               full_name: customerName,
               is_kiwify_user: true,
-              kiwify_order_id: body.order.id
+              kiwify_order_id: orderId
             }
           });
 
@@ -215,7 +322,7 @@ serve(async (req) => {
             .from('profiles')
             .update({
               subscription_status: 'active',
-              kiwify_customer_id: body.order.Customer.id,
+              kiwify_customer_id: body.Customer?.id || body.order?.Customer?.id,
               payment_approved_at: new Date().toISOString(),
               subscription_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
               first_login: true // Marcar para alterar senha no primeiro login
@@ -246,7 +353,7 @@ serve(async (req) => {
             // Não retornar erro aqui, pois o usuário foi criado com sucesso
             console.log('⚠️ Usuário criado mas email falhou - usuário pode fazer login normalmente');
           } else {
-            console.log('✅ Email enviado com sucesso:', emailData);
+            console.log('✅ Email enviado com sucesso');
           }
 
           console.log('🎉 Fluxo completo executado para novo usuário:', customerEmail);
@@ -268,18 +375,31 @@ serve(async (req) => {
       await supabase
         .from('kiwify_webhooks')
         .update({ processed: true })
-        .eq('kiwify_order_id', body.order.id);
+        .eq('kiwify_order_id', orderId);
 
-      console.log('✅ Webhook processado com sucesso - FINALIZANDO');
+      console.log('✅ WEBHOOK PROCESSADO COM SUCESSO');
+      console.log('📊 Resumo da ativação:');
+      console.log('  - Email:', customerEmail);
+      console.log('  - Order ID:', orderId);
+      console.log('  - Usuário:', targetUser ? 'Existente' : 'Novo');
+      console.log('  - Status:', 'Assinatura Ativada');
+
     } else {
-      console.log('ℹ️ Evento ignorado:', body.event, 'Status:', body.order?.order_status);
+      console.log('ℹ️ Evento ignorado:');
+      console.log('  - Event Type:', eventType);
+      console.log('  - Order Status:', orderStatus);
+      console.log('  - Motivo: Não é um pagamento aprovado');
     }
 
     return new Response(
       JSON.stringify({ 
         success: true,
         message: 'Webhook processed successfully',
-        processed: body.event === 'order_paid' && body.order?.order_status === 'paid' 
+        processed: shouldProcess,
+        orderId: orderId,
+        customerEmail: customerEmail,
+        eventType: eventType,
+        orderStatus: orderStatus
       }), 
       {
         status: 200,
@@ -288,11 +408,13 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 Erro crítico no webhook:', error);
+    console.error('💥 ERRO CRÍTICO NO WEBHOOK:', error);
+    console.error('📍 Stack trace:', error.stack);
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: timestamp
       }), 
       {
         status: 500,
