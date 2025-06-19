@@ -823,6 +823,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          user_id: string
+          action_type: string
+          max_requests?: number
+          time_window?: unknown
+        }
+        Returns: boolean
+      }
       consume_tokens: {
         Args: {
           p_user_id: string

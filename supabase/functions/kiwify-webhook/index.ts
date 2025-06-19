@@ -1,167 +1,110 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, sanitizeInput } from '../_shared/security.ts'
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-interface KiwifyWebhookData {
-  event: string;
-  order_id: string;
-  customer: {
-    email: string;
-    id?: string;
-  };
-  status: string;
-  product?: {
-    id: string;
-    name: string;
-  };
-  payment?: {
-    amount: number;
-    currency: string;
-  };
-}
-
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+serve(async (req) => {
+  // Handle CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // Validar método HTTP
+    if (req.method !== 'POST') {
+      return createErrorResponse('Method not allowed', 405);
+    }
 
-    const webhookData: KiwifyWebhookData = await req.json();
-    console.log("Kiwify webhook received:", webhookData);
+    // Rate limiting global para webhooks (100 requests por minuto)
+    const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+    if (!checkRateLimit(`webhook:${clientIP}`, 100, 60000)) {
+      return createErrorResponse('Rate limit exceeded', 429);
+    }
 
-    // Salvar webhook para auditoria
+    // Obter e sanitizar dados do webhook
+    const rawBody = await req.json();
+    const body = sanitizeInput(rawBody);
+
+    console.log('Webhook recebido:', body);
+
+    // Validar estrutura básica do webhook
+    if (!body.event || !body.order || !body.order.id) {
+      return createErrorResponse('Invalid webhook payload', 400);
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Registrar webhook para auditoria
     const { error: webhookError } = await supabase
-      .from("kiwify_webhooks")
+      .from('kiwify_webhooks')
       .insert({
-        event_type: webhookData.event,
-        kiwify_order_id: webhookData.order_id,
-        customer_email: webhookData.customer.email,
-        customer_id: webhookData.customer.id,
-        status: webhookData.status,
-        raw_data: webhookData,
-        processed: false,
+        event_type: body.event,
+        kiwify_order_id: body.order.id,
+        customer_email: body.order.Customer?.email || '',
+        customer_id: body.order.Customer?.id || null,
+        status: body.order.order_status || '',
+        raw_data: body,
+        processed: false
       });
 
     if (webhookError) {
-      console.error("Error saving webhook:", webhookError);
+      console.error('Erro ao registrar webhook:', webhookError);
     }
 
-    // Processar eventos de pagamento
-    if (webhookData.event === "order_paid" || webhookData.event === "payment_approved") {
-      await processPaymentApproved(supabase, webhookData);
-    } else if (webhookData.event === "order_cancelled" || webhookData.event === "payment_cancelled") {
-      await processPaymentCancelled(supabase, webhookData);
-    }
-
-    // Marcar webhook como processado
-    await supabase
-      .from("kiwify_webhooks")
-      .update({ processed: true })
-      .eq("kiwify_order_id", webhookData.order_id);
-
-    return new Response(
-      JSON.stringify({ success: true }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+    // Processar apenas eventos de pagamento aprovado
+    if (body.event === 'order_paid' && body.order.order_status === 'paid') {
+      const customerEmail = body.order.Customer?.email;
+      
+      if (!customerEmail) {
+        return createErrorResponse('Customer email not found', 400);
       }
-    );
-  } catch (error: any) {
-    console.error("Webhook error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+
+      // Buscar usuário pelo email de forma segura
+      const { data: user, error: userError } = await supabase.auth.admin.listUsers();
+      
+      if (userError) {
+        console.error('Erro ao buscar usuários:', userError);
+        return createErrorResponse('Error processing payment', 500);
       }
-    );
-  }
-};
 
-async function processPaymentApproved(supabase: any, webhookData: KiwifyWebhookData) {
-  console.log("Processing payment approved for:", webhookData.customer.email);
+      const targetUser = user.users.find(u => u.email === customerEmail);
 
-  // Encontrar usuário pelo email
-  const { data: profiles, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", (await supabase.auth.admin.getUserByEmail(webhookData.customer.email)).data.user?.id);
+      if (targetUser) {
+        // Atualizar status da assinatura de forma segura
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'active',
+            kiwify_customer_id: body.order.Customer.id,
+            payment_approved_at: new Date().toISOString(),
+            subscription_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 ano
+          })
+          .eq('id', targetUser.id);
 
-  if (profileError || !profiles?.length) {
-    console.error("User not found for email:", webhookData.customer.email);
-    return;
-  }
+        if (profileError) {
+          console.error('Erro ao atualizar perfil:', profileError);
+          return createErrorResponse('Error updating user profile', 500);
+        }
 
-  const profile = profiles[0];
+        // Marcar webhook como processado
+        await supabase
+          .from('kiwify_webhooks')
+          .update({ processed: true })
+          .eq('kiwify_order_id', body.order.id);
 
-  // Atualizar subscription do usuário
-  const subscriptionExpiresAt = new Date();
-  subscriptionExpiresAt.setMonth(subscriptionExpiresAt.getMonth() + 1); // 1 mês de acesso
-
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({
-      subscription_status: "active",
-      kiwify_customer_id: webhookData.customer.id,
-      payment_approved_at: new Date().toISOString(),
-      subscription_expires_at: subscriptionExpiresAt.toISOString(),
-    })
-    .eq("id", profile.id);
-
-  if (updateError) {
-    console.error("Error updating profile:", updateError);
-    return;
-  }
-
-  // Enviar email de confirmação
-  await sendWelcomeEmail(webhookData.customer.email, profile.full_name);
-}
-
-async function processPaymentCancelled(supabase: any, webhookData: KiwifyWebhookData) {
-  console.log("Processing payment cancelled for:", webhookData.customer.email);
-
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", (await supabase.auth.admin.getUserByEmail(webhookData.customer.email)).data.user?.id);
-
-  if (profiles?.length) {
-    await supabase
-      .from("profiles")
-      .update({
-        subscription_status: "cancelled",
-      })
-      .eq("id", profiles[0].id);
-  }
-}
-
-async function sendWelcomeEmail(email: string, name: string) {
-  try {
-    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-      },
-      body: JSON.stringify({ email, name }),
-    });
-
-    if (!response.ok) {
-      console.error("Failed to send welcome email");
+        console.log(`Assinatura ativada para: ${customerEmail}`);
+      } else {
+        console.log(`Usuário não encontrado para email: ${customerEmail}`);
+      }
     }
+
+    return createSecureResponse({ success: true });
+
   } catch (error) {
-    console.error("Error sending welcome email:", error);
+    console.error('Erro no webhook:', error);
+    return createErrorResponse('Internal server error', 500);
   }
-}
-
-serve(handler);
+});
