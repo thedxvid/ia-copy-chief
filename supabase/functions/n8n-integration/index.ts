@@ -142,7 +142,7 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', // Claude Sonnet 4 atualizado
+        model: 'claude-4-sonnet-20241022', // Claude 4 Sonnet modelo correto
         max_tokens: 4000,
         messages: [
           { role: 'user', content: prompt }
