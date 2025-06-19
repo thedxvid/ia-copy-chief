@@ -306,14 +306,14 @@ INSTRUÇÕES IMPORTANTES:
 
       console.log('Chamando chat function com userId:', user?.id);
 
-      // Toast melhorado para feedback do usuário
-      const loadingToast = toast.loading('Processando sua mensagem... Isso pode levar até 60 segundos para respostas complexas.');
+      // Toast melhorado para feedback do usuário com timeout maior
+      const loadingToast = toast.loading('🤖 Processando sua mensagem... Pode levar até 2 minutos para respostas complexas.');
 
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
         body: {
           message: content,
           agentPrompt: enhancedPrompt,
-          chatHistory: activeSession.messages.map(msg => ({
+          chatHistory: activeSession.messages.slice(-8).map(msg => ({ // Reduzido para 8 mensagens
             role: msg.role,
             content: msg.content
           })),
@@ -333,17 +333,22 @@ INSTRUÇÕES IMPORTANTES:
       if (error) {
         console.error('Error calling chat function:', error);
         
-        // Tratamento melhorado de erros baseado na nova estrutura
+        // Tratamento super otimizado de erros baseado na nova estrutura
         let errorMessage = 'Erro temporário no chat. Tente novamente em alguns instantes.';
         
-        if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
-          errorMessage = 'A IA está demorando para responder. Tente uma pergunta mais simples ou divida em partes menores.';
+        if (error.message?.includes('timeout') || error.message?.includes('timed out') || 
+            error.message?.includes('Claude API timeout')) {
+          errorMessage = '⏰ A IA está sobrecarregada. Tente uma pergunta mais direta ou aguarde 30 segundos.';
         } else if (error.message?.includes('Rate limit exceeded') || error.message?.includes('rate limit')) {
-          errorMessage = 'Muitas mensagens enviadas rapidamente. Aguarde um momento antes de tentar novamente.';
-        } else if (error.message?.includes('network') || error.message?.includes('conectividade')) {
-          errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
-        } else if (error.message?.includes('503') || error.message?.includes('indisponível')) {
-          errorMessage = 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.';
+          errorMessage = '🚦 Muitas mensagens rapidamente. Aguarde 10 segundos e tente novamente.';
+        } else if (error.message?.includes('network') || error.message?.includes('conectividade') || 
+                   error.message?.includes('Failed to fetch')) {
+          errorMessage = '🌐 Problema de conexão. Verifique sua internet e tente novamente.';
+        } else if (error.message?.includes('503') || error.message?.includes('indisponível') || 
+                   error.message?.includes('502')) {
+          errorMessage = '🔧 Serviço temporariamente indisponível. Tente novamente em 1 minuto.';
+        } else if (error.message?.includes('Payload muito grande')) {
+          errorMessage = '📝 Mensagem muito longa. Tente ser mais conciso ou divida em partes.';
         }
         
         if (isAdmin) {
@@ -358,24 +363,27 @@ INSTRUÇÕES IMPORTANTES:
       // Validação robusta da resposta com nova estrutura
       if (!data) {
         console.error('Resposta vazia da função');
-        toast.error('Erro: Resposta vazia do servidor');
+        toast.error('❌ Erro: Resposta vazia do servidor');
         return;
       }
 
-      // Verificar se há erro na resposta (nova estrutura)
+      // Verificar se há erro na resposta (nova estrutura otimizada)
       if (data.error) {
         console.error('Erro na resposta:', data.error);
         
         let errorMessage = 'Erro temporário no chat. Tente novamente.';
         
-        if (data.error.includes('timeout') || data.error.includes('Claude API timeout')) {
-          errorMessage = 'A IA está demorando para responder. Tente uma pergunta mais simples.';
+        if (data.error.includes('timeout') || data.error.includes('Claude API timeout') ||
+            data.error.includes('sobrecarregada')) {
+          errorMessage = '⏰ A IA está sobrecarregada. Tente uma pergunta mais direta ou aguarde 30 segundos.';
         } else if (data.error.includes('Rate limit')) {
-          errorMessage = 'Muitas requisições simultâneas. Aguarde alguns segundos.';
+          errorMessage = '🚦 Muitas requisições simultâneas. Aguarde 10 segundos.';
         } else if (data.retryable === false) {
-          errorMessage = 'Erro de configuração. Entre em contato com o suporte.';
-        } else if (data.error.includes('indisponível') || data.error.includes('503')) {
-          errorMessage = 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.';
+          errorMessage = '⚙️ Erro de configuração. Entre em contato com o suporte.';
+        } else if (data.error.includes('indisponível') || data.error.includes('503') || data.error.includes('502')) {
+          errorMessage = '🔧 Serviço temporariamente indisponível. Tente novamente em 1 minuto.';
+        } else if (data.error.includes('Payload muito grande')) {
+          errorMessage = '📝 Mensagem muito longa. Tente ser mais conciso ou divida em partes.';
         }
         
         if (isAdmin) {
@@ -390,7 +398,7 @@ INSTRUÇÕES IMPORTANTES:
       const aiResponseText = data.response || data.generatedCopy || data.text;
       if (!aiResponseText || typeof aiResponseText !== 'string') {
         console.error('Resposta inválida:', data);
-        toast.error('Erro: Resposta inválida do servidor');
+        toast.error('❌ Erro: Resposta inválida do servidor');
         return;
       }
 
@@ -419,22 +427,23 @@ INSTRUÇÕES IMPORTANTES:
 
       // Toast de sucesso sutil com informações de performance
       if (data.tokensUsed) {
-        console.log(`Resposta gerada usando ${data.tokensUsed} tokens`);
+        console.log(`✅ Resposta gerada usando ${data.tokensUsed} tokens`);
+        toast.success(`🎯 Resposta gerada com sucesso! (${data.tokensUsed} tokens)`);
       }
 
     } catch (error) {
       console.error('Chat error:', error);
       
-      // Tratamento de erro mais específico
-      let errorMessage = 'Erro ao processar mensagem. Tente novamente.';
+      // Tratamento de erro mais específico e user-friendly
+      let errorMessage = '❌ Erro ao processar mensagem. Tente novamente.';
       
       if (error instanceof Error) {
         if (error.message.includes('timeout')) {
-          errorMessage = 'Timeout na resposta. Tente uma pergunta mais simples.';
+          errorMessage = '⏰ Timeout na resposta. Tente uma pergunta mais simples ou aguarde 30 segundos.';
         } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+          errorMessage = '🌐 Problema de conexão. Verifique sua internet e tente novamente.';
         } else if (error.message.includes('abort')) {
-          errorMessage = 'Requisição cancelada. Tente novamente.';
+          errorMessage = '🛑 Requisição cancelada. Tente novamente.';
         }
         
         if (isAdmin) {
