@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, validateAuthToken, sanitizeInput } from '../_shared/security.ts'
@@ -9,8 +10,8 @@ const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
 // Função para retry com backoff exponencial otimizado - SEM TIMEOUT FORÇADO
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3, // Reduzido para 3 tentativas
-  baseDelay: number = 3000, // Delay inicial maior
+  maxRetries: number = 3,
+  baseDelay: number = 3000,
   operation: string = 'operação'
 ): Promise<T> {
   let lastError: Error;
@@ -35,8 +36,7 @@ async function retryWithBackoff<T>(
         throw lastError;
       }
       
-      // Backoff exponencial com jitter mais suave para operações longas
-      const jitter = Math.random() * 0.2; // 20% de variação aleatória
+      const jitter = Math.random() * 0.2;
       const delay = baseDelay * Math.pow(1.8, attempt) * (1 + jitter);
       
       console.log(`⏳ Aguardando ${Math.round(delay)}ms antes da próxima tentativa...`);
@@ -59,27 +59,30 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 
     const startTime = Date.now();
 
-    // Otimizar payload - remover campos desnecessários e limitar tamanho
+    // Otimizar payload - sem truncar system prompt drasticamente
     const optimizedMessages = messages.map(msg => ({
       role: msg.role,
-      content: typeof msg.content === 'string' && msg.content.length > 6000 
-        ? msg.content.substring(0, 6000) + '...' 
+      content: typeof msg.content === 'string' && msg.content.length > 8000 
+        ? msg.content.substring(0, 8000) + '...' 
         : msg.content
     }));
 
+    // AUMENTADO: Limite do system prompt para 20.000 caracteres para preservar contexto do produto
     const payload = {
-      model: 'claude-sonnet-4-20250514', // Mantendo Claude 4 como solicitado
-      max_tokens: 3000, // Aumentado para permitir respostas mais longas
-      system: systemPrompt.length > 12000 ? systemPrompt.substring(0, 12000) + '...' : systemPrompt,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000, // Aumentado para permitir respostas mais longas
+      system: systemPrompt.length > 20000 ? systemPrompt.substring(0, 20000) + '...' : systemPrompt,
       messages: optimizedMessages,
       temperature: 0.7
     };
 
-    console.log(`📤 Payload otimizado para processamento longo:`, {
+    console.log(`📤 Payload otimizado para preservar contexto do produto:`, {
       systemPromptFinal: payload.system.length,
+      systemPromptOriginal: systemPrompt.length,
       messagesCount: payload.messages.length,
       estimatedTokens: Math.ceil(JSON.stringify(payload).length / 4),
-      maxTokens: payload.max_tokens
+      maxTokens: payload.max_tokens,
+      contextPreserved: systemPrompt.length <= 20000 ? 'COMPLETO' : 'TRUNCADO'
     });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -90,7 +93,6 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify(payload)
-      // REMOVIDO: signal: controller.signal - Sem timeout forçado
     });
 
     const responseTime = Date.now() - startTime;
@@ -109,7 +111,6 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
       const errorText = await response.text();
       let errorMessage = `Claude API Error ${response.status}: ${errorText}`;
       
-      // Categorizar erros para melhor tratamento
       if (response.status === 429) {
         errorMessage = 'Rate limit atingido na API do Claude - aguardando...';
         throw new Error(errorMessage);
@@ -142,7 +143,6 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
     return responseData;
     
   } catch (error) {
-    // Tratamento melhorado de diferentes tipos de erro - SEM TIMEOUT
     if (error.message?.includes('network') || error.message?.includes('fetch')) {
       throw new Error('Erro de conectividade com a API do Claude');
     }
@@ -156,7 +156,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 }
 
 serve(async (req) => {
-  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE SEM TIMEOUT ===');
+  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE - CONTEXTO OTIMIZADO ===');
   console.log('Method:', req.method);
   console.log('Timestamp:', new Date().toISOString());
   console.log('URL:', req.url);
@@ -270,13 +270,14 @@ serve(async (req) => {
       );
     }
 
-    console.log('✅ Dados validados para processamento longo:', {
+    console.log('✅ Dados validados com contexto otimizado:', {
       userId,
       messageLength: message.length,
       agentName,
-      productId,
+      productId: productId || 'NENHUM',
       hasHistory: Array.isArray(chatHistory) && chatHistory.length > 0,
-      systemPromptLength: agentPrompt?.length || 0
+      systemPromptLength: agentPrompt?.length || 0,
+      hasProductContext: !!productId
     });
 
     // Rate limiting por usuário mais permissivo (20 requests por minuto)
@@ -298,13 +299,15 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Preparar prompt do sistema otimizado para processamento longo
+    // Preparar prompt do sistema com contexto preservado
     let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
-    console.log('📝 System prompt preparado para processamento longo:', {
+    
+    console.log('📝 System prompt preparado com contexto preservado:', {
       length: systemPrompt.length,
       isCustomAgent,
       agentName,
-      truncated: systemPrompt.length > 12000
+      hasProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
+      willBeTruncated: systemPrompt.length > 20000
     });
     
     // Preparar mensagens para Claude (histórico mais amplo para contexto)
@@ -319,7 +322,7 @@ serve(async (req) => {
       content: message
     });
 
-    console.log('💬 Mensagens preparadas para processamento longo:', {
+    console.log('💬 Mensagens preparadas para processamento completo:', {
       totalMessages: claudeMessages.length,
       historyMessages: conversationMessages.length,
       lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length,
@@ -329,13 +332,13 @@ serve(async (req) => {
     // Chamada para Claude com retry otimizado SEM TIMEOUT FORÇADO
     let claudeData;
     try {
-      console.log('🚀 Iniciando chamada para Claude SEM timeout forçado...');
+      console.log('🚀 Iniciando chamada para Claude com contexto preservado...');
       
       claudeData = await retryWithBackoff(async () => {
         return await callClaudeAPI(systemPrompt, claudeMessages);
-      }, 3, 3000, 'Claude API call - Processamento Longo'); // 3 tentativas, delay inicial de 3s
+      }, 3, 3000, 'Claude API call - Contexto Preservado');
       
-      console.log('🎉 Claude respondeu com sucesso (sem timeout):', {
+      console.log('🎉 Claude respondeu com sucesso (contexto preservado):', {
         hasContent: !!claudeData.content,
         contentLength: claudeData.content?.[0]?.text?.length || 0,
         type: claudeData.type,
@@ -344,14 +347,14 @@ serve(async (req) => {
       });
       
     } catch (error) {
-      console.error('💥 Erro final na chamada para Claude após retries (sem timeout forçado):', {
+      console.error('💥 Erro final na chamada para Claude após retries (contexto preservado):', {
         error: error.message,
         type: error.name,
         stack: error.stack?.split('\n')[0]
       });
       
-      // Categorização otimizada de erros para processamento longo
-      let errorMessage = 'Erro temporário na IA. O agente está processando uma documentação complexa.';
+      // Categorização otimizada de erros
+      let errorMessage = 'Erro temporário na IA. Tentando processar sua solicitação...';
       let errorDetails = error.message;
       let retryable = true;
       
@@ -371,7 +374,7 @@ serve(async (req) => {
         errorMessage = 'Problema de conectividade. Verifique sua conexão e tente novamente.';
         retryable = true;
       } else if (error.message.includes('Payload muito grande')) {
-        errorMessage = 'Documentação muito extensa. Tente dividir a solicitação em partes menores.';
+        errorMessage = 'Contexto muito extenso. Tente uma pergunta mais específica.';
         retryable = false;
       }
       
@@ -449,14 +452,15 @@ serve(async (req) => {
     const completionTokens = Math.ceil(aiResponse.length / 4);
     const totalTokens = promptTokens + completionTokens;
 
-    console.log('🎯 Processamento longo concluído com sucesso:', {
+    console.log('🎯 Processamento concluído com contexto preservado:', {
       userId,
       tokensUsed: totalTokens,
       promptTokens,
       completionTokens,
       responseLength: aiResponse.length,
       processingTime: Date.now(),
-      model: 'claude-sonnet-4-20250514'
+      model: 'claude-sonnet-4-20250514',
+      hadProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO')
     });
 
     return new Response(
@@ -464,7 +468,8 @@ serve(async (req) => {
         response: aiResponse,
         tokensUsed: totalTokens,
         model: 'claude-sonnet-4-20250514',
-        processingTime: Date.now()
+        processingTime: Date.now(),
+        contextPreserved: systemPrompt.length <= 20000
       }),
       {
         status: 200,
@@ -473,7 +478,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 ERRO CRÍTICO NA FUNÇÃO SEM TIMEOUT');
+    console.error('💥 ERRO CRÍTICO NA FUNÇÃO COM CONTEXTO PRESERVADO');
     console.error('Error details:', {
       name: error.name,
       message: error.message,
@@ -484,7 +489,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: 'Erro interno do servidor para processamento longo. Tente novamente.',
+        details: 'Erro interno do servidor para processamento com contexto. Tente novamente.',
         timestamp: new Date().toISOString(),
         retryable: true
       }),

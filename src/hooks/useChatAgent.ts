@@ -253,7 +253,7 @@ export const useChatAgent = (selectedProductId?: string) => {
       timestamp: new Date()
     };
 
-    console.log('Enviando mensagem do usuário:', userMessageId);
+    console.log('📤 Enviando mensagem do usuário:', userMessageId);
 
     const updatedSession = {
       ...activeSession,
@@ -277,11 +277,47 @@ export const useChatAgent = (selectedProductId?: string) => {
 
     try {
       let productContext = '';
+      let productDetails = null;
+      
+      // DEBUG: Verificar se temos produto selecionado
+      console.log('🔍 Debug - Produto selecionado:', {
+        selectedProductId,
+        hasProduct: !!selectedProductId
+      });
+
       if (selectedProductId) {
-        const productDetails = await fetchProductDetails(selectedProductId);
-        if (productDetails) {
-          productContext = formatProductContext(productDetails);
+        try {
+          productDetails = await fetchProductDetails(selectedProductId);
+          console.log('📋 Debug - Detalhes do produto obtidos:', {
+            productId: selectedProductId,
+            productName: productDetails?.name || 'N/A',
+            hasStrategy: !!productDetails?.strategy,
+            hasOffer: !!productDetails?.offer,
+            hasCopy: !!productDetails?.copy,
+            detailsSize: productDetails ? JSON.stringify(productDetails).length : 0
+          });
+          
+          if (productDetails) {
+            productContext = formatProductContext(productDetails);
+            console.log('✅ Debug - Contexto do produto formatado:', {
+              contextLength: productContext.length,
+              contextPreview: productContext.substring(0, 200) + '...',
+              hasValueProposition: productContext.includes('Proposta de Valor'),
+              hasTargetAudience: productContext.includes('Público-Alvo')
+            });
+          } else {
+            console.warn('⚠️ Debug - Produto não encontrado:', selectedProductId);
+            toast.warning('Produto selecionado não encontrado. Continuando sem contexto específico.');
+          }
+        } catch (error) {
+          console.error('❌ Debug - Erro ao buscar produto:', {
+            productId: selectedProductId,
+            error: error.message
+          });
+          toast.warning('Erro ao carregar contexto do produto. Continuando sem contexto específico.');
         }
+      } else {
+        console.log('ℹ️ Debug - Nenhum produto selecionado');
       }
 
       let enhancedPrompt = selectedAgent.prompt;
@@ -299,16 +335,32 @@ INSTRUÇÕES IMPORTANTES:
 - Não pergunte novamente sobre qual produto quando as informações já estão disponíveis no contexto
 - Mantenha consistência com a estratégia e posicionamento definidos no produto
 `;
+
+        console.log('🚀 Debug - Prompt aprimorado com contexto:', {
+          originalPromptLength: selectedAgent.prompt.length,
+          enhancedPromptLength: enhancedPrompt.length,
+          contextAdded: enhancedPrompt.length - selectedAgent.prompt.length,
+          hasProductContext: enhancedPrompt.includes('CONTEXTO DO PRODUTO')
+        });
+      } else {
+        console.log('ℹ️ Debug - Usando prompt original sem contexto do produto');
       }
 
       // Determinar se é agente customizado
       const isCustomAgent = selectedAgent?.id.startsWith('custom-');
 
-      console.log('Chamando chat function com userId:', user?.id);
+      console.log('🚀 Debug - Preparando chamada para IA:', {
+        userId: user?.id,
+        agentName: selectedAgent.name,
+        isCustomAgent,
+        hasProductContext: !!productContext,
+        productId: selectedProductId,
+        promptLength: enhancedPrompt.length
+      });
 
-      // Toast otimizado para processamento longo SEM LIMITE DE TEMPO
-      const loadingToast = toast.loading('🤖 Processando sua mensagem... O agente está analisando a documentação completa, isso pode levar alguns minutos.', {
-        duration: Infinity // Toast permanece até ser removido manualmente
+      // Toast otimizado para processamento SEM LIMITE DE TEMPO
+      const loadingToast = toast.loading('🤖 Processando com contexto completo... Analisando toda a documentação disponível.', {
+        duration: Infinity
       });
 
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
@@ -330,12 +382,17 @@ INSTRUÇÕES IMPORTANTES:
       // Remover toast de loading
       toast.dismiss(loadingToast);
 
-      console.log('Resposta da função:', { data, error });
+      console.log('📥 Debug - Resposta da função:', { 
+        hasData: !!data, 
+        hasError: !!error,
+        dataKeys: data ? Object.keys(data) : [],
+        contextPreserved: data?.contextPreserved
+      });
 
       if (error) {
-        console.error('Error calling chat function:', error);
+        console.error('❌ Error calling chat function:', error);
         
-        // Tratamento otimizado de erros SEM TIMEOUT
+        // Tratamento otimizado de erros
         let errorMessage = 'Erro temporário no chat. Tente novamente em alguns instantes.';
         
         if (error.message?.includes('Rate limit exceeded') || error.message?.includes('rate limit')) {
@@ -347,11 +404,11 @@ INSTRUÇÕES IMPORTANTES:
                    error.message?.includes('502')) {
           errorMessage = '🔧 Serviço temporariamente indisponível. Tente novamente em 2 minutos.';
         } else if (error.message?.includes('Payload muito grande') || error.message?.includes('muito extensa')) {
-          errorMessage = '📝 Documentação muito extensa. Tente dividir sua solicitação em partes menores.';
+          errorMessage = '📝 Contexto muito extenso. Tente uma pergunta mais específica.';
         }
         
         if (isAdmin) {
-          console.log('Erro detectado para admin, detalhes:', error);
+          console.log('🔧 Debug admin - Erro detectado:', error);
           errorMessage += ` (Admin - Detalhes: ${error.message})`;
         }
         
@@ -359,21 +416,20 @@ INSTRUÇÕES IMPORTANTES:
         return;
       }
 
-      // Validação robusta da resposta com nova estrutura
+      // Validação robusta da resposta
       if (!data) {
-        console.error('Resposta vazia da função');
+        console.error('❌ Debug - Resposta vazia da função');
         toast.error('❌ Erro: Resposta vazia do servidor');
         return;
       }
 
-      // Verificar se há erro na resposta (nova estrutura otimizada)
+      // Verificar se há erro na resposta
       if (data.error) {
-        console.error('Erro na resposta:', data.error);
+        console.error('❌ Debug - Erro na resposta:', data.error);
         
         let errorMessage = 'Erro temporário no chat. Tente novamente.';
         
-        if (data.error.includes('timeout') || data.error.includes('Claude API timeout') ||
-            data.error.includes('sobrecarregada')) {
+        if (data.error.includes('sobrecarregada')) {
           errorMessage = '⏰ A IA está sobrecarregada. Tente uma pergunta mais direta ou aguarde 30 segundos.';
         } else if (data.error.includes('Rate limit')) {
           errorMessage = '🚦 Muitas requisições simultâneas. Aguarde 10 segundos.';
@@ -381,8 +437,8 @@ INSTRUÇÕES IMPORTANTES:
           errorMessage = '⚙️ Erro de configuração. Entre em contato com o suporte.';
         } else if (data.error.includes('indisponível') || data.error.includes('503') || data.error.includes('502')) {
           errorMessage = '🔧 Serviço temporariamente indisponível. Tente novamente em 1 minuto.';
-        } else if (data.error.includes('Payload muito grande')) {
-          errorMessage = '📝 Mensagem muito longa. Tente ser mais conciso ou divida em partes.';
+        } else if (data.error.includes('Contexto muito extenso')) {
+          errorMessage = '📝 Contexto muito longo. Tente ser mais conciso ou divida em partes.';
         }
         
         if (isAdmin) {
@@ -396,7 +452,7 @@ INSTRUÇÕES IMPORTANTES:
       // Validar se a resposta contém o campo correto
       const aiResponseText = data.response || data.generatedCopy || data.text;
       if (!aiResponseText || typeof aiResponseText !== 'string') {
-        console.error('Resposta inválida:', data);
+        console.error('❌ Debug - Resposta inválida:', data);
         toast.error('❌ Erro: Resposta inválida do servidor');
         return;
       }
@@ -409,7 +465,12 @@ INSTRUÇÕES IMPORTANTES:
         timestamp: new Date()
       };
 
-      console.log('Recebendo resposta do assistente:', assistantMessageId);
+      console.log('📨 Debug - Resposta processada com sucesso:', {
+        messageId: assistantMessageId,
+        responseLength: aiResponseText.length,
+        hadProductContext: !!productContext,
+        contextPreserved: data.contextPreserved
+      });
 
       const finalSession = {
         ...updatedSession,
@@ -424,28 +485,32 @@ INSTRUÇÕES IMPORTANTES:
         await saveSessionToSupabase(finalSession);
       }
 
-      // Toast de sucesso otimizado para processamento longo
+      // Toast de sucesso otimizado
       if (data.tokensUsed) {
         console.log(`✅ Resposta gerada usando ${data.tokensUsed} tokens`);
         
         const getTokenIcon = (tokens: number) => {
-          if (tokens > 3000) return '🔥';
-          if (tokens > 1500) return '⚡';
+          if (tokens > 4000) return '🔥';
+          if (tokens > 2000) return '⚡';
           return '✨';
         };
 
         const tokenIcon = getTokenIcon(data.tokensUsed);
         
+        const contextMessage = productContext 
+          ? 'Análise completa com contexto do produto'
+          : 'Análise completa da documentação';
+        
         toast.success(`${tokenIcon} Processamento completo!`, {
-          description: `${data.tokensUsed.toLocaleString()} tokens usados para análise completa da documentação`,
+          description: `${data.tokensUsed.toLocaleString()} tokens • ${contextMessage}`,
           duration: 5000,
         });
       }
 
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error('💥 Chat error:', error);
       
-      // Tratamento de erro otimizado SEM TIMEOUT
+      // Tratamento de erro otimizado
       let errorMessage = '❌ Erro ao processar mensagem. Tente novamente.';
       
       if (error instanceof Error) {
