@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Mail, Shield, LogOut, Camera, Save, Upload } from 'lucide-react';
+import { User, Mail, Shield, LogOut, Camera, Save, Upload, Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProfileSettingsProps {
@@ -19,9 +19,18 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [formData, setFormData] = useState({
     fullName: user?.user_metadata?.full_name || '',
     email: user?.email || '',
+  });
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    newPassword: false,
+    confirmPassword: false,
   });
 
   const getInitials = (name: string | undefined) => {
@@ -32,6 +41,79 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const validatePassword = (password: string) => {
+    const errors = [];
+    if (password.length < 8) errors.push('Pelo menos 8 caracteres');
+    if (!/[A-Z]/.test(password)) errors.push('Pelo menos 1 letra maiúscula');
+    if (!/[a-z]/.test(password)) errors.push('Pelo menos 1 letra minúscula');
+    if (!/[0-9]/.test(password)) errors.push('Pelo menos 1 número');
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) errors.push('Pelo menos 1 símbolo');
+    return errors;
+  };
+
+  const handleChangePassword = async () => {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos de senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Erro",
+        description: "As senhas não coincidem.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const passwordErrors = validatePassword(passwordData.newPassword);
+    if (passwordErrors.length > 0) {
+      toast({
+        title: "Senha inválida",
+        description: passwordErrors.join(', '),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      // Marcar que não é mais primeiro login se aplicável
+      await supabase
+        .from('profiles')
+        .update({ first_login: false })
+        .eq('id', user?.id);
+
+      toast({
+        title: "Senha alterada",
+        description: "Sua senha foi atualizada com sucesso.",
+      });
+
+      // Limpar campos
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+
+    } catch (error: any) {
+      toast({
+        title: "Erro ao alterar senha",
+        description: error.message || "Não foi possível alterar a senha.",
+        variant: "destructive",
+      });
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,7 +214,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
           // Centralizar a imagem
           const x = (size - scaledWidth) / 2;
           const y = (size - scaledHeight) / 2;
-
+          
           // Preencher fundo branco
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, size, size);
@@ -180,6 +262,10 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
     await signOut();
     onClose();
   };
+
+  const passwordErrors = validatePassword(passwordData.newPassword);
+  const isPasswordValid = passwordErrors.length === 0;
+  const passwordsMatch = passwordData.newPassword === passwordData.confirmPassword;
 
   return (
     <div className="w-full max-w-2xl mx-auto p-6 space-y-6">
@@ -267,6 +353,110 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onClose }) => 
           >
             <Save className="w-4 h-4 mr-2" />
             {loading ? 'Salvando...' : 'Salvar Alterações'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Segurança */}
+      <Card className="bg-[#1E1E1E] border-[#4B5563]">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Lock className="w-5 h-5" />
+            Segurança
+          </CardTitle>
+          <CardDescription className="text-[#CCCCCC]">
+            Altere sua senha para manter sua conta segura
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="newPassword" className="text-white">Nova Senha</Label>
+            <div className="relative">
+              <Input
+                id="newPassword"
+                type={showPasswords.newPassword ? 'text' : 'password'}
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                placeholder="Digite sua nova senha"
+                className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-gray-400 pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPasswords({ ...showPasswords, newPassword: !showPasswords.newPassword })}
+                className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-white"
+              >
+                {showPasswords.newPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword" className="text-white">Confirmar Nova Senha</Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showPasswords.confirmPassword ? 'text' : 'password'}
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                placeholder="Confirme sua nova senha"
+                className="bg-[#2A2A2A] border-[#4B5563] text-white placeholder:text-gray-400 pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPasswords({ ...showPasswords, confirmPassword: !showPasswords.confirmPassword })}
+                className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-white"
+              >
+                {showPasswords.confirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Validações de senha */}
+          {passwordData.newPassword && (
+            <div className="space-y-2">
+              <Label className="text-white text-sm">Requisitos da senha:</Label>
+              <div className="space-y-1">
+                {[
+                  { check: passwordData.newPassword.length >= 8, text: 'Pelo menos 8 caracteres' },
+                  { check: /[A-Z]/.test(passwordData.newPassword), text: 'Pelo menos 1 letra maiúscula' },
+                  { check: /[a-z]/.test(passwordData.newPassword), text: 'Pelo menos 1 letra minúscula' },
+                  { check: /[0-9]/.test(passwordData.newPassword), text: 'Pelo menos 1 número' },
+                  { check: /[!@#$%^&*(),.?":{}|<>]/.test(passwordData.newPassword), text: 'Pelo menos 1 símbolo' },
+                ].map((requirement, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    {requirement.check ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className={requirement.check ? 'text-green-400' : 'text-red-400'}>
+                      {requirement.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Aviso de senhas diferentes */}
+          {passwordData.confirmPassword && !passwordsMatch && (
+            <div className="flex items-center gap-2 text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span>As senhas não coincidem</span>
+            </div>
+          )}
+
+          <Button
+            onClick={handleChangePassword}
+            disabled={changingPassword || !isPasswordValid || !passwordsMatch || !passwordData.newPassword}
+            className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+          >
+            <Lock className="w-4 h-4 mr-2" />
+            {changingPassword ? 'Alterando senha...' : 'Alterar Senha'}
           </Button>
         </CardContent>
       </Card>
