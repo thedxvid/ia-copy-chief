@@ -173,7 +173,7 @@ export const TokenWidget = () => {
                     {getStatusMessage()}
                   </span>
                   {isConnected ? (
-                    <Zap className="h-3 w-3 text-green-500" title="Tempo real ativo" />
+                    <Zap className="h-3 w-3 text-green-500" />
                   ) : (
                     <span className="text-gray-400 text-xs">Offline</span>
                   )}
