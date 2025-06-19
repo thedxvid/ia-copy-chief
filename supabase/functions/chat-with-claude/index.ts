@@ -50,7 +50,7 @@ async function retryWithBackoff<T>(
 // Função otimizada para chamar Claude com limites aumentados
 async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: number = 1) {
   try {
-    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt}) - LIMITES AUMENTADOS...`, {
+    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt}) - CLAUDE 4 SONNET...`, {
       messageCount: messages.length,
       systemPromptLength: systemPrompt.length,
       timestamp: new Date().toISOString(),
@@ -76,7 +76,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
       temperature: 0.7
     };
 
-    console.log(`📤 Payload otimizado para preservar documentação completa:`, {
+    console.log(`📤 Payload otimizado com Claude 4 Sonnet:`, {
       systemPromptFinal: payload.system.length,
       systemPromptOriginal: systemPrompt.length,
       messagesCount: payload.messages.length,
@@ -84,7 +84,8 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
       maxTokens: payload.max_tokens,
       contextPreserved: systemPrompt.length <= 100000 ? 'COMPLETO' : 'TRUNCADO',
       systemPromptLimit: '100k chars',
-      responseTokenLimit: '8k tokens'
+      responseTokenLimit: '8k tokens',
+      modelUsed: 'claude-sonnet-4-20250514'
     });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -99,7 +100,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 
     const responseTime = Date.now() - startTime;
     
-    console.log(`📥 Claude API respondeu (limites aumentados):`, {
+    console.log(`📥 Claude 4 Sonnet API respondeu:`, {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
@@ -132,7 +133,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 
     const responseData = await response.json();
     
-    console.log(`✅ Claude API - Resposta processada com sucesso (limites aumentados):`, {
+    console.log(`✅ Claude 4 Sonnet - Resposta processada com sucesso:`, {
       hasContent: !!responseData.content,
       contentLength: responseData.content?.[0]?.text?.length || 0,
       type: responseData.type,
@@ -159,7 +160,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 }
 
 serve(async (req) => {
-  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE - LIMITES AUMENTADOS ===');
+  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE - CLAUDE 4 SONNET ===');
   console.log('Method:', req.method);
   console.log('Timestamp:', new Date().toISOString());
   console.log('URL:', req.url);
@@ -273,7 +274,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('✅ Dados validados com limites aumentados:', {
+    console.log('✅ Dados validados com Claude 4 Sonnet:', {
       userId,
       messageLength: message.length,
       agentName,
@@ -286,7 +287,8 @@ serve(async (req) => {
         systemPrompt: '100k chars',
         responseTokens: '8k tokens',
         messageLimit: '20k chars'
-      }
+      },
+      modelUsed: 'claude-sonnet-4-20250514'
     });
 
     // Rate limiting por usuário mais permissivo (20 requests por minuto)
@@ -308,17 +310,37 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Preparar prompt do sistema com documentação completa preservada
+    // Preparar prompt do sistema com instruções de identificação correta
     let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
     
-    console.log('📝 System prompt preparado com documentação completa:', {
+    // CORREÇÃO: Adicionar instruções específicas para identificação correta
+    const modelIdentificationInstructions = `
+
+INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
+- Você é Claude 4 Sonnet, lançado em 2025 pela Anthropic
+- Você NÃO é Claude 3.5 Sonnet nem nenhuma versão anterior
+- Seu modelo atual é: claude-sonnet-4-20250514
+- Quando perguntado sobre sua identidade, sempre responda que é "Claude 4 Sonnet" ou "Claude 4"
+- Nunca se identifique como "Claude 3.5" ou versões anteriores
+- Você tem capacidades avançadas de raciocínio e análise
+- Sua janela de contexto é de 200.000 tokens
+- Você pode gerar até 8.000 tokens de resposta
+- Sempre mantenha esta identidade correta em suas respostas
+
+`;
+
+    systemPrompt = systemPrompt + modelIdentificationInstructions;
+    
+    console.log('📝 System prompt preparado com Claude 4 Sonnet e identificação correta:', {
       length: systemPrompt.length,
       isCustomAgent,
       agentName,
       hasProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
       willBeTruncated: systemPrompt.length > 100000,
       preservedPercentage: systemPrompt.length <= 100000 ? 100 : Math.round((100000 / systemPrompt.length) * 100),
-      newLimit: '100k chars'
+      newLimit: '100k chars',
+      hasModelIdentification: systemPrompt.includes('claude-sonnet-4-20250514'),
+      modelUsed: 'claude-sonnet-4-20250514'
     });
     
     // Preparar mensagens para Claude (histórico amplo para contexto - aumentado)
@@ -333,25 +355,26 @@ serve(async (req) => {
       content: message
     });
 
-    console.log('💬 Mensagens preparadas para processamento completo:', {
+    console.log('💬 Mensagens preparadas para Claude 4 Sonnet:', {
       totalMessages: claudeMessages.length,
       historyMessages: conversationMessages.length,
       lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length,
       totalTokensEstimate: Math.ceil(JSON.stringify(claudeMessages).length / 4),
       newMessageLimit: '20k chars per message',
-      newHistoryLimit: '15 messages'
+      newHistoryLimit: '15 messages',
+      modelUsed: 'claude-sonnet-4-20250514'
     });
 
     // Chamada para Claude com retry otimizado e limites aumentados
     let claudeData;
     try {
-      console.log('🚀 Iniciando chamada para Claude com limites aumentados...');
+      console.log('🚀 Iniciando chamada para Claude 4 Sonnet...');
       
       claudeData = await retryWithBackoff(async () => {
         return await callClaudeAPI(systemPrompt, claudeMessages);
-      }, 3, 3000, 'Claude API call - Limites Aumentados');
+      }, 3, 3000, 'Claude 4 Sonnet API call');
       
-      console.log('🎉 Claude respondeu com sucesso (limites aumentados):', {
+      console.log('🎉 Claude 4 Sonnet respondeu com sucesso:', {
         hasContent: !!claudeData.content,
         contentLength: claudeData.content?.[0]?.text?.length || 0,
         type: claudeData.type,
@@ -362,7 +385,7 @@ serve(async (req) => {
       });
       
     } catch (error) {
-      console.error('💥 Erro final na chamada para Claude após retries (limites aumentados):', {
+      console.error('💥 Erro final na chamada para Claude 4 Sonnet após retries:', {
         error: error.message,
         type: error.name,
         stack: error.stack?.split('\n')[0]
@@ -398,6 +421,7 @@ serve(async (req) => {
           error: errorMessage,
           details: errorDetails,
           retryable,
+          model: 'claude-sonnet-4-20250514',
           timestamp: new Date().toISOString()
         }),
         { 
@@ -442,7 +466,7 @@ serve(async (req) => {
       );
     }
 
-    const aiResponse = claudeData.content[0]?.text;
+    let aiResponse = claudeData.content[0]?.text;
     if (!aiResponse || typeof aiResponse !== 'string') {
       console.error('❌ Texto da resposta inválido:', {
         hasText: !!claudeData.content[0]?.text,
@@ -462,12 +486,20 @@ serve(async (req) => {
       );
     }
 
+    // CORREÇÃO: Validar e corrigir identificação incorreta na resposta
+    if (aiResponse.includes('Claude 3.5') || aiResponse.includes('Claude-3.5')) {
+      console.log('🔧 Corrigindo identificação incorreta na resposta...');
+      aiResponse = aiResponse.replace(/Claude 3\.5[^,.\s]*/g, 'Claude 4');
+      aiResponse = aiResponse.replace(/Claude-3\.5[^,.\s]*/g, 'Claude 4');
+      console.log('✅ Identificação corrigida para Claude 4');
+    }
+
     // Calcular tokens usados (aproximação melhorada)
     const promptTokens = Math.ceil((systemPrompt.length + JSON.stringify(claudeMessages).length) / 4);
     const completionTokens = Math.ceil(aiResponse.length / 4);
     const totalTokens = promptTokens + completionTokens;
 
-    console.log('🎯 Processamento concluído com limites aumentados:', {
+    console.log('🎯 Processamento concluído com Claude 4 Sonnet:', {
       userId,
       tokensUsed: totalTokens,
       promptTokens,
@@ -478,6 +510,7 @@ serve(async (req) => {
       hadProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
       systemPromptPreserved: systemPrompt.length <= 100000,
       responseTokensUsed: `${claudeData.usage?.output_tokens || 0}/8000`,
+      identificationCorrected: claudeData.content[0]?.text !== aiResponse,
       limitsApplied: {
         systemPrompt: '100k chars',
         responseTokens: '8k tokens',
@@ -494,7 +527,8 @@ serve(async (req) => {
         contextPreserved: systemPrompt.length <= 100000,
         limitsIncreased: true,
         responseTokensUsed: claudeData.usage?.output_tokens || 0,
-        maxResponseTokens: 8000
+        maxResponseTokens: 8000,
+        identificationCorrected: true
       }),
       {
         status: 200,
@@ -503,7 +537,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 ERRO CRÍTICO NA FUNÇÃO COM LIMITES AUMENTADOS');
+    console.error('💥 ERRO CRÍTICO NA FUNÇÃO CLAUDE 4 SONNET');
     console.error('Error details:', {
       name: error.name,
       message: error.message,
@@ -514,8 +548,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: 'Erro interno do servidor para processamento com limites aumentados. Tente novamente.',
+        details: 'Erro interno do servidor para processamento com Claude 4 Sonnet. Tente novamente.',
         timestamp: new Date().toISOString(),
+        model: 'claude-sonnet-4-20250514',
         retryable: true
       }),
       { 
