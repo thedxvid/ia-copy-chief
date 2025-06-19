@@ -14,7 +14,7 @@ export const formatProductContext = (product: ProductDetails): string => {
   sections.push(`Nicho: ${product.niche}${product.sub_niche ? ` > ${product.sub_niche}` : ''}`);
   sections.push(`Status: ${product.status}`);
 
-  // Estratégia do produto
+  // Estratégia do produto - acessar dados corretos da estrutura do banco
   if (product.strategy) {
     sections.push('\n**ESTRATÉGIA:**');
     
@@ -34,7 +34,7 @@ export const formatProductContext = (product: ProductDetails): string => {
     }
   }
 
-  // Ofertas do produto
+  // Ofertas do produto - acessar dados corretos da estrutura do banco
   if (product.offer) {
     sections.push('\n**OFERTAS:**');
     
@@ -53,51 +53,109 @@ export const formatProductContext = (product: ProductDetails): string => {
     }
     
     if (product.offer.bonuses && product.offer.bonuses.length > 0) {
-      sections.push(`Bônus: ${product.offer.bonuses.length} bônus disponíveis`);
+      const bonusList = Array.isArray(product.offer.bonuses) 
+        ? product.offer.bonuses.join(', ')
+        : JSON.stringify(product.offer.bonuses);
+      sections.push(`Bônus: ${bonusList}`);
     }
     
     if (product.offer.upsell) {
-      sections.push('Possui Upsell configurado');
+      const upsell = typeof product.offer.upsell === 'string'
+        ? product.offer.upsell
+        : JSON.stringify(product.offer.upsell);
+      sections.push(`Upsell: ${upsell}`);
     }
     
     if (product.offer.downsell) {
-      sections.push('Possui Downsell configurado');
+      const downsell = typeof product.offer.downsell === 'string'
+        ? product.offer.downsell
+        : JSON.stringify(product.offer.downsell);
+      sections.push(`Downsell: ${downsell}`);
+    }
+
+    if (product.offer.order_bump) {
+      const orderBump = typeof product.offer.order_bump === 'string'
+        ? product.offer.order_bump
+        : JSON.stringify(product.offer.order_bump);
+      sections.push(`Order Bump: ${orderBump}`);
     }
   }
 
-  // Copy existente
+  // Copy existente - acessar dados corretos da estrutura do banco
   if (product.copy) {
     sections.push('\n**CONTEÚDO EXISTENTE:**');
     
-    if (product.copy.vsl_script) {
-      sections.push(`VSL Script: ${product.copy.vsl_script.substring(0, 200)}...`);
+    if (product.copy.vsl_script && product.copy.vsl_script.trim()) {
+      const vslLength = product.copy.vsl_script.length;
+      const vslPreview = vslLength > 200 
+        ? product.copy.vsl_script.substring(0, 200) + '...'
+        : product.copy.vsl_script;
+      sections.push(`VSL Script (${vslLength} caracteres): ${vslPreview}`);
     }
     
     if (product.copy.landing_page_copy) {
-      sections.push('Possui Landing Page configurada');
+      const landingPage = typeof product.copy.landing_page_copy === 'string'
+        ? product.copy.landing_page_copy
+        : JSON.stringify(product.copy.landing_page_copy);
+      sections.push(`Landing Page: ${landingPage.length > 100 ? landingPage.substring(0, 100) + '...' : landingPage}`);
     }
     
     if (product.copy.email_campaign) {
-      sections.push('Possui Campanha de Email configurada');
+      const emailCampaign = typeof product.copy.email_campaign === 'string'
+        ? product.copy.email_campaign
+        : JSON.stringify(product.copy.email_campaign);
+      sections.push(`Campanha de Email: ${emailCampaign.length > 100 ? emailCampaign.substring(0, 100) + '...' : emailCampaign}`);
+    }
+    
+    if (product.copy.social_media_content) {
+      const socialMedia = typeof product.copy.social_media_content === 'string'
+        ? product.copy.social_media_content
+        : JSON.stringify(product.copy.social_media_content);
+      sections.push(`Conteúdo de Redes Sociais: ${socialMedia.length > 100 ? socialMedia.substring(0, 100) + '...' : socialMedia}`);
     }
     
     if (product.copy.whatsapp_messages && product.copy.whatsapp_messages.length > 0) {
       sections.push(`WhatsApp: ${product.copy.whatsapp_messages.length} mensagens`);
     }
+
+    if (product.copy.telegram_messages && product.copy.telegram_messages.length > 0) {
+      sections.push(`Telegram: ${product.copy.telegram_messages.length} mensagens`);
+    }
   }
 
-  // Meta informações
+  // Meta informações - acessar dados corretos da estrutura do banco
   if (product.meta) {
     if (product.meta.tags && product.meta.tags.length > 0) {
       sections.push(`\n**TAGS:** ${product.meta.tags.join(', ')}`);
     }
     
-    if (product.meta.private_notes) {
-      sections.push(`\n**NOTAS:** ${product.meta.private_notes}`);
+    if (product.meta.private_notes && product.meta.private_notes.trim()) {
+      sections.push(`\n**NOTAS PRIVADAS:** ${product.meta.private_notes}`);
+    }
+
+    if (product.meta.ai_evaluation) {
+      const evaluation = typeof product.meta.ai_evaluation === 'string'
+        ? product.meta.ai_evaluation
+        : JSON.stringify(product.meta.ai_evaluation);
+      sections.push(`\n**AVALIAÇÃO IA:** ${evaluation.length > 200 ? evaluation.substring(0, 200) + '...' : evaluation}`);
     }
   }
 
-  return sections.join('\n');
+  const contextText = sections.join('\n');
+  
+  // Debug para verificar se o contexto está sendo gerado corretamente
+  console.log('🔍 DEBUG - Contexto do produto gerado:', {
+    productId: product.id,
+    productName: product.name,
+    contextLength: contextText.length,
+    hasStrategy: !!product.strategy,
+    hasOffer: !!product.offer,
+    hasCopy: !!product.copy,
+    hasMeta: !!product.meta,
+    sectionsCount: sections.length
+  });
+
+  return contextText;
 };
 
 export const createProductPromptContext = (
@@ -122,6 +180,7 @@ INSTRUÇÕES IMPORTANTES:
 - ${copyType ? `Esta copy é do tipo: ${copyType}` : ''}
 - Se houver conteúdo existente, use como referência de tom e estilo
 - Adapte a linguagem ao nicho e sub-nicho especificados
+- Sempre que mencionar "seu produto" ou "este produto", refira-se ao ${product.name}
 `;
 
   return contextualPrompt;

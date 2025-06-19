@@ -280,48 +280,51 @@ export const useChatAgent = (selectedProductId?: string) => {
       let productDetails = null;
       
       // DEBUG: Verificar se temos produto selecionado
-      console.log('🔍 Debug - Produto selecionado:', {
+      console.log('🔍 DEBUG - Produto selecionado:', {
         selectedProductId,
         hasProduct: !!selectedProductId
       });
 
       if (selectedProductId) {
         try {
+          console.log('🔄 DEBUG - Buscando detalhes do produto...');
           productDetails = await fetchProductDetails(selectedProductId);
-          console.log('📋 Debug - Detalhes do produto obtidos:', {
+          
+          console.log('📋 DEBUG - Resultado da busca:', {
             productId: selectedProductId,
+            productFound: !!productDetails,
             productName: productDetails?.name || 'N/A',
-            hasStrategy: !!productDetails?.strategy,
-            hasOffer: !!productDetails?.offer,
-            hasCopy: !!productDetails?.copy,
-            detailsSize: productDetails ? JSON.stringify(productDetails).length : 0
+            hasAllData: !!(productDetails?.strategy || productDetails?.offer || productDetails?.copy || productDetails?.meta)
           });
           
           if (productDetails) {
+            console.log('🔄 DEBUG - Formatando contexto do produto...');
             productContext = formatProductContext(productDetails);
-            console.log('✅ Debug - Contexto do produto formatado:', {
+            
+            console.log('✅ DEBUG - Contexto formatado:', {
               contextLength: productContext.length,
-              contextPreview: productContext.substring(0, 200) + '...',
+              contextPreview: productContext.substring(0, 300) + '...',
+              hasProductName: productContext.includes(productDetails.name),
               hasValueProposition: productContext.includes('Proposta de Valor'),
               hasTargetAudience: productContext.includes('Público-Alvo')
             });
           } else {
-            console.warn('⚠️ Debug - Produto não encontrado:', selectedProductId);
+            console.warn('⚠️ DEBUG - Produto não encontrado:', selectedProductId);
             toast.warning('Produto selecionado não encontrado. Continuando sem contexto específico.');
           }
         } catch (error) {
-          console.error('❌ Debug - Erro ao buscar produto:', {
+          console.error('❌ DEBUG - Erro ao buscar produto:', {
             productId: selectedProductId,
             error: error.message
           });
           toast.warning('Erro ao carregar contexto do produto. Continuando sem contexto específico.');
         }
       } else {
-        console.log('ℹ️ Debug - Nenhum produto selecionado');
+        console.log('ℹ️ DEBUG - Nenhum produto selecionado');
       }
 
       let enhancedPrompt = selectedAgent.prompt;
-      if (productContext) {
+      if (productContext && productContext.trim()) {
         enhancedPrompt = `${selectedAgent.prompt}
 
 ---
@@ -334,22 +337,24 @@ INSTRUÇÕES IMPORTANTES:
 - Se o usuário perguntar sobre criar conteúdo para "meu produto" ou "esse produto", refira-se ao produto do contexto
 - Não pergunte novamente sobre qual produto quando as informações já estão disponíveis no contexto
 - Mantenha consistência com a estratégia e posicionamento definidos no produto
+- Sempre que mencionar "seu produto", refira-se especificamente ao ${productDetails?.name}
 `;
 
-        console.log('🚀 Debug - Prompt aprimorado com contexto:', {
+        console.log('🚀 DEBUG - Prompt aprimorado com contexto:', {
           originalPromptLength: selectedAgent.prompt.length,
           enhancedPromptLength: enhancedPrompt.length,
           contextAdded: enhancedPrompt.length - selectedAgent.prompt.length,
-          hasProductContext: enhancedPrompt.includes('CONTEXTO DO PRODUTO')
+          hasProductContext: enhancedPrompt.includes('CONTEXTO DO PRODUTO'),
+          productName: productDetails?.name
         });
       } else {
-        console.log('ℹ️ Debug - Usando prompt original sem contexto do produto');
+        console.log('ℹ️ DEBUG - Usando prompt original sem contexto do produto');
       }
 
       // Determinar se é agente customizado
       const isCustomAgent = selectedAgent?.id.startsWith('custom-');
 
-      console.log('🚀 Debug - Preparando chamada para IA:', {
+      console.log('🚀 DEBUG - Preparando chamada para IA:', {
         userId: user?.id,
         agentName: selectedAgent.name,
         isCustomAgent,
@@ -358,8 +363,8 @@ INSTRUÇÕES IMPORTANTES:
         promptLength: enhancedPrompt.length
       });
 
-      // Toast otimizado para processamento SEM LIMITE DE TEMPO
-      const loadingToast = toast.loading('🤖 Processando com contexto completo... Analisando toda a documentação disponível.', {
+      // Toast otimizado para processamento
+      const loadingToast = toast.loading('🤖 Processando com contexto completo...', {
         duration: Infinity
       });
 
@@ -382,7 +387,7 @@ INSTRUÇÕES IMPORTANTES:
       // Remover toast de loading
       toast.dismiss(loadingToast);
 
-      console.log('📥 Debug - Resposta da função:', { 
+      console.log('📥 DEBUG - Resposta da função:', { 
         hasData: !!data, 
         hasError: !!error,
         dataKeys: data ? Object.keys(data) : [],
@@ -418,14 +423,14 @@ INSTRUÇÕES IMPORTANTES:
 
       // Validação robusta da resposta
       if (!data) {
-        console.error('❌ Debug - Resposta vazia da função');
+        console.error('❌ DEBUG - Resposta vazia da função');
         toast.error('❌ Erro: Resposta vazia do servidor');
         return;
       }
 
       // Verificar se há erro na resposta
       if (data.error) {
-        console.error('❌ Debug - Erro na resposta:', data.error);
+        console.error('❌ DEBUG - Erro na resposta:', data.error);
         
         let errorMessage = 'Erro temporário no chat. Tente novamente.';
         
@@ -452,7 +457,7 @@ INSTRUÇÕES IMPORTANTES:
       // Validar se a resposta contém o campo correto
       const aiResponseText = data.response || data.generatedCopy || data.text;
       if (!aiResponseText || typeof aiResponseText !== 'string') {
-        console.error('❌ Debug - Resposta inválida:', data);
+        console.error('❌ DEBUG - Resposta inválida:', data);
         toast.error('❌ Erro: Resposta inválida do servidor');
         return;
       }
@@ -465,7 +470,7 @@ INSTRUÇÕES IMPORTANTES:
         timestamp: new Date()
       };
 
-      console.log('📨 Debug - Resposta processada com sucesso:', {
+      console.log('📨 DEBUG - Resposta processada com sucesso:', {
         messageId: assistantMessageId,
         responseLength: aiResponseText.length,
         hadProductContext: !!productContext,
@@ -498,7 +503,7 @@ INSTRUÇÕES IMPORTANTES:
         const tokenIcon = getTokenIcon(data.tokensUsed);
         
         const contextMessage = productContext 
-          ? 'Análise completa com contexto do produto'
+          ? `Análise com contexto do produto ${productDetails?.name}`
           : 'Análise completa da documentação';
         
         toast.success(`${tokenIcon} Processamento completo!`, {
