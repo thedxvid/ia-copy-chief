@@ -15,11 +15,12 @@ import {
   BarChart3, 
   Zap,
   Wifi,
-  WifiOff
+  WifiOff,
+  AlertCircle
 } from 'lucide-react';
 
 export const TokenWidget = () => {
-  const { tokens, isConnected, lastUpdate } = useRealtimeTokens();
+  const { tokens, isConnected, connectionStatus, lastUpdate, forceReconnect, retryCount } = useRealtimeTokens();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -101,6 +102,32 @@ export const TokenWidget = () => {
     return 'Normal';
   };
 
+  const getConnectionIcon = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return <Wifi className="h-3 w-3 text-green-500" />;
+      case 'connecting':
+        return <RefreshCw className="h-3 w-3 text-yellow-500 animate-spin" />;
+      case 'error':
+        return <AlertCircle className="h-3 w-3 text-red-500" />;
+      default:
+        return <WifiOff className="h-3 w-3 text-gray-500" />;
+    }
+  };
+
+  const getConnectionStatus = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return 'Online';
+      case 'connecting':
+        return 'Conectando...';
+      case 'error':
+        return `Erro (${retryCount}/3)`;
+      default:
+        return 'Offline';
+    }
+  };
+
   return (
     <>
       <TooltipProvider>
@@ -125,12 +152,21 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 
-                {/* Indicador de conexão realtime */}
-                <div className="relative">
-                  {isConnected ? (
-                    <Wifi className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <WifiOff className="h-3 w-3 text-gray-500" />
+                {/* Indicador de conexão realtime melhorado */}
+                <div className="relative flex items-center gap-1">
+                  {getConnectionIcon()}
+                  {connectionStatus === 'error' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        forceReconnect();
+                      }}
+                      className="h-5 w-5 p-0 text-gray-400 hover:text-white"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                    </Button>
                   )}
                 </div>
                 
@@ -172,11 +208,17 @@ export const TokenWidget = () => {
                   }>
                     {getStatusMessage()}
                   </span>
-                  {isConnected ? (
-                    <Zap className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <span className="text-gray-400 text-xs">Offline</span>
-                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <strong>Conexão:</strong>
+                  <span className={
+                    connectionStatus === 'connected' ? 'text-green-400' :
+                    connectionStatus === 'connecting' ? 'text-yellow-400' :
+                    'text-red-400'
+                  }>
+                    {getConnectionStatus()}
+                  </span>
+                  {getConnectionIcon()}
                 </div>
                 <div className="space-y-1 text-xs">
                   <p><strong>Disponível:</strong> {tokens.total_available.toLocaleString()} créditos</p>
@@ -189,6 +231,9 @@ export const TokenWidget = () => {
                   )}
                   {isCritical && (
                     <p className="text-red-400 font-medium">⚠️ Créditos críticos! Considere economizar.</p>
+                  )}
+                  {connectionStatus === 'error' && (
+                    <p className="text-red-400 font-medium">🔄 Clique no botão de refresh para reconectar</p>
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-600">
@@ -218,12 +263,7 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 
-                {isConnected ? (
-                  <Wifi className="h-2.5 w-2.5 text-green-500" />
-                ) : (
-                  <WifiOff className="h-2.5 w-2.5 text-gray-500" />
-                )}
-                
+                {getConnectionIcon()}
                 {getStatusIcon()}
                 
                 <span className={`text-xs font-medium ${
@@ -231,13 +271,36 @@ export const TokenWidget = () => {
                 }`}>
                   {formatNumber(tokens.total_available)}
                 </span>
+
+                {connectionStatus === 'error' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      forceReconnect();
+                    }}
+                    className="h-4 w-4 p-0 text-gray-400 hover:text-white"
+                  >
+                    <RefreshCw className="h-2.5 w-2.5" />
+                  </Button>
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
               <div className="text-sm space-y-1">
                 <div className="flex items-center gap-2">
                   <strong>{getStatusMessage()}</strong>
-                  {isConnected && <Zap className="h-3 w-3 text-green-500" />}
+                </div>
+                <div className="flex items-center gap-2">
+                  <strong>Conexão:</strong>
+                  <span className={
+                    connectionStatus === 'connected' ? 'text-green-400' :
+                    connectionStatus === 'connecting' ? 'text-yellow-400' :
+                    'text-red-400'
+                  }>
+                    {getConnectionStatus()}
+                  </span>
                 </div>
                 <p>{formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)} créditos</p>
                 <p>Usado: {usagePercentage.toFixed(1)}%</p>
@@ -246,6 +309,9 @@ export const TokenWidget = () => {
                   <p className="text-green-400 text-xs">
                     Atualizado: {lastUpdate.toLocaleTimeString()}
                   </p>
+                )}
+                {connectionStatus === 'error' && (
+                  <p className="text-red-400 text-xs">Toque em refresh para reconectar</p>
                 )}
                 <p className="text-xs text-gray-400 mt-1">Toque para analytics</p>
               </div>
