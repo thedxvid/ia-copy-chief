@@ -55,7 +55,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[]) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-sonnet-20240229', // REVERTIDO PARA CLAUDE 4 SONNET
+        model: 'claude-sonnet-4-20250514', // ATUALIZADO PARA CLAUDE 4 SONNET VÁLIDO
         max_tokens: 4000,
         system: systemPrompt,
         messages: messages
@@ -351,7 +351,7 @@ serve(async (req) => {
       JSON.stringify({
         response: aiResponse,
         tokensUsed: totalTokens,
-        model: 'claude-3-sonnet-20240229'
+        model: 'claude-sonnet-4-20250514'
       }),
       {
         status: 200,
