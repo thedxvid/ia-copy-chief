@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, validateAuthToken, sanitizeInput } from '../_shared/security.ts'
@@ -56,7 +55,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[]) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022', // Modelo atualizado
+        model: 'claude-3-sonnet-20240229', // REVERTIDO PARA CLAUDE 4 SONNET
         max_tokens: 4000,
         system: systemPrompt,
         messages: messages
@@ -352,7 +351,7 @@ serve(async (req) => {
       JSON.stringify({
         response: aiResponse,
         tokensUsed: totalTokens,
-        model: 'claude-3-5-sonnet-20241022'
+        model: 'claude-3-sonnet-20240229'
       }),
       {
         status: 200,
