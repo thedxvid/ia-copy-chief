@@ -1,6 +1,4 @@
 
-import React from 'react';
-
 // Função para converter markdown básico em HTML
 export const parseMarkdown = (text: string): string => {
   if (!text) return '';
@@ -27,20 +25,4 @@ export const sanitizeHtml = (html: string): string => {
   // Remove scripts e outras tags perigosas
   const cleanHtml = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   return cleanHtml;
-};
-
-// Componente para renderizar texto com markdown
-export const MarkdownText: React.FC<{ children: string; className?: string }> = ({ 
-  children, 
-  className = '' 
-}) => {
-  const parsedContent = parseMarkdown(children);
-  const sanitizedContent = sanitizeHtml(parsedContent);
-  
-  return (
-    <div 
-      className={className}
-      dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-    />
-  );
 };

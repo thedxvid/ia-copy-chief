@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AgentEditor } from '@/components/agents/AgentEditor';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
-import { MarkdownText } from '@/utils/markdownParser';
+import { MarkdownText } from '@/components/ui/markdown-text';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
