@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +18,7 @@ interface NotificationFlags {
 }
 
 const MONTHLY_TOKENS_LIMIT = 25000; // Plano R$ 97
+const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
@@ -24,16 +26,22 @@ export const useTokens = () => {
   const [error, setError] = useState<string | null>(null);
   const [notificationFlags, setNotificationFlags] = useState<NotificationFlags | null>(null);
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
 
-  const fetchTokens = useCallback(async () => {
+  const fetchTokens = useCallback(async (showRefreshing = false) => {
     if (!user?.id) {
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      if (showRefreshing) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       
       // Buscar tokens disponíveis
@@ -58,6 +66,7 @@ export const useTokens = () => {
         setTokens(tokenInfo);
         setNotificationFlags(profileData || { notified_90: false, notified_50: false, notified_10: false });
         setLastResetDate(profileData?.tokens_reset_date || null);
+        setLastUpdate(new Date());
         
         // Verificar se precisa mostrar notificações
         checkAndShowNotifications(tokenInfo, profileData);
@@ -72,6 +81,7 @@ export const useTokens = () => {
       setError(err instanceof Error ? err.message : 'Erro ao carregar tokens');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [user?.id]);
 
@@ -132,6 +142,33 @@ export const useTokens = () => {
     }
   }, [user?.id, lastResetDate, fetchTokens]);
 
+  // Auto-refresh quando a aba voltar a ficar ativa
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.id) {
+        console.log('👁️ Aba ativa - atualizando tokens');
+        fetchTokens(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchTokens, user?.id]);
+
+  // Auto-refresh a cada 30 segundos quando ativo
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        console.log('🔄 Auto-refresh tokens');
+        fetchTokens(true);
+      }
+    }, AUTO_REFRESH_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [fetchTokens, user?.id]);
+
   const getDaysUntilReset = useCallback(() => {
     if (!lastResetDate) return null;
     
@@ -163,8 +200,8 @@ export const useTokens = () => {
   }, [tokens, lastResetDate, checkResetNeeded]);
 
   const refreshTokens = useCallback(() => {
-    console.log('Refreshing tokens...');
-    fetchTokens();
+    console.log('🔄 Manual refresh tokens...');
+    fetchTokens(true);
   }, [fetchTokens]);
 
   const getUsagePercentage = useCallback(() => {
@@ -235,6 +272,8 @@ export const useTokens = () => {
     error,
     notificationFlags,
     lastResetDate,
+    lastUpdate,
+    isRefreshing,
     refreshTokens,
     getUsagePercentage,
     getStatusColor,
