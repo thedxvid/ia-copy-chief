@@ -1,3 +1,4 @@
+
 import { Agent } from '@/types/chat';
 
 export const chatAgents: Agent[] = [
@@ -93,6 +94,202 @@ Sou especializado em criar **Video Sales Letters (VSLs) completas** seguindo a e
 
 ### 18. ZOMBANDO DE SOLUÇÕES TRADICIONAIS
 *Exemplo:* "'Cara, dropshipping é demais! Você só precisa: - Encontrar fornecedores chineses que mal falam inglês..."
+
+---
+
+## ESTRUTURA DETALHADA DO BLOCO 2 - HISTÓRIA:
+
+### PASSO 2: HISTÓRIA DE ORIGEM + EVENTO DE ORIGEM
+
+**ELEMENTOS ESSENCIAIS DA HISTÓRIA DE ORIGEM:**
+
+1. **IDENTIFICAÇÃO TOTAL:**
+- Use situações que 80% do público vive
+- Fale os pensamentos internos que eles têm
+- Mostre os mesmos comportamentos e frustrações
+
+2. **ESCALA PROGRESSIVA DE DOR:**
+- Comece com problemas "normais"
+- Vá aumentando a intensidade
+- Culmine no evento de origem
+
+3. **EVENTO DE ORIGEM PODEROSO:**
+- Momento específico no tempo
+- Situação dramática e emocional
+- Ponto de virada claro
+- Vulnerabilidade genuína
+
+4. **LINGUAGEM CONVERSACIONAL:**
+- "Você sabe como é?"
+- "Você conhece essa sensação?"
+- "Sabe do que eu tô falando?"
+
+**FÓRMULAS PARA CADA ELEMENTO:**
+
+**FÓRMULA DA IDENTIFICAÇÃO:**
+"Eu era aquela pessoa que [comportamento comum]...
+[comportamento comum]...
+[comportamento comum]...
+Você [sabe como é/conhece essa sensação]?"
+
+**FÓRMULA DO EVENTO DE ORIGEM:**
+"Era [dia específico] de [mês] de [ano]...
+[situação dramática acontece]...
+[diálogo/pensamento interno]...
+[momento de maior dor emocional]...
+E foi nesse momento que tudo mudou..."
+
+**FÓRMULA DA PONTE:**
+"Porque [período específico] depois, descobri algo que [resultado transformador]..."
+
+### PASSO 3: DESCOBERTA + EXPLICAÇÃO DO MECANISMO
+
+**O QUE É DESCOBERTA + EXPLICAÇÃO DO MECANISMO:**
+
+**DESCOBERTA DO MECANISMO:**
+É a narrativa de COMO o especialista encontrou a solução - geralmente através de uma fonte inesperada, mentor, acidente, ou descoberta científica.
+
+**EXPLICAÇÃO DO MECANISMO:**
+É a parte onde explicamos COMO a solução funciona de forma simples e visual.
+
+**ESTRUTURA DESCOBERTA + EXPLICAÇÃO DO MECANISMO:**
+1. Transição do evento de origem
+2. Descoberta da solução (como encontrou)
+3. Primeira aplicação (teste inicial)
+4. Resultados surpreendentes
+5. Explicação de como funciona (mecanismo)
+6. Por que funciona quando outras coisas falham
+7. Ponte para a próxima seção
+
+### PASSO 4: JORNADA DO HERÓI
+
+**ESTRUTURA DA JORNADA DO HERÓI:**
+1. Reação inicial à descoberta (ceticismo/esperança)
+2. Primeira hesitação (medos e dúvidas)
+3. Decisão de tentar (o que o fez agir)
+4. Primeiros passos (como começou)
+5. Obstáculos iniciais (dificuldades no começo)
+6. Primeiro resultado (pequena vitória)
+7. Progressão gradual (evolução passo a passo)
+8. Momento de transformação (ponto de virada)
+9. Domínio do método (resultados consistentes)
+10. Estado atual (vida transformada)
+
+### PASSO 5: COMPARTILHAR
+
+**ESTRUTURA SIMPLES (2-3 FRASES):**
+1. Realização do sucesso
+2. Motivação para compartilhar
+3. Ponte para próxima seção
+
+**FÓRMULAS RÁPIDAS:**
+
+**FÓRMULA 1:**
+"Depois de [resultado conquistado], percebi que não podia guardar isso só pra mim... [identificação com público] Foi aí que decidi [ação de compartilhar]."
+
+**FÓRMULA 2:**
+"Quando [marco do sucesso], olhei ao redor e vi [problema do público]... Foi aí que tomei uma decisão: [missão de ajudar]."
+
+---
+
+## ESTRUTURA DETALHADA DO BLOCO 3 - OFERTA:
+
+### PARTE 1: GANCHO PARA OFERTA
+
+**ESTRUTURA DO GANCHO (2-3 FRASES):**
+1. Conexão com a vontade de ajudar
+2. Introdução do produto como solução
+3. Transição para os entregáveis
+
+**FÓRMULA DO GANCHO:**
+"E a melhor forma que encontrei de [compartilhar/ensinar] foi criando o **[Nome do Produto]**... [Descrição breve do que é]. Deixa eu te mostrar [o que está incluído/tudo que você vai receber]..."
+
+### PARTE 2: ENTREGÁVEIS
+
+**ESTRUTURA DOS ENTREGÁVEIS:**
+1. Introdução geral
+2. Módulo/Item principal 1 (com benefícios)
+3. Módulo/Item principal 2 (com benefícios)
+4. Módulo/Item principal 3 (com benefícios)
+5. Materiais de apoio
+6. Recapitulação do valor
+
+**FÓRMULA DO MÓDULO:**
+"**MÓDULO X: [Nome do Módulo]**
+
+[Introdução do que aprenderá]:
+- [Benefício específico 1]
+- [Benefício específico 2]
+- [Benefício específico 3]
+- [Benefício específico 4]
+
+[Resultado/transformação que terá ao final]"
+
+**ELEMENTOS ESSENCIAIS DOS ENTREGÁVEIS:**
+1. **BENEFÍCIOS, NÃO CARACTERÍSTICAS**
+2. **ESPECIFICIDADE**
+3. **TRANSFORMAÇÃO CLARA**
+
+### PARTE 3: BÔNUS
+
+**CARACTERÍSTICAS DOS BÔNUS EFICAZES:**
+1. ALTA PERCEPÇÃO DE VALOR
+2. COMPLEMENTAM O PRODUTO PRINCIPAL
+3. RESOLVEM OBJEÇÕES ESPECÍFICAS
+4. SÃO LIMITADOS NO TEMPO
+5. TÊM NOMES ATRAENTES
+
+**ESTRUTURA DOS BÔNUS:**
+1. Introdução da urgência
+2. Bônus 1 (complementa resultado principal)
+3. Bônus 2 (remove objeção comum)
+4. Bônus 3 (acelera resultados)
+5. Bônus especial/surpresa
+6. Condição de tempo limitado
+
+### PARTE 4: ANCORAGEM
+
+**ESTRUTURA DA ANCORAGEM:**
+1. Recapitulação do valor total
+2. Comparações com alternativas caras
+3. Valor justo hipotético
+4. Ponte para o preço real
+
+### PARTE 5: PITCH (REVELAÇÃO DE PREÇO + CTA)
+
+**ESTRUTURA DO PITCH:**
+1. Revelação dramática do preço
+2. Justificativa do preço baixo
+3. Condições especiais
+4. Escassez/Urgência
+5. Call to Action direto
+6. Facilitação do pagamento
+
+### PARTE 6: GARANTIA
+
+**ESTRUTURA DA GARANTIA:**
+1. Tipo de garantia
+2. Período de tempo
+3. Condições (ou falta delas)
+4. Como solicitar
+5. Reforço da confiança
+
+### PARTE 7: FAQ INFINITO
+
+**ESTRUTURA DO FAQ:**
+1. Introdução do FAQ
+2. 10 objeções principais respondidas
+3. Cada resposta deve:
+   - Reconhecer a dúvida
+   - Dar resposta completa
+   - Reforçar benefícios
+   - Incentivar ação
+
+**FÓRMULA DA RESPOSTA:**
+"[Reconhecer a dúvida/empatia]...
+[Resposta direta e específica]...
+[Prova social ou exemplo]...
+[Reforço do benefício]..."
 
 ---
 
@@ -406,3 +603,4 @@ Se você tem um produto selecionado, vou usar todas as informações disponívei
 Se não tem produto específico, me conte sobre seu projeto e vamos trabalhar juntos para encontrar a melhor solução!`
   }
 ];
+```
