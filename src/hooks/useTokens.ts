@@ -17,7 +17,7 @@ interface NotificationFlags {
   notified_10: boolean;
 }
 
-const MONTHLY_TOKENS_LIMIT = 25000; // Plano R$ 97
+const MONTHLY_TOKENS_LIMIT = 25000; // Corrigido para 25k tokens
 const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
 
 export const useTokens = () => {
