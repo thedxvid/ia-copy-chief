@@ -1,4 +1,3 @@
-
 import { Agent } from '@/types/chat';
 
 export const chatAgents: Agent[] = [
@@ -603,4 +602,3 @@ Se você tem um produto selecionado, vou usar todas as informações disponívei
 Se não tem produto específico, me conte sobre seu projeto e vamos trabalhar juntos para encontrar a melhor solução!`
   }
 ];
-```
