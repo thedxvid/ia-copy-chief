@@ -95,32 +95,9 @@ export const useTokenMonitoring = () => {
         extra: p.extra_tokens 
       })));
 
-      // Buscar emails dos usuários usando a função RPC
-      let emailMap: { [key: string]: string } = {};
-      
-      try {
-        const { data: emailsData, error: emailsError } = await supabase
-          .rpc('get_user_emails', {
-            user_ids: usersData.map(u => u.id)
-          });
-
-        if (emailsError) {
-          console.warn('⚠️ Erro ao buscar emails via RPC:', emailsError);
-          console.log('📧 Continuando sem emails...');
-        } else if (emailsData && Array.isArray(emailsData)) {
-          console.log('📧 Emails encontrados via RPC:', emailsData.length);
-          (emailsData as UserEmail[]).forEach((item) => {
-            emailMap[item.id] = item.email;
-          });
-        }
-      } catch (rpcError) {
-        console.warn('⚠️ Fallback: RPC não disponível, continuando sem emails:', rpcError);
-      }
-
-      // Processar dados dos usuários
+      // Processar dados dos usuários sem depender de emails por enquanto
       const processedUsers: UserTokenData[] = usersData.map(profile => {
         const totalAvailable = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0);
-        const monthlyLimit = 100000; // Limite padrão mensal atual
         const tokensUsed = profile.total_tokens_used || 0;
         const usagePercentage = totalAvailable > 0 
           ? Math.round((tokensUsed / (tokensUsed + totalAvailable)) * 100)
@@ -129,7 +106,7 @@ export const useTokenMonitoring = () => {
         return {
           id: profile.id,
           full_name: profile.full_name,
-          email: emailMap[profile.id] || null,
+          email: null, // Temporariamente removendo dependência de emails
           monthly_tokens: profile.monthly_tokens || 0,
           extra_tokens: profile.extra_tokens || 0,
           total_tokens_used: tokensUsed,
@@ -143,7 +120,6 @@ export const useTokenMonitoring = () => {
       console.log('👥 Detalhes dos usuários processados:', processedUsers.map(u => ({
         id: u.id.slice(0, 8),
         name: u.full_name || 'Sem nome',
-        email: u.email || 'Sem email',
         available: u.total_available,
         used: u.total_tokens_used
       })));
@@ -174,9 +150,38 @@ export const useTokenMonitoring = () => {
       console.log('📈 Estatísticas calculadas:', calculatedStats);
 
       setStats(calculatedStats);
-      setUserDetails(processedUsers.sort((a, b) => b.total_available - a.total_available));
+      setUserDetails(processedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
 
       console.log('✅ Dados atualizados com sucesso - Total de usuários:', processedUsers.length);
+
+      // Tentar buscar emails em segundo plano (não bloquear a exibição dos dados)
+      try {
+        console.log('📧 Tentando buscar emails dos usuários...');
+        const { data: emailsData, error: emailsError } = await supabase
+          .rpc('get_user_emails', {
+            user_ids: usersData.map(u => u.id)
+          });
+
+        if (emailsError) {
+          console.warn('⚠️ Erro ao buscar emails via RPC:', emailsError);
+        } else if (emailsData && Array.isArray(emailsData)) {
+          console.log('📧 Emails encontrados via RPC:', emailsData.length);
+          
+          // Atualizar usuários com emails
+          const updatedUsers = processedUsers.map(user => {
+            const emailInfo = emailsData.find((e: any) => e.id === user.id);
+            return {
+              ...user,
+              email: emailInfo?.email || null
+            };
+          });
+          
+          setUserDetails(updatedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
+          console.log('✅ Emails atualizados para usuários');
+        }
+      } catch (emailError) {
+        console.warn('⚠️ Erro ao buscar emails (não crítico):', emailError);
+      }
 
     } catch (err) {
       console.error('❌ Erro ao buscar estatísticas de créditos:', err);
