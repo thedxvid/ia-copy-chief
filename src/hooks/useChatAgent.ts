@@ -1,8 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { ChatMessage, Agent, ChatSession } from '@/types/chat';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useUser } from '@supabase/auth-helpers-react';
-import { v4 as uuidv4 } from 'uuid';
 
 export const useChatAgent = (selectedProductId?: string) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -91,7 +91,7 @@ export const useChatAgent = (selectedProductId?: string) => {
   const createNewSession = async () => {
     if (!user) return;
 
-    const newSessionId = uuidv4();
+    const newSessionId = crypto.randomUUID();
     const newSession: ChatSession = {
       id: newSessionId,
       user_id: user.id,
@@ -297,7 +297,10 @@ export const useChatAgent = (selectedProductId?: string) => {
   const regenerateLastMessage = async () => {
     if (!activeSession || activeSession.messages.length === 0 || isLoading) return;
 
-    const lastMessage = activeSession.messages.findLast(msg => msg.role === 'user');
+    // Replace findLast with a compatible alternative
+    const userMessages = activeSession.messages.filter(msg => msg.role === 'user');
+    const lastMessage = userMessages[userMessages.length - 1];
+    
     if (!lastMessage) return;
 
     // Remover a mensagem de erro, se existir
