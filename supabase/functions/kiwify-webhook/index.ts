@@ -1,10 +1,16 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, sanitizeInput } from '../_shared/security.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+  'Access-Control-Max-Age': '86400'
+};
 
 // Função para gerar senha temporária segura
 function generateTemporaryPassword(): string {
@@ -23,43 +29,70 @@ function extractNameFromEmail(email: string): string {
 }
 
 serve(async (req) => {
+  console.log('🚀 WEBHOOK KIWIFY INICIADO - Método:', req.method);
+  console.log('🔗 Headers recebidos:', Object.fromEntries(req.headers.entries()));
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
+    console.log('✅ Respondendo a requisição OPTIONS (CORS)');
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     // Validar método HTTP
     if (req.method !== 'POST') {
-      return createErrorResponse('Method not allowed', 405);
+      console.log('❌ Método não permitido:', req.method);
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }), 
+        { 
+          status: 405,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
     }
 
-    // Rate limiting global para webhooks (100 requests por minuto)
-    const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
-    if (!checkRateLimit(`webhook:${clientIP}`, 100, 60000)) {
-      return createErrorResponse('Rate limit exceeded', 429);
+    // Obter dados do webhook
+    const rawBody = await req.text();
+    console.log('📦 Raw body recebido:', rawBody);
+
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error('❌ Erro ao fazer parse do JSON:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON payload' }), 
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
     }
 
-    // Obter e sanitizar dados do webhook
-    const rawBody = await req.json();
-    const body = sanitizeInput(rawBody);
-
-    console.log('🎯 Webhook Kiwify recebido:', {
+    console.log('🎯 Webhook Kiwify processado:', {
       event: body.event,
       orderId: body.order?.id,
       customerEmail: body.order?.Customer?.email,
-      status: body.order?.order_status
+      status: body.order?.order_status,
+      fullPayload: body
     });
 
     // Validar estrutura básica do webhook
     if (!body.event || !body.order || !body.order.id) {
       console.error('❌ Estrutura inválida do webhook:', body);
-      return createErrorResponse('Invalid webhook payload', 400);
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook payload structure' }), 
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Registrar webhook para auditoria
+    console.log('📝 Registrando webhook na tabela de auditoria...');
     const { error: webhookError } = await supabase
       .from('kiwify_webhooks')
       .insert({
@@ -74,6 +107,8 @@ serve(async (req) => {
 
     if (webhookError) {
       console.error('❌ Erro ao registrar webhook:', webhookError);
+    } else {
+      console.log('✅ Webhook registrado com sucesso na auditoria');
     }
 
     // Processar apenas eventos de pagamento aprovado
@@ -82,20 +117,33 @@ serve(async (req) => {
       
       if (!customerEmail) {
         console.error('❌ Email do cliente não encontrado');
-        return createErrorResponse('Customer email not found', 400);
+        return new Response(
+          JSON.stringify({ error: 'Customer email not found' }), 
+          { 
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          }
+        );
       }
 
       console.log('💰 Processando pagamento aprovado para:', customerEmail);
 
       // Buscar usuário pelo email de forma segura
-      const { data: user, error: userError } = await supabase.auth.admin.listUsers();
+      console.log('🔍 Buscando usuário no banco...');
+      const { data: users, error: userError } = await supabase.auth.admin.listUsers();
       
       if (userError) {
         console.error('❌ Erro ao buscar usuários:', userError);
-        return createErrorResponse('Error processing payment', 500);
+        return new Response(
+          JSON.stringify({ error: 'Error searching for user' }), 
+          { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          }
+        );
       }
 
-      const targetUser = user.users.find(u => u.email === customerEmail);
+      const targetUser = users.users.find(u => u.email === customerEmail);
 
       if (targetUser) {
         // FLUXO EXISTENTE: Usuário já existe, apenas ativar assinatura
@@ -113,7 +161,13 @@ serve(async (req) => {
 
         if (profileError) {
           console.error('❌ Erro ao atualizar perfil existente:', profileError);
-          return createErrorResponse('Error updating user profile', 500);
+          return new Response(
+            JSON.stringify({ error: 'Error updating existing user profile' }), 
+            { 
+              status: 500,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            }
+          );
         }
 
         console.log('✅ Assinatura ativada para usuário existente:', customerEmail);
@@ -126,9 +180,11 @@ serve(async (req) => {
         const customerName = extractNameFromEmail(customerEmail);
         
         console.log('🔐 Senha temporária gerada:', temporaryPassword);
+        console.log('👤 Nome extraído do email:', customerName);
         
         try {
           // Criar novo usuário
+          console.log('🔨 Criando novo usuário no Supabase Auth...');
           const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
             email: customerEmail,
             password: temporaryPassword,
@@ -142,12 +198,19 @@ serve(async (req) => {
 
           if (createUserError) {
             console.error('❌ Erro ao criar usuário:', createUserError);
-            return createErrorResponse('Error creating user account', 500);
+            return new Response(
+              JSON.stringify({ error: 'Error creating user account', details: createUserError }), 
+              { 
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders }
+              }
+            );
           }
 
-          console.log('✅ Usuário criado com sucesso:', newUser.user.id);
+          console.log('✅ Usuário criado com sucesso:', newUser.user?.id);
 
           // Atualizar perfil do novo usuário
+          console.log('📝 Atualizando perfil do novo usuário...');
           const { error: newProfileError } = await supabase
             .from('profiles')
             .update({
@@ -162,10 +225,12 @@ serve(async (req) => {
           if (newProfileError) {
             console.error('❌ Erro ao atualizar perfil do novo usuário:', newProfileError);
             // Continuar mesmo com erro, o importante é que o usuário foi criado
+          } else {
+            console.log('✅ Perfil do novo usuário atualizado com sucesso');
           }
 
           // Enviar email com credenciais
-          console.log('📧 Enviando email com credenciais');
+          console.log('📧 Enviando email com credenciais...');
           
           const { data: emailData, error: emailError } = await supabase.functions.invoke('send-credentials-email', {
             body: {
@@ -179,6 +244,7 @@ serve(async (req) => {
           if (emailError) {
             console.error('❌ Erro ao enviar email:', emailError);
             // Não retornar erro aqui, pois o usuário foi criado com sucesso
+            console.log('⚠️ Usuário criado mas email falhou - usuário pode fazer login normalmente');
           } else {
             console.log('✅ Email enviado com sucesso:', emailData);
           }
@@ -187,28 +253,51 @@ serve(async (req) => {
           
         } catch (error) {
           console.error('❌ Erro crítico no fluxo de novo usuário:', error);
-          return createErrorResponse('Error in new user flow', 500);
+          return new Response(
+            JSON.stringify({ error: 'Critical error in new user flow', details: error }), 
+            { 
+              status: 500,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            }
+          );
         }
       }
 
       // Marcar webhook como processado
+      console.log('✔️ Marcando webhook como processado...');
       await supabase
         .from('kiwify_webhooks')
         .update({ processed: true })
         .eq('kiwify_order_id', body.order.id);
 
-      console.log('✅ Webhook processado com sucesso');
+      console.log('✅ Webhook processado com sucesso - FINALIZANDO');
     } else {
       console.log('ℹ️ Evento ignorado:', body.event, 'Status:', body.order?.order_status);
     }
 
-    return createSecureResponse({ 
-      success: true,
-      message: 'Webhook processed successfully' 
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        message: 'Webhook processed successfully',
+        processed: body.event === 'order_paid' && body.order?.order_status === 'paid' 
+      }), 
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      }
+    );
 
   } catch (error) {
     console.error('💥 Erro crítico no webhook:', error);
-    return createErrorResponse('Internal server error', 500);
+    return new Response(
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }), 
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      }
+    );
   }
 });
