@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -13,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AgentEditor } from '@/components/agents/AgentEditor';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
+import { MarkdownText } from '@/utils/markdownParser';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
@@ -169,7 +169,13 @@ export const ChatInterface = () => {
                       : 'bg-[#1E1E1E] text-white border border-[#4B5563]'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  {message.role === 'assistant' ? (
+                    <MarkdownText className="whitespace-pre-wrap">
+                      {message.content}
+                    </MarkdownText>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  )}
                   <div className="text-xs opacity-70 mt-2">
                     {message.timestamp.toLocaleTimeString('pt-BR', {
                       hour: '2-digit',
