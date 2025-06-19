@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -28,6 +29,11 @@ interface TokenUsageHistory {
   total_tokens_used: number;
   unique_users: number;
   feature_breakdown: { [key: string]: number };
+}
+
+interface UserEmail {
+  id: string;
+  email: string;
 }
 
 export const useTokenMonitoring = () => {
@@ -81,10 +87,11 @@ export const useTokenMonitoring = () => {
         return;
       }
 
-      // Buscar emails dos usuários da tabela auth.users usando RPC
-      const { data: emailsData, error: emailsError } = await supabase.rpc('get_user_emails', {
-        user_ids: usersData.map(u => u.id)
-      });
+      // Buscar emails dos usuários usando a função RPC criada
+      const { data: emailsData, error: emailsError } = await supabase
+        .rpc('get_user_emails', {
+          user_ids: usersData.map(u => u.id)
+        });
 
       if (emailsError) {
         console.warn('⚠️ Não foi possível buscar emails:', emailsError);
@@ -94,8 +101,8 @@ export const useTokenMonitoring = () => {
 
       // Criar mapa de emails por ID
       const emailMap: { [key: string]: string } = {};
-      if (emailsData) {
-        emailsData.forEach((item: any) => {
+      if (emailsData && Array.isArray(emailsData)) {
+        (emailsData as UserEmail[]).forEach((item) => {
           emailMap[item.id] = item.email;
         });
       }

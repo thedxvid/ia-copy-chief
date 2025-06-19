@@ -851,6 +851,13 @@ export type Database = {
           total_used: number
         }[]
       }
+      get_user_emails: {
+        Args: { user_ids: string[] }
+        Returns: {
+          id: string
+          email: string
+        }[]
+      }
       is_user_admin: {
         Args: { user_id: string }
         Returns: boolean
