@@ -142,7 +142,7 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-4-sonnet-20241022', // Claude 4 Sonnet modelo correto
+        model: 'claude-3-5-sonnet-20241022', // Modelo correto Claude 3.5 Sonnet
         max_tokens: 4000,
         messages: [
           { role: 'user', content: prompt }
@@ -170,7 +170,18 @@ serve(async (req) => {
     }
 
     const aiData = await response.json();
-    const generatedCopy = aiData.content[0]?.text || 'Copy não gerada';
+    
+    // Validação robusta da resposta
+    if (!aiData.content || !Array.isArray(aiData.content) || aiData.content.length === 0) {
+      console.error('❌ Resposta inválida da API:', aiData);
+      throw new Error('Resposta inválida da API de IA');
+    }
+
+    const generatedCopy = aiData.content[0]?.text;
+    if (!generatedCopy || typeof generatedCopy !== 'string') {
+      console.error('❌ Texto da resposta inválido:', aiData.content[0]);
+      throw new Error('Texto da resposta inválido');
+    }
 
     console.log('✅ Copy generated successfully, length:', generatedCopy.length);
 

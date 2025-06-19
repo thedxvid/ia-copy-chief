@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { ChatMessage, Agent, ChatState } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
@@ -322,6 +323,8 @@ INSTRUÇÕES IMPORTANTES:
         }
       });
 
+      console.log('Resposta da função:', { data, error });
+
       if (error) {
         console.error('Error calling chat function:', error);
         
@@ -342,11 +345,37 @@ INSTRUÇÕES IMPORTANTES:
         return;
       }
 
+      // Validação robusta da resposta
+      if (!data) {
+        console.error('Resposta vazia da função');
+        toast.error('Erro: Resposta vazia do servidor');
+        return;
+      }
+
+      // Verificar se há erro na resposta
+      if (data.error) {
+        console.error('Erro na resposta:', data.error);
+        if (isAdmin) {
+          toast.error(`Erro da API: ${data.error} - ${data.details || ''}`);
+        } else {
+          toast.error('Erro temporário no chat. Tente novamente.');
+        }
+        return;
+      }
+
+      // Validar se a resposta contém o campo correto
+      const aiResponseText = data.response || data.generatedCopy || data.text;
+      if (!aiResponseText || typeof aiResponseText !== 'string') {
+        console.error('Resposta inválida:', data);
+        toast.error('Erro: Resposta inválida do servidor');
+        return;
+      }
+
       const assistantMessageId = crypto.randomUUID();
       const assistantMessage: ChatMessage = {
         id: assistantMessageId,
         role: 'assistant',
-        content: data.response || 'Resposta não disponível',
+        content: aiResponseText,
         timestamp: new Date()
       };
 

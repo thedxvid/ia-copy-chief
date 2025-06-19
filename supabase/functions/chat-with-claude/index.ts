@@ -172,7 +172,7 @@ serve(async (req) => {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-4-sonnet-20241022', // Claude 4 Sonnet modelo correto
+          model: 'claude-3-5-sonnet-20241022', // Modelo correto Claude 3.5 Sonnet
           max_tokens: 4000,
           system: systemPrompt,
           messages: claudeMessages
@@ -251,7 +251,9 @@ serve(async (req) => {
       claudeData = await claudeResponse.json();
       console.log('Claude response parsed:', {
         hasContent: !!claudeData.content,
-        contentLength: claudeData.content?.[0]?.text?.length || 0
+        contentLength: claudeData.content?.[0]?.text?.length || 0,
+        type: claudeData.type,
+        hasError: !!claudeData.error
       });
     } catch (error) {
       console.error('Erro ao parsear resposta do Claude:', error);
@@ -267,7 +269,49 @@ serve(async (req) => {
       );
     }
 
-    const aiResponse = claudeData.content?.[0]?.text || 'Resposta não disponível';
+    // Validação robusta da resposta do Claude
+    if (claudeData.error) {
+      console.error('Erro na resposta do Claude:', claudeData.error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service error',
+          details: claudeData.error.message || 'Unknown AI error'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    if (!claudeData.content || !Array.isArray(claudeData.content) || claudeData.content.length === 0) {
+      console.error('Resposta do Claude sem conteúdo válido:', claudeData);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Empty response from AI service',
+          details: 'No content returned from Claude'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const aiResponse = claudeData.content[0]?.text;
+    if (!aiResponse || typeof aiResponse !== 'string') {
+      console.error('Texto da resposta inválido:', claudeData.content[0]);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid response format from AI service',
+          details: 'Response text is missing or invalid'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Calcular tokens usados (aproximação)
     const promptTokens = JSON.stringify(claudeMessages).length / 4;
