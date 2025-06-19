@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, validateAuthToken, sanitizeInput } from '../_shared/security.ts'
@@ -7,11 +6,11 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
-// Função para retry com backoff exponencial otimizado
+// Função para retry com backoff exponencial otimizado - SEM TIMEOUT FORÇADO
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 4, // Aumentado para 4 tentativas
-  baseDelay: number = 2000, // Delay inicial maior
+  maxRetries: number = 3, // Reduzido para 3 tentativas
+  baseDelay: number = 3000, // Delay inicial maior
   operation: string = 'operação'
 ): Promise<T> {
   let lastError: Error;
@@ -28,8 +27,7 @@ async function retryWithBackoff<T>(
         error: error.message,
         type: error.name,
         attempt: attempt + 1,
-        maxRetries: maxRetries + 1,
-        isTimeout: error.message?.includes('timeout') || error.name === 'AbortError'
+        maxRetries: maxRetries + 1
       });
       
       if (attempt === maxRetries) {
@@ -37,11 +35,9 @@ async function retryWithBackoff<T>(
         throw lastError;
       }
       
-      // Backoff exponencial com jitter mais agressivo para timeouts
-      const isTimeout = error.message?.includes('timeout') || error.name === 'AbortError';
-      const jitter = Math.random() * 0.3; // 30% de variação aleatória
-      const multiplier = isTimeout ? 1.5 : 2; // Delay menor para timeouts
-      const delay = baseDelay * Math.pow(multiplier, attempt) * (1 + jitter);
+      // Backoff exponencial com jitter mais suave para operações longas
+      const jitter = Math.random() * 0.2; // 20% de variação aleatória
+      const delay = baseDelay * Math.pow(1.8, attempt) * (1 + jitter);
       
       console.log(`⏳ Aguardando ${Math.round(delay)}ms antes da próxima tentativa...`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -51,16 +47,12 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
-// Função otimizada para chamar Claude com timeouts aprimorados
+// Função otimizada para chamar Claude SEM TIMEOUT FORÇADO
 async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: number = 1) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90000); // Aumentado para 90s
-  
   try {
-    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt})...`, {
+    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt}) - SEM TIMEOUT FORÇADO...`, {
       messageCount: messages.length,
       systemPromptLength: systemPrompt.length,
-      timeout: '90s',
       timestamp: new Date().toISOString(),
       totalTokensEstimate: Math.ceil((systemPrompt.length + JSON.stringify(messages).length) / 4)
     });
@@ -70,23 +62,24 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
     // Otimizar payload - remover campos desnecessários e limitar tamanho
     const optimizedMessages = messages.map(msg => ({
       role: msg.role,
-      content: typeof msg.content === 'string' && msg.content.length > 4000 
-        ? msg.content.substring(0, 4000) + '...' 
+      content: typeof msg.content === 'string' && msg.content.length > 6000 
+        ? msg.content.substring(0, 6000) + '...' 
         : msg.content
     }));
 
     const payload = {
       model: 'claude-sonnet-4-20250514', // Mantendo Claude 4 como solicitado
-      max_tokens: 2000,
-      system: systemPrompt.length > 8000 ? systemPrompt.substring(0, 8000) + '...' : systemPrompt,
+      max_tokens: 3000, // Aumentado para permitir respostas mais longas
+      system: systemPrompt.length > 12000 ? systemPrompt.substring(0, 12000) + '...' : systemPrompt,
       messages: optimizedMessages,
-      temperature: 0.7 // Adicionar temperatura para melhor performance
+      temperature: 0.7
     };
 
-    console.log(`📤 Payload otimizado:`, {
+    console.log(`📤 Payload otimizado para processamento longo:`, {
       systemPromptFinal: payload.system.length,
       messagesCount: payload.messages.length,
-      estimatedTokens: Math.ceil(JSON.stringify(payload).length / 4)
+      estimatedTokens: Math.ceil(JSON.stringify(payload).length / 4),
+      maxTokens: payload.max_tokens
     });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -96,14 +89,13 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify(payload),
-      signal: controller.signal
+      body: JSON.stringify(payload)
+      // REMOVIDO: signal: controller.signal - Sem timeout forçado
     });
 
     const responseTime = Date.now() - startTime;
-    clearTimeout(timeoutId);
     
-    console.log(`📥 Claude API respondeu:`, {
+    console.log(`📥 Claude API respondeu (sem timeout forçado):`, {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
@@ -137,7 +129,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 
     const responseData = await response.json();
     
-    console.log(`✅ Claude API - Resposta processada com sucesso:`, {
+    console.log(`✅ Claude API - Resposta processada com sucesso (sem timeout):`, {
       hasContent: !!responseData.content,
       contentLength: responseData.content?.[0]?.text?.length || 0,
       type: responseData.type,
@@ -150,13 +142,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
     return responseData;
     
   } catch (error) {
-    clearTimeout(timeoutId);
-    
-    // Tratamento melhorado de diferentes tipos de erro
-    if (error.name === 'AbortError') {
-      throw new Error('Claude API timeout - A resposta está demorando mais que o esperado (90s)');
-    }
-    
+    // Tratamento melhorado de diferentes tipos de erro - SEM TIMEOUT
     if (error.message?.includes('network') || error.message?.includes('fetch')) {
       throw new Error('Erro de conectividade com a API do Claude');
     }
@@ -170,7 +156,7 @@ async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: num
 }
 
 serve(async (req) => {
-  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE OTIMIZADA ===');
+  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE SEM TIMEOUT ===');
   console.log('Method:', req.method);
   console.log('Timestamp:', new Date().toISOString());
   console.log('URL:', req.url);
@@ -284,7 +270,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('✅ Dados validados:', {
+    console.log('✅ Dados validados para processamento longo:', {
       userId,
       messageLength: message.length,
       agentName,
@@ -293,8 +279,8 @@ serve(async (req) => {
       systemPromptLength: agentPrompt?.length || 0
     });
 
-    // Rate limiting por usuário otimizado (30 requests por minuto)
-    if (!checkRateLimit(`chat:${userId}`, 30, 60000)) {
+    // Rate limiting por usuário mais permissivo (20 requests por minuto)
+    if (!checkRateLimit(`chat:${userId}`, 20, 60000)) {
       console.error('⏱️ Rate limit excedido para usuário:', userId);
       return new Response(
         JSON.stringify({ 
@@ -312,17 +298,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Preparar prompt do sistema otimizado
+    // Preparar prompt do sistema otimizado para processamento longo
     let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
-    console.log('📝 System prompt preparado:', {
+    console.log('📝 System prompt preparado para processamento longo:', {
       length: systemPrompt.length,
       isCustomAgent,
       agentName,
-      truncated: systemPrompt.length > 8000
+      truncated: systemPrompt.length > 12000
     });
     
-    // Preparar mensagens para Claude (limitando histórico de forma mais inteligente)
-    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-10) : []; // Reduzido para 10
+    // Preparar mensagens para Claude (histórico mais amplo para contexto)
+    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-12) : [];
     const claudeMessages = conversationMessages.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content || ''
@@ -333,23 +319,23 @@ serve(async (req) => {
       content: message
     });
 
-    console.log('💬 Mensagens preparadas para Claude:', {
+    console.log('💬 Mensagens preparadas para processamento longo:', {
       totalMessages: claudeMessages.length,
       historyMessages: conversationMessages.length,
       lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length,
       totalTokensEstimate: Math.ceil(JSON.stringify(claudeMessages).length / 4)
     });
 
-    // Chamada para Claude com retry otimizado
+    // Chamada para Claude com retry otimizado SEM TIMEOUT FORÇADO
     let claudeData;
     try {
-      console.log('🚀 Iniciando chamada para Claude com retry super otimizado...');
+      console.log('🚀 Iniciando chamada para Claude SEM timeout forçado...');
       
       claudeData = await retryWithBackoff(async () => {
         return await callClaudeAPI(systemPrompt, claudeMessages);
-      }, 4, 2000, 'Claude API call'); // 4 tentativas, delay inicial de 2s
+      }, 3, 3000, 'Claude API call - Processamento Longo'); // 3 tentativas, delay inicial de 3s
       
-      console.log('🎉 Claude respondeu com sucesso:', {
+      console.log('🎉 Claude respondeu com sucesso (sem timeout):', {
         hasContent: !!claudeData.content,
         contentLength: claudeData.content?.[0]?.text?.length || 0,
         type: claudeData.type,
@@ -358,23 +344,19 @@ serve(async (req) => {
       });
       
     } catch (error) {
-      console.error('💥 Erro final na chamada para Claude após retries otimizados:', {
+      console.error('💥 Erro final na chamada para Claude após retries (sem timeout forçado):', {
         error: error.message,
         type: error.name,
-        stack: error.stack?.split('\n')[0] // Apenas primeira linha do stack
+        stack: error.stack?.split('\n')[0]
       });
       
-      // Categorização super otimizada de erros para o usuário
-      let errorMessage = 'Erro temporário na IA. Tente novamente em alguns instantes.';
+      // Categorização otimizada de erros para processamento longo
+      let errorMessage = 'Erro temporário na IA. O agente está processando uma documentação complexa.';
       let errorDetails = error.message;
       let retryable = true;
       
-      if (error.message.includes('timeout') || error.message.includes('Claude API timeout')) {
-        errorMessage = 'A IA está sobrecarregada no momento. Tente uma pergunta mais direta ou aguarde 30 segundos.';
-        errorDetails = 'Timeout na API do Claude após múltiplas tentativas otimizadas (90s cada)';
-        retryable = true;
-      } else if (error.message.includes('Rate limit atingido')) {
-        errorMessage = 'Muitas requisições simultâneas. Aguarde 10 segundos e tente novamente.';
+      if (error.message.includes('Rate limit atingido')) {
+        errorMessage = 'Muitas requisições simultâneas. Aguarde 30 segundos e tente novamente.';
         retryable = true;
       } else if (error.message.includes('credit balance') || error.message.includes('quota')) {
         errorMessage = 'Limite de uso da IA atingido temporariamente. Tente novamente em alguns minutos.';
@@ -383,13 +365,13 @@ serve(async (req) => {
         errorMessage = 'Erro de configuração da IA. Entre em contato com o suporte.';
         retryable = false;
       } else if (error.message.includes('503') || error.message.includes('indisponível') || error.message.includes('502')) {
-        errorMessage = 'Serviço da IA temporariamente indisponível. Tente novamente em 1 minuto.';
+        errorMessage = 'Serviço da IA temporariamente indisponível. Tente novamente em 2 minutos.';
         retryable = true;
       } else if (error.message.includes('network') || error.message.includes('conectividade') || error.message.includes('Failed to fetch')) {
         errorMessage = 'Problema de conectividade. Verifique sua conexão e tente novamente.';
         retryable = true;
       } else if (error.message.includes('Payload muito grande')) {
-        errorMessage = 'Mensagem muito longa. Tente ser mais conciso ou divida em partes menores.';
+        errorMessage = 'Documentação muito extensa. Tente dividir a solicitação em partes menores.';
         retryable = false;
       }
       
@@ -467,7 +449,7 @@ serve(async (req) => {
     const completionTokens = Math.ceil(aiResponse.length / 4);
     const totalTokens = promptTokens + completionTokens;
 
-    console.log('🎯 Processamento concluído com sucesso otimizado:', {
+    console.log('🎯 Processamento longo concluído com sucesso:', {
       userId,
       tokensUsed: totalTokens,
       promptTokens,
@@ -491,18 +473,18 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 ERRO CRÍTICO NA FUNÇÃO OTIMIZADA');
+    console.error('💥 ERRO CRÍTICO NA FUNÇÃO SEM TIMEOUT');
     console.error('Error details:', {
       name: error.name,
       message: error.message,
-      stack: error.stack?.split('\n').slice(0, 3), // Primeiras 3 linhas do stack
+      stack: error.stack?.split('\n').slice(0, 3),
       timestamp: new Date().toISOString()
     });
     
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: 'Erro interno otimizado do servidor. Tente novamente em alguns momentos.',
+        details: 'Erro interno do servidor para processamento longo. Tente novamente.',
         timestamp: new Date().toISOString(),
         retryable: true
       }),
