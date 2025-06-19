@@ -24,7 +24,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, name, temporaryPassword, isNewUser }: CredentialsEmailRequest = await req.json();
 
-    console.log(`Sending credentials email to: ${email}`);
+    console.log(`📧 Enviando email de credenciais para: ${email} (Novo usuário: ${isNewUser})`);
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -127,6 +127,30 @@ const handler = async (req: Request): Promise<Response> => {
             font-size: 1.1em;
             margin-bottom: 35px;
             line-height: 1.6;
+          }
+          
+          .payment-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            animation: fadeIn 1s ease-out;
+          }
+          
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          
+          .payment-success h2 {
+            font-size: 1.4em;
+            margin-bottom: 10px;
+          }
+          
+          .payment-success p {
+            font-size: 1em;
+            opacity: 0.9;
           }
           
           .credentials-box {
@@ -281,8 +305,20 @@ const handler = async (req: Request): Promise<Response> => {
             </svg>
           </div>
           
-          <h1>${isNewUser ? 'Conta criada com sucesso!' : 'Acesso ativado!'}</h1>
-          <p class="subtitle">Olá, ${name}! Suas credenciais de acesso estão prontas. Use os dados abaixo para fazer seu primeiro login na plataforma.</p>
+          ${isNewUser ? `
+          <div class="payment-success">
+            <h2>🎉 Pagamento Aprovado!</h2>
+            <p>Sua conta foi criada automaticamente e sua assinatura está ativa.</p>
+          </div>
+          ` : ''}
+          
+          <h1>${isNewUser ? 'Bem-vindo ao CopyMaster!' : 'Acesso ativado!'}</h1>
+          <p class="subtitle">
+            ${isNewUser 
+              ? `Olá, ${name}! Sua conta foi criada com sucesso após a aprovação do pagamento. Use os dados abaixo para fazer seu primeiro login na plataforma.`
+              : `Olá, ${name}! Suas credenciais de acesso estão prontas. Use os dados abaixo para fazer seu primeiro login na plataforma.`
+            }
+          </p>
           
           <div class="credentials-box">
             <div class="credential-item">
@@ -333,11 +369,11 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: "CopyMaster <noreply@iacopychief.com>",
       to: [email],
-      subject: "🔑 Suas credenciais de acesso - CopyMaster",
+      subject: isNewUser ? "🎉 Pagamento Aprovado - Sua conta CopyMaster está pronta!" : "🔑 Suas credenciais de acesso - CopyMaster",
       html: emailHtml,
     });
 
-    console.log("Credentials email sent successfully:", emailResponse);
+    console.log("✅ Email de credenciais enviado com sucesso:", emailResponse);
 
     return new Response(
       JSON.stringify({ success: true, id: emailResponse.data?.id }),
@@ -350,7 +386,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   } catch (error: any) {
-    console.error("Error sending credentials email:", error);
+    console.error("❌ Erro ao enviar email de credenciais:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
