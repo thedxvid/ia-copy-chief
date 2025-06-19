@@ -49,31 +49,28 @@ export const useTokenMonitoring = () => {
 
       console.log('🔍 Iniciando busca de estatísticas de créditos...');
 
-      // Buscar todos os usuários da tabela profiles
-      const { data: usersData, error: usersError } = await supabase
+      // Buscar TODOS os usuários da tabela profiles com uma query mais simples
+      console.log('📊 Buscando todos os profiles...');
+      
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          full_name,
-          monthly_tokens,
-          extra_tokens,
-          total_tokens_used,
-          tokens_reset_date,
-          subscription_status
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      console.log('📊 Resultado da busca de profiles:', { 
-        profiles: usersData?.length || 0, 
-        error: usersError 
+      console.log('📊 Query executada - Resultado:', { 
+        profiles: profilesData?.length || 0, 
+        error: profilesError 
       });
 
-      if (usersError) {
-        console.error('❌ Erro ao buscar profiles:', usersError);
-        throw usersError;
+      if (profilesError) {
+        console.error('❌ Erro ao buscar profiles:', profilesError);
+        throw profilesError;
       }
 
-      if (!usersData || usersData.length === 0) {
+      // Log completo dos dados encontrados
+      console.log('📋 Dados brutos dos profiles:', profilesData);
+
+      if (!profilesData || profilesData.length === 0) {
         console.log('⚠️ Nenhum perfil encontrado');
         setStats({
           totalUsers: 0,
@@ -87,16 +84,22 @@ export const useTokenMonitoring = () => {
         return;
       }
 
-      console.log('👥 Profiles encontrados:', usersData.length);
-      console.log('📋 Detalhes dos profiles:', usersData.map(p => ({ 
-        id: p.id.slice(0, 8), 
-        name: p.full_name || 'Sem nome',
-        monthly: p.monthly_tokens, 
-        extra: p.extra_tokens 
-      })));
+      console.log('👥 Total de profiles encontrados:', profilesData.length);
+      
+      // Verificar se algum profile está sendo filtrado
+      const validProfiles = profilesData.filter(profile => profile.id);
+      console.log('✅ Profiles válidos (com ID):', validProfiles.length);
 
-      // Processar dados dos usuários sem depender de emails por enquanto
-      const processedUsers: UserTokenData[] = usersData.map(profile => {
+      // Processar TODOS os usuários encontrados
+      const processedUsers: UserTokenData[] = validProfiles.map((profile, index) => {
+        console.log(`🔄 Processando usuário ${index + 1}:`, {
+          id: profile.id.slice(0, 8),
+          name: profile.full_name || 'Sem nome',
+          monthly: profile.monthly_tokens,
+          extra: profile.extra_tokens,
+          used: profile.total_tokens_used
+        });
+
         const totalAvailable = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0);
         const tokensUsed = profile.total_tokens_used || 0;
         const usagePercentage = totalAvailable > 0 
@@ -106,7 +109,7 @@ export const useTokenMonitoring = () => {
         return {
           id: profile.id,
           full_name: profile.full_name,
-          email: null, // Temporariamente removendo dependência de emails
+          email: null, // Será preenchido depois
           monthly_tokens: profile.monthly_tokens || 0,
           extra_tokens: profile.extra_tokens || 0,
           total_tokens_used: tokensUsed,
@@ -116,18 +119,27 @@ export const useTokenMonitoring = () => {
         };
       });
 
-      console.log('🔄 Usuários processados:', processedUsers.length);
-      console.log('👥 Detalhes dos usuários processados:', processedUsers.map(u => ({
+      console.log('✅ Usuários processados:', processedUsers.length);
+      console.log('📝 Lista de usuários processados:', processedUsers.map((u, i) => ({
+        index: i + 1,
         id: u.id.slice(0, 8),
         name: u.full_name || 'Sem nome',
         available: u.total_available,
         used: u.total_tokens_used
       })));
 
+      // Verificar se o array está sendo criado corretamente
+      if (processedUsers.length !== validProfiles.length) {
+        console.error('⚠️ ATENÇÃO: Discrepância no processamento!', {
+          profilesEncontrados: validProfiles.length,
+          usuariosProcessados: processedUsers.length
+        });
+      }
+
       // Calcular estatísticas
-      const totalUsers = usersData.length;
-      const totalTokensUsed = usersData.reduce((sum, p) => sum + (p.total_tokens_used || 0), 0);
-      const totalTokensAvailable = usersData.reduce((sum, p) => sum + (p.monthly_tokens || 0) + (p.extra_tokens || 0), 0);
+      const totalUsers = validProfiles.length;
+      const totalTokensUsed = validProfiles.reduce((sum, p) => sum + (p.total_tokens_used || 0), 0);
+      const totalTokensAvailable = validProfiles.reduce((sum, p) => sum + (p.monthly_tokens || 0) + (p.extra_tokens || 0), 0);
       const averageUsage = totalUsers > 0 ? Math.round(totalTokensUsed / totalUsers) : 0;
       
       const usersLowTokens = processedUsers.filter(user => 
@@ -149,17 +161,21 @@ export const useTokenMonitoring = () => {
 
       console.log('📈 Estatísticas calculadas:', calculatedStats);
 
+      // Definir os dados ANTES de tentar buscar emails
       setStats(calculatedStats);
       setUserDetails(processedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
 
-      console.log('✅ Dados atualizados com sucesso - Total de usuários:', processedUsers.length);
+      console.log('✅ Dados principais definidos com sucesso - Total de usuários:', processedUsers.length);
 
-      // Tentar buscar emails em segundo plano (não bloquear a exibição dos dados)
+      // Tentar buscar emails em segundo plano (não crítico)
       try {
         console.log('📧 Tentando buscar emails dos usuários...');
+        const userIds = validProfiles.map(u => u.id);
+        console.log('📧 IDs para buscar emails:', userIds.length);
+
         const { data: emailsData, error: emailsError } = await supabase
           .rpc('get_user_emails', {
-            user_ids: usersData.map(u => u.id)
+            user_ids: userIds
           });
 
         if (emailsError) {
