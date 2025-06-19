@@ -36,12 +36,12 @@ export const TokenFeedback: React.FC<TokenFeedbackProps> = ({
       };
 
       // Toast personalizado com animação
-      toast.success(`${getIcon()} Tokens Consumidos`, {
+      toast.success(`${getIcon()} Créditos Consumidos`, {
         description: (
           <div className="flex items-center gap-2 text-sm">
             <Coins className={`h-4 w-4 ${getColor()}`} />
             <span>
-              <strong>{tokensUsed.toLocaleString()}</strong> tokens usados
+              <strong>{tokensUsed.toLocaleString()}</strong> créditos usados
             </span>
             <span className="text-gray-400">• {feature}</span>
           </div>
@@ -71,7 +71,8 @@ export const useTokenFeedback = () => {
     feature?: string;
   }>({ show: false });
 
-  const showFeedback = (tokensUsed: number, feature: string = 'ação') => {
+  const showFeedback = (tok
+ensUsed: number, feature: string = 'ação') => {
     setFeedback({ show: true, tokensUsed, feature });
   };
 

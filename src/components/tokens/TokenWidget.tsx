@@ -62,7 +62,7 @@ export const TokenWidget = () => {
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Erro ao carregar tokens. Sistema offline.</p>
+            <p>Erro ao carregar créditos. Sistema offline.</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -179,16 +179,16 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 <div className="space-y-1 text-xs">
-                  <p><strong>Disponível:</strong> {tokens.total_available.toLocaleString()} tokens</p>
-                  <p><strong>Usado:</strong> {(monthlyLimit - tokens.total_available).toLocaleString()} tokens ({usagePercentage.toFixed(1)}%)</p>
-                  <p><strong>Limite mensal:</strong> {monthlyLimit.toLocaleString()} tokens</p>
+                  <p><strong>Disponível:</strong> {tokens.total_available.toLocaleString()} créditos</p>
+                  <p><strong>Usado:</strong> {(monthlyLimit - tokens.total_available).toLocaleString()} créditos ({usagePercentage.toFixed(1)}%)</p>
+                  <p><strong>Limite mensal:</strong> {monthlyLimit.toLocaleString()} créditos</p>
                   {lastUpdate && (
                     <p className="text-green-400">
                       <strong>Última atualização:</strong> {lastUpdate.toLocaleTimeString()}
                     </p>
                   )}
                   {isCritical && (
-                    <p className="text-red-400 font-medium">⚠️ Tokens críticos! Considere economizar.</p>
+                    <p className="text-red-400 font-medium">⚠️ Créditos críticos! Considere economizar.</p>
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-600">
@@ -239,9 +239,9 @@ export const TokenWidget = () => {
                   <strong>{getStatusMessage()}</strong>
                   {isConnected && <Zap className="h-3 w-3 text-green-500" />}
                 </div>
-                <p>{formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)} tokens</p>
+                <p>{formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)} créditos</p>
                 <p>Usado: {usagePercentage.toFixed(1)}%</p>
-                {isCritical && <p className="text-red-400">⚠️ Tokens críticos!</p>}
+                {isCritical && <p className="text-red-400">⚠️ Créditos críticos!</p>}
                 {lastUpdate && (
                   <p className="text-green-400 text-xs">
                     Atualizado: {lastUpdate.toLocaleTimeString()}

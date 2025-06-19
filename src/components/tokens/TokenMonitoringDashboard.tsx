@@ -84,8 +84,8 @@ export const TokenMonitoringDashboard = () => {
       {/* Header com ações */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-white">Monitoramento de Tokens</h2>
-          <p className="text-gray-400">Dashboard administrativo do sistema de tokens</p>
+          <h2 className="text-2xl font-bold text-white">Monitoramento de Créditos</h2>
+          <p className="text-gray-400">Dashboard administrativo do sistema de créditos</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={refreshData} variant="outline" size="sm">
@@ -120,7 +120,7 @@ export const TokenMonitoringDashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tokens Usados</CardTitle>
+            <CardTitle className="text-sm font-medium">Créditos Usados</CardTitle>
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -139,7 +139,7 @@ export const TokenMonitoringDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(stats?.averageUsage || 0)}</div>
             <p className="text-xs text-muted-foreground">
-              Tokens por usuário
+              Créditos por usuário
             </p>
           </CardContent>
         </Card>
@@ -154,7 +154,7 @@ export const TokenMonitoringDashboard = () => {
               {(stats?.usersLowTokens || 0) + (stats?.usersOutOfTokens || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.usersOutOfTokens || 0} sem tokens, {stats?.usersLowTokens || 0} baixos
+              {stats?.usersOutOfTokens || 0} sem créditos, {stats?.usersLowTokens || 0} baixos
             </p>
           </CardContent>
         </Card>
@@ -169,7 +169,7 @@ export const TokenMonitoringDashboard = () => {
               Histórico de Uso (30 dias)
             </CardTitle>
             <CardDescription>
-              Consumo diário de tokens pelos usuários
+              Consumo diário de créditos pelos usuários
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -186,7 +186,7 @@ export const TokenMonitoringDashboard = () => {
                 <YAxis tickFormatter={formatNumber} />
                 <Tooltip 
                   labelFormatter={(date) => new Date(date).toLocaleDateString('pt-BR')}
-                  formatter={(value: number) => [formatNumber(value), 'Tokens']}
+                  formatter={(value: number) => [formatNumber(value), 'Créditos']}
                 />
                 <Bar dataKey="total_tokens_used" fill="#3B82F6" />
               </BarChart>
@@ -200,7 +200,7 @@ export const TokenMonitoringDashboard = () => {
         <CardHeader>
           <CardTitle>Detalhes dos Usuários</CardTitle>
           <CardDescription>
-            Lista de usuários ordenada por maior uso de tokens
+            Lista de usuários ordenada por maior uso de créditos
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -212,7 +212,7 @@ export const TokenMonitoringDashboard = () => {
                     {user.full_name || `Usuário ${user.id.slice(0, 8)}`}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatNumber(user.total_available)} tokens disponíveis • 
+                    {formatNumber(user.total_available)} créditos disponíveis • 
                     Usado: {formatNumber(user.total_tokens_used)} total
                   </p>
                 </div>

@@ -31,6 +31,31 @@ interface FeatureStats {
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316'];
 
+// Mapeamento de features técnicas para nomes amigáveis
+const FEATURE_NAMES: { [key: string]: string } = {
+  'agent_chat_claude4': 'Chat com IA',
+  'chat_Agente Copy': 'Agente de Copy',
+  'copy_generation_vsl': 'Vídeo de Vendas',
+  'copy_generation_ads': 'Anúncios',
+  'copy_generation_product': 'Descrição de Produtos',
+  'copy_generation_landing': 'Landing Pages',
+  'chat_Agente Headlines': 'Headlines',
+  'custom_agent_chat': 'Agente Personalizado',
+  'chat': 'Chat Geral',
+  'copy': 'Geração de Copy',
+  // Adicionar mais mapeamentos conforme necessário
+};
+
+const getFeatureName = (technicalName: string): string => {
+  return FEATURE_NAMES[technicalName] || technicalName
+    .replace(/_/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .trim()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
   isOpen,
   onClose
@@ -89,7 +114,7 @@ export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
       }));
 
       const featureData = Array.from(featureMap.entries()).map(([name, tokens], index) => ({
-        name: name === 'chat' ? 'Chat' : name === 'copy' ? 'Copy' : name,
+        name: getFeatureName(name),
         tokens,
         color: COLORS[index % COLORS.length],
         percentage: Math.round((tokens / total) * 100)
@@ -113,7 +138,7 @@ export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <BarChart3 className="h-5 w-5 text-[#3B82F6]" />
-            Analytics de Tokens
+            Analytics de Créditos
           </DialogTitle>
         </DialogHeader>
 
@@ -189,7 +214,7 @@ export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
                           borderRadius: '8px',
                           color: 'white'
                         }}
-                        formatter={(value: number) => [value.toLocaleString() + ' tokens', 'Uso']}
+                        formatter={(value: number) => [value.toLocaleString() + ' créditos', 'Uso']}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -221,7 +246,7 @@ export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
                           borderRadius: '8px',
                           color: 'white'
                         }}
-                        formatter={(value: number) => [value.toLocaleString() + ' tokens', 'Tokens']}
+                        formatter={(value: number) => [value.toLocaleString() + ' créditos', 'Créditos']}
                       />
                       <Line 
                         type="monotone" 
@@ -242,17 +267,17 @@ export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
                 {featureStats.map((feature, index) => (
                   <div key={index} className="bg-[#1E1E1E] p-4 rounded-2xl border border-[#2A2A2A]">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div 
-                          className="w-4 h-4 rounded-full"
+                          className="w-4 h-4 rounded-full flex-shrink-0"
                           style={{ backgroundColor: feature.color }}
                         />
-                        <span className="font-medium">{feature.name}</span>
-                        <Badge variant="secondary" className="bg-[#2A2A2A] text-white">
+                        <span className="font-medium truncate">{feature.name}</span>
+                        <Badge variant="secondary" className="bg-[#2A2A2A] text-white flex-shrink-0">
                           {feature.percentage}%
                         </Badge>
                       </div>
-                      <span className="text-lg font-bold">
+                      <span className="text-lg font-bold flex-shrink-0 ml-2">
                         {feature.tokens.toLocaleString()}
                       </span>
                     </div>
