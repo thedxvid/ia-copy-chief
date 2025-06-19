@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -15,6 +14,7 @@ interface TokenStats {
 interface UserTokenData {
   id: string;
   full_name: string | null;
+  email: string | null;
   monthly_tokens: number;
   extra_tokens: number;
   total_tokens_used: number;
@@ -44,23 +44,30 @@ export const useTokenMonitoring = () => {
 
       console.log('🔍 Iniciando busca de estatísticas de créditos...');
 
-      // Buscar estatísticas gerais dos usuários com mais informações de debug
-      const { data: profiles, error: profilesError, count } = await supabase
+      // Buscar todos os usuários com JOIN para obter emails
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
-        .select('id, full_name, monthly_tokens, extra_tokens, total_tokens_used, tokens_reset_date', { count: 'exact' });
+        .select(`
+          id,
+          full_name,
+          monthly_tokens,
+          extra_tokens,
+          total_tokens_used,
+          tokens_reset_date,
+          subscription_status
+        `);
 
       console.log('📊 Resultado da busca de profiles:', { 
-        profiles: profiles?.length || 0, 
-        count, 
-        error: profilesError 
+        profiles: usersData?.length || 0, 
+        error: usersError 
       });
 
-      if (profilesError) {
-        console.error('❌ Erro ao buscar profiles:', profilesError);
-        throw profilesError;
+      if (usersError) {
+        console.error('❌ Erro ao buscar profiles:', usersError);
+        throw usersError;
       }
 
-      if (!profiles || profiles.length === 0) {
+      if (!usersData || usersData.length === 0) {
         console.log('⚠️ Nenhum perfil encontrado');
         setStats({
           totalUsers: 0,
@@ -74,18 +81,38 @@ export const useTokenMonitoring = () => {
         return;
       }
 
-      console.log('✅ Profiles encontrados:', profiles.map(p => ({ 
+      // Buscar emails dos usuários da tabela auth.users usando RPC
+      const { data: emailsData, error: emailsError } = await supabase.rpc('get_user_emails', {
+        user_ids: usersData.map(u => u.id)
+      });
+
+      if (emailsError) {
+        console.warn('⚠️ Não foi possível buscar emails:', emailsError);
+      }
+
+      console.log('📧 Emails encontrados:', emailsData?.length || 0);
+
+      // Criar mapa de emails por ID
+      const emailMap: { [key: string]: string } = {};
+      if (emailsData) {
+        emailsData.forEach((item: any) => {
+          emailMap[item.id] = item.email;
+        });
+      }
+
+      console.log('✅ Profiles encontrados:', usersData.map(p => ({ 
         id: p.id.slice(0, 8), 
         name: p.full_name, 
+        email: emailMap[p.id] || 'Sem email',
         monthly: p.monthly_tokens, 
         extra: p.extra_tokens 
       })));
 
       // Processar dados dos usuários
-      const processedUsers: UserTokenData[] = profiles.map(profile => {
+      const processedUsers: UserTokenData[] = usersData.map(profile => {
         const totalAvailable = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0);
         const monthlyLimit = 25000; // Limite padrão mensal
-        const tokensUsed = monthlyLimit - totalAvailable;
+        const tokensUsed = Math.max(0, monthlyLimit - (profile.monthly_tokens || 0));
         const usagePercentage = monthlyLimit > 0 
           ? Math.round((tokensUsed / monthlyLimit) * 100)
           : 0;
@@ -93,6 +120,7 @@ export const useTokenMonitoring = () => {
         return {
           id: profile.id,
           full_name: profile.full_name,
+          email: emailMap[profile.id] || null,
           monthly_tokens: profile.monthly_tokens || 0,
           extra_tokens: profile.extra_tokens || 0,
           total_tokens_used: profile.total_tokens_used || 0,
@@ -103,11 +131,17 @@ export const useTokenMonitoring = () => {
       });
 
       console.log('🔄 Usuários processados:', processedUsers.length);
+      console.log('👥 Detalhes dos usuários:', processedUsers.map(u => ({
+        id: u.id.slice(0, 8),
+        name: u.full_name || 'Sem nome',
+        email: u.email || 'Sem email',
+        available: u.total_available
+      })));
 
       // Calcular estatísticas
-      const totalUsers = profiles.length;
-      const totalTokensUsed = profiles.reduce((sum, p) => sum + (p.total_tokens_used || 0), 0);
-      const totalTokensAvailable = profiles.reduce((sum, p) => sum + (p.monthly_tokens || 0) + (p.extra_tokens || 0), 0);
+      const totalUsers = usersData.length;
+      const totalTokensUsed = usersData.reduce((sum, p) => sum + (p.total_tokens_used || 0), 0);
+      const totalTokensAvailable = usersData.reduce((sum, p) => sum + (p.monthly_tokens || 0) + (p.extra_tokens || 0), 0);
       const averageUsage = totalUsers > 0 ? Math.round(totalTokensUsed / totalUsers) : 0;
       
       const usersLowTokens = processedUsers.filter(user => 
@@ -255,9 +289,10 @@ export const useTokenMonitoring = () => {
 
     try {
       const csvData = [
-        ['Nome', 'Créditos Mensais', 'Créditos Extra', 'Total Disponível', 'Créditos Usados', 'Uso (%)', 'Data Reset'],
+        ['Nome', 'Email', 'Créditos Mensais', 'Créditos Extra', 'Total Disponível', 'Créditos Usados', 'Uso (%)', 'Data Reset'],
         ...userDetails.map(user => [
           user.full_name || 'Sem nome',
+          user.email || 'Sem email',
           user.monthly_tokens,
           user.extra_tokens,
           user.total_available,
