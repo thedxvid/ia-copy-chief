@@ -1,4 +1,6 @@
 
+import React from 'react';
+
 // Função para converter markdown básico em HTML
 export const parseMarkdown = (text: string): string => {
   if (!text) return '';
