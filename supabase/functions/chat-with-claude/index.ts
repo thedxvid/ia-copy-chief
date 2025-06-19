@@ -6,11 +6,11 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
-// Função para retry com backoff exponencial
+// Função para retry com backoff exponencial (otimizada para velocidade)
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 2,
-  baseDelay: number = 1000
+  maxRetries: number = 1, // Reduzido de 2 para 1
+  baseDelay: number = 1000 // Reduzido de 2000 para 1000
 ): Promise<T> {
   let lastError: Error;
   
@@ -25,7 +25,7 @@ async function retryWithBackoff<T>(
         throw lastError;
       }
       
-      // Backoff exponencial: 1s, 2s, 4s
+      // Backoff exponencial mais rápido: 1s, 2s
       const delay = baseDelay * Math.pow(2, attempt);
       console.log(`Aguardando ${delay}ms antes da próxima tentativa...`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -35,16 +35,16 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
-// Função melhorada para chamar Claude
+// Função otimizada para chamar Claude
 async function callClaudeAPI(systemPrompt: string, messages: any[]) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // Reduzido de 60s para 30s
   
   try {
     console.log('Iniciando chamada para Claude API...', {
       messageCount: messages.length,
       systemPromptLength: systemPrompt.length,
-      timeout: '60s'
+      timeout: '30s' // Atualizado
     });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -55,8 +55,8 @@ async function callClaudeAPI(systemPrompt: string, messages: any[]) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', // ATUALIZADO PARA CLAUDE 4 SONNET VÁLIDO
-        max_tokens: 4000,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000, // Reduzido de 4000 para 2000
         system: systemPrompt,
         messages: messages
       }),
@@ -245,14 +245,14 @@ serve(async (req) => {
       lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length
     });
 
-    // Chamada para Claude com retry
+    // Chamada para Claude com retry otimizado
     let claudeData;
     try {
-      console.log('🚀 Iniciando chamada para Claude com retry...');
+      console.log('🚀 Iniciando chamada para Claude com retry otimizado...');
       
       claudeData = await retryWithBackoff(async () => {
         return await callClaudeAPI(systemPrompt, claudeMessages);
-      }, 2, 2000); // 2 tentativas, delay inicial de 2s
+      }, 1, 1000); // 1 tentativa, delay inicial de 1s
       
       console.log('✅ Claude respondeu com sucesso:', {
         hasContent: !!claudeData.content,
