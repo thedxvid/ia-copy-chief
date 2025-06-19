@@ -4,21 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTokens } from './useTokens';
 
-interface TokenUpdate {
-  user_id: string;
-  event: 'INSERT' | 'UPDATE' | 'DELETE';
-  table: string;
-  timestamp: number;
-}
-
 export const useRealtimeTokens = () => {
   const { user } = useAuth();
   const { refreshTokens, tokens } = useTokens();
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
   const [retryCount, setRetryCount] = useState(0);
-  const [heartbeatInterval, setHeartbeatInterval] = useState<NodeJS.Timeout | null>(null);
 
   const handleTokenUpdate = useCallback((payload: any) => {
     console.log('🔄 Realtime update received:', payload);
@@ -32,14 +24,18 @@ export const useRealtimeTokens = () => {
       // Debounce para evitar muitas atualizações
       setTimeout(() => {
         refreshTokens();
-      }, 500);
+      }, 300);
     }
   }, [user, refreshTokens]);
 
   const setupRealtimeConnection = useCallback(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setConnectionStatus('disconnected');
+      setIsConnected(false);
+      return;
+    }
 
-    console.log('🔌 Configurando realtime tokens para usuário:', user.id);
+    console.log('🔌 Setting up realtime connection for user:', user.id);
     setConnectionStatus('connecting');
 
     // Canal principal para mudanças de tokens
@@ -68,94 +64,92 @@ export const useRealtimeTokens = () => {
       .subscribe((status) => {
         console.log('📡 Realtime channel status:', status);
         
-        if (status === 'SUBSCRIBED') {
-          setIsConnected(true);
-          setConnectionStatus('connected');
-          setRetryCount(0);
-          console.log('✅ Realtime conectado com sucesso');
-        } else if (status === 'CHANNEL_ERROR') {
-          setIsConnected(false);
-          setConnectionStatus('error');
-          console.error('❌ Erro no canal realtime');
-        } else if (status === 'TIMED_OUT') {
-          setIsConnected(false);
-          setConnectionStatus('disconnected');
-          console.warn('⏰ Timeout no canal realtime');
-        } else if (status === 'CLOSED') {
-          setIsConnected(false);
-          setConnectionStatus('disconnected');
-          console.warn('🔌 Canal realtime fechado');
+        switch (status) {
+          case 'SUBSCRIBED':
+            setIsConnected(true);
+            setConnectionStatus('connected');
+            setRetryCount(0);
+            console.log('✅ Realtime connected successfully');
+            break;
+          case 'CHANNEL_ERROR':
+            setIsConnected(false);
+            setConnectionStatus('error');
+            console.error('❌ Realtime channel error');
+            break;
+          case 'TIMED_OUT':
+            setIsConnected(false);
+            setConnectionStatus('error');
+            console.warn('⏰ Realtime connection timed out');
+            break;
+          case 'CLOSED':
+            setIsConnected(false);
+            setConnectionStatus('disconnected');
+            console.warn('🔌 Realtime channel closed');
+            break;
         }
       });
-
-    // Heartbeat para verificar conexão
-    const heartbeat = setInterval(() => {
-      if (tokenChannel.state === 'joined') {
-        console.log('💓 Heartbeat - Conexão ativa');
-        setIsConnected(true);
-        setConnectionStatus('connected');
-      } else {
-        console.log('💔 Heartbeat - Conexão perdida');
-        setIsConnected(false);
-        setConnectionStatus('disconnected');
-      }
-    }, 10000); // Verificar a cada 10 segundos
-
-    setHeartbeatInterval(heartbeat);
 
     return tokenChannel;
   }, [user?.id, handleTokenUpdate]);
 
-  const retryConnection = useCallback(() => {
-    if (retryCount >= 3) {
-      console.log('🚫 Máximo de tentativas de reconexão atingido');
-      setConnectionStatus('error');
-      return;
-    }
-
-    console.log(`🔄 Tentando reconectar... (${retryCount + 1}/3)`);
-    setRetryCount(prev => prev + 1);
+  const forceReconnect = useCallback(() => {
+    console.log('🔄 Force reconnecting...');
+    setRetryCount(0);
+    setConnectionStatus('connecting');
     
+    // Pequeno delay antes de tentar reconectar
     setTimeout(() => {
       setupRealtimeConnection();
-    }, Math.pow(2, retryCount) * 1000); // Backoff exponencial
-  }, [retryCount, setupRealtimeConnection]);
+    }, 500);
+  }, [setupRealtimeConnection]);
+
+  // Retry automático em caso de erro
+  useEffect(() => {
+    if (connectionStatus === 'error' && retryCount < 3) {
+      const timeout = setTimeout(() => {
+        console.log(`🔄 Auto retry attempt ${retryCount + 1}/3`);
+        setRetryCount(prev => prev + 1);
+        setupRealtimeConnection();
+      }, Math.pow(2, retryCount) * 1000); // Backoff exponencial
+
+      return () => clearTimeout(timeout);
+    }
+  }, [connectionStatus, retryCount, setupRealtimeConnection]);
 
   useEffect(() => {
-    if (!user?.id) {
+    let channel: any = null;
+
+    if (user?.id) {
+      channel = setupRealtimeConnection();
+    } else {
       setIsConnected(false);
       setConnectionStatus('disconnected');
-      return;
     }
 
-    const channel = setupRealtimeConnection();
-
-    // Auto-retry em caso de desconexão
-    const retryTimeout = setTimeout(() => {
-      if (!isConnected && connectionStatus === 'connecting') {
-        retryConnection();
-      }
-    }, 5000);
-
     return () => {
-      console.log('🔌 Desconectando canais realtime');
       if (channel) {
+        console.log('🔌 Cleaning up realtime channel');
         supabase.removeChannel(channel);
       }
-      if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
-      }
-      clearTimeout(retryTimeout);
       setIsConnected(false);
       setConnectionStatus('disconnected');
     };
-  }, [user?.id, setupRealtimeConnection, isConnected, connectionStatus, retryConnection, heartbeatInterval]);
+  }, [user?.id, setupRealtimeConnection]);
 
-  const forceReconnect = useCallback(() => {
-    console.log('🔄 Forçando reconexão manual...');
-    setRetryCount(0);
-    setupRealtimeConnection();
-  }, [setupRealtimeConnection]);
+  // Heartbeat simplificado
+  useEffect(() => {
+    if (!isConnected || !user?.id) return;
+
+    const heartbeat = setInterval(() => {
+      console.log('💓 Heartbeat check');
+      // Se estiver conectado, manter o status
+      if (connectionStatus === 'connected') {
+        console.log('💓 Connection healthy');
+      }
+    }, 30000); // Check a cada 30 segundos
+
+    return () => clearInterval(heartbeat);
+  }, [isConnected, connectionStatus, user?.id]);
 
   return {
     isConnected,
