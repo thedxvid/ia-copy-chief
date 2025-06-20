@@ -34,18 +34,26 @@ class SecurityService {
       metadata
     });
 
-    // Em produção, salvar no banco de dados
+    // Em produção, salvar no banco de dados via Edge Function
     try {
-      // Usar raw SQL para evitar erro de tipos até que os tipos sejam atualizados
-      const { error } = await supabase.rpc('log_security_action', {
-        p_user_id: user.id,
-        p_action: action,
-        p_resource: resource,
-        p_metadata: metadata || {}
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/security-logs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action,
+          resource,
+          metadata: metadata || {}
+        })
       });
 
-      if (error) {
-        console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', error);
+      if (!response.ok) {
+        console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', response.statusText);
       }
     } catch (error) {
       console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', error);

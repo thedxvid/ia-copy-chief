@@ -1,12 +1,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
 export interface Product {
   id: string;
   name: string;
   niche: string;
-  sub_niche?: string;
+  sub_niche: string; // Tornar obrigatório para consistência
   status: string;
   user_id: string;
   created_at: string;
@@ -45,8 +44,14 @@ class ProductService {
       throw new Error('Falha ao carregar produtos');
     }
 
-    console.log('✅ ProductService: Produtos carregados:', data?.length || 0);
-    return data || [];
+    // Garantir que sub_niche nunca seja null/undefined
+    const productsWithSubNiche = (data || []).map(product => ({
+      ...product,
+      sub_niche: product.sub_niche || ''
+    }));
+
+    console.log('✅ ProductService: Produtos carregados:', productsWithSubNiche.length);
+    return productsWithSubNiche;
   }
 
   async getProductDetails(productId: string): Promise<ProductDetails | null> {
@@ -83,6 +88,7 @@ class ProductService {
 
     const productDetails: ProductDetails = {
       ...product,
+      sub_niche: product.sub_niche || '', // Garantir que não seja null
       strategy: strategyResult.data || undefined,
       copy: copyResult.data || undefined,
       offer: offerResult.data || undefined,
@@ -109,7 +115,8 @@ class ProductService {
       .from('products')
       .insert({
         ...productData,
-        user_id: user.id
+        user_id: user.id,
+        sub_niche: productData.sub_niche || '' // Garantir que não seja null
       })
       .select()
       .single();
@@ -120,7 +127,10 @@ class ProductService {
     }
 
     console.log('✅ ProductService: Produto criado:', data.id);
-    return data;
+    return {
+      ...data,
+      sub_niche: data.sub_niche || ''
+    };
   }
 
   async updateProduct(productId: string, updates: Partial<Product>): Promise<Product> {
@@ -130,7 +140,10 @@ class ProductService {
 
     const { data, error } = await supabase
       .from('products')
-      .update(updates)
+      .update({
+        ...updates,
+        sub_niche: updates.sub_niche || '' // Garantir que não seja null
+      })
       .eq('id', productId)
       .eq('user_id', user.id) // Validação de propriedade
       .select()
@@ -142,7 +155,10 @@ class ProductService {
     }
 
     console.log('✅ ProductService: Produto atualizado:', data.id);
-    return data;
+    return {
+      ...data,
+      sub_niche: data.sub_niche || ''
+    };
   }
 
   async deleteProduct(productId: string): Promise<void> {
@@ -189,7 +205,7 @@ class ProductService {
         user_id: user.id,
         name: `${originalProduct.name} (Cópia)`,
         niche: originalProduct.niche,
-        sub_niche: originalProduct.sub_niche,
+        sub_niche: originalProduct.sub_niche || '',
         status: 'draft'
       })
       .select()
@@ -201,7 +217,10 @@ class ProductService {
     }
 
     console.log('✅ ProductService: Produto duplicado:', data.id);
-    return data;
+    return {
+      ...data,
+      sub_niche: data.sub_niche || ''
+    };
   }
 }
 
