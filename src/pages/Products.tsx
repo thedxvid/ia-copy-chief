@@ -1,8 +1,6 @@
+
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Search, Filter, Grid, List } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { Plus, Search, Grid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,19 +9,10 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { ProductModal } from '@/components/products/ProductModal';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-
-interface Product {
-  id: string;
-  name: string;
-  niche: string;
-  sub_niche: string | null;
-  status: 'draft' | 'active' | 'paused' | 'archived';
-  created_at: string;
-  updated_at: string;
-}
+import { useProducts } from '@/hooks/useProducts';
+import { Product } from '@/services/productService';
 
 export default function Products() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNiche, setSelectedNiche] = useState<string>('all');
@@ -32,22 +21,14 @@ export default function Products() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  const { data: products = [], isLoading, refetch } = useQuery({
-    queryKey: ['products', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-      return data as Product[];
-    },
-    enabled: !!user,
-  });
+  const { 
+    products, 
+    loading, 
+    error,
+    updateProduct,
+    duplicateProduct,
+    deleteProduct 
+  } = useProducts();
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,67 +52,45 @@ export default function Products() {
   };
 
   const handleDuplicateProduct = async (product: Product) => {
-    try {
-      const { data: newProduct, error } = await supabase
-        .from('products')
-        .insert({
-          user_id: user?.id,
-          name: `${product.name} (Cópia)`,
-          niche: product.niche,
-          sub_niche: product.sub_niche,
-          status: 'draft'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast({
-        title: "Produto duplicado",
-        description: "O produto foi duplicado com sucesso.",
-      });
-
-      refetch();
-    } catch (error) {
-      console.error('Error duplicating product:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível duplicar o produto.",
-        variant: "destructive",
-      });
+    const result = await duplicateProduct(product.id);
+    if (result) {
+      console.log('✅ Produto duplicado com sucesso');
     }
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', productId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Produto excluído",
-        description: "O produto foi excluído com sucesso.",
-      });
-
-      refetch();
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o produto.",
-        variant: "destructive",
-      });
+    const success = await deleteProduct(productId);
+    if (success) {
+      console.log('✅ Produto deletado com sucesso');
     }
   };
 
-  if (isLoading) {
+  const handleModalSuccess = () => {
+    setIsModalOpen(false);
+    // O hook useProducts já atualiza a lista automaticamente
+  };
+
+  if (loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3B82F6]"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <h3 className="text-xl font-semibold text-white mb-2">Erro ao carregar produtos</h3>
+            <p className="text-[#888888] mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">
+              Tentar Novamente
+            </Button>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -173,10 +132,10 @@ export default function Products() {
                 <SelectTrigger className="w-full sm:w-48 bg-[#2A2A2A] border-[#4B5563] text-white">
                   <SelectValue placeholder="Filtrar por nicho" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#2A2A2A] border-[#4B5563]">
-                  <SelectItem value="all" className="text-white hover:bg-[#3A3A3A]">Todos os nichos</SelectItem>
+                <SelectContent className="bg-[#2A2A2A]">
+                  <SelectItem value="all">Todos os nichos</SelectItem>
                   {uniqueNiches.map(niche => (
-                    <SelectItem key={niche} value={niche} className="text-white hover:bg-[#3A3A3A]">{niche}</SelectItem>
+                    <SelectItem key={niche} value={niche}>{niche}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -185,12 +144,12 @@ export default function Products() {
                 <SelectTrigger className="w-full sm:w-48 bg-[#2A2A2A] border-[#4B5563] text-white">
                   <SelectValue placeholder="Filtrar por status" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#2A2A2A] border-[#4B5563]">
-                  <SelectItem value="all" className="text-white hover:bg-[#3A3A3A]">Todos os status</SelectItem>
-                  <SelectItem value="draft" className="text-white hover:bg-[#3A3A3A]">Rascunho</SelectItem>
-                  <SelectItem value="active" className="text-white hover:bg-[#3A3A3A]">Ativo</SelectItem>
-                  <SelectItem value="paused" className="text-white hover:bg-[#3A3A3A]">Pausado</SelectItem>
-                  <SelectItem value="archived" className="text-white hover:bg-[#3A3A3A]">Arquivado</SelectItem>
+                <SelectContent className="bg-[#2A2A2A]">
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="draft">Rascunho</SelectItem>
+                  <SelectItem value="active">Ativo</SelectItem>
+                  <SelectItem value="paused">Pausado</SelectItem>
+                  <SelectItem value="archived">Arquivado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -295,10 +254,7 @@ export default function Products() {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           product={selectedProduct}
-          onSuccess={() => {
-            refetch();
-            setIsModalOpen(false);
-          }}
+          onSuccess={handleModalSuccess}
         />
       </div>
     </DashboardLayout>

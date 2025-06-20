@@ -1,48 +1,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-
-export interface Product {
-  id: string;
-  name: string;
-  niche: string;
-  sub_niche?: string;
-  status: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProductDetails extends Product {
-  strategy?: {
-    target_audience?: any;
-    value_proposition?: string;
-    market_positioning?: string;
-  };
-  copy?: {
-    landing_page_copy?: any;
-    vsl_script?: string;
-    email_campaign?: any;
-    social_media_content?: any;
-    whatsapp_messages?: string[];
-    telegram_messages?: string[];
-  };
-  offer?: {
-    main_offer?: any;
-    upsell?: any;
-    downsell?: any;
-    order_bump?: any;
-    bonuses?: any[];
-    pricing_strategy?: any;
-  };
-  meta?: {
-    tags?: string[];
-    private_notes?: string;
-    ai_evaluation?: any;
-  };
-}
+import { productService, Product, ProductDetails } from '@/services/productService';
+import { securityService } from '@/services/securityService';
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -60,20 +21,28 @@ export const useProducts = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Log da ação para auditoria
+      await securityService.logAction('FETCH_PRODUCTS', 'products');
 
-      if (fetchError) {
-        throw fetchError;
+      // Verificar rate limit
+      const canProceed = await securityService.checkRateLimit('FETCH_PRODUCTS', 30, 60000);
+      if (!canProceed) {
+        throw new Error('Muitas requisições. Aguarde um momento.');
       }
 
-      setProducts(data || []);
+      const data = await productService.getProducts();
+      setProducts(data);
+
+      console.log('✅ useProducts: Produtos carregados via serviço:', data.length);
     } catch (err) {
-      console.error('Erro ao buscar produtos:', err);
-      setError('Erro ao carregar produtos');
+      console.error('❌ useProducts: Erro ao buscar produtos:', err);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar produtos';
+      setError(errorMessage);
+      
+      toast.error('Erro ao carregar produtos', {
+        description: errorMessage,
+      });
     } finally {
       setLoading(false);
     }
@@ -81,101 +50,168 @@ export const useProducts = () => {
 
   const fetchProductDetails = async (productId: string): Promise<ProductDetails | null> => {
     try {
-      console.log('🔍 DEBUG - Buscando detalhes do produto:', productId);
+      console.log('🔍 useProducts: Buscando detalhes via serviço:', productId);
 
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .single();
-
-      if (productError) {
-        console.error('❌ DEBUG - Erro ao buscar produto:', productError);
-        throw productError;
-      }
-
-      console.log('📋 DEBUG - Produto base encontrado:', {
-        id: product.id,
-        name: product.name,
-        niche: product.niche,
-        sub_niche: product.sub_niche
-      });
-
-      // Buscar dados relacionados com mais detalhes de debug
-      const [strategyResult, copyResult, offerResult, metaResult] = await Promise.all([
-        supabase.from('product_strategy').select('*').eq('product_id', productId).maybeSingle(),
-        supabase.from('product_copy').select('*').eq('product_id', productId).maybeSingle(),
-        supabase.from('product_offer').select('*').eq('product_id', productId).maybeSingle(),
-        supabase.from('product_meta').select('*').eq('product_id', productId).maybeSingle(),
-      ]);
-
-      console.log('🔍 DEBUG - Dados relacionados encontrados:', {
-        strategy: !!strategyResult.data,
-        copy: !!copyResult.data,
-        offer: !!offerResult.data,
-        meta: !!metaResult.data,
-      });
-
-      // Log detalhado dos dados encontrados
-      if (strategyResult.data) {
-        console.log('📊 DEBUG - Strategy data:', {
-          hasValueProposition: !!strategyResult.data.value_proposition,
-          hasTargetAudience: !!strategyResult.data.target_audience,
-          hasMarketPositioning: !!strategyResult.data.market_positioning
+      // Validar acesso ao recurso
+      const hasAccess = await securityService.validateResourceAccess('product', productId, 'READ');
+      if (!hasAccess) {
+        toast.error('Acesso negado', {
+          description: 'Você não tem permissão para acessar este produto',
         });
+        return null;
       }
 
-      if (offerResult.data) {
-        console.log('💰 DEBUG - Offer data:', {
-          hasMainOffer: !!offerResult.data.main_offer,
-          hasPricingStrategy: !!offerResult.data.pricing_strategy,
-          hasBonuses: !!offerResult.data.bonuses,
-          hasUpsell: !!offerResult.data.upsell,
-          hasDownsell: !!offerResult.data.downsell,
-          hasOrderBump: !!offerResult.data.order_bump
-        });
-      }
+      // Log da ação
+      await securityService.logAction('FETCH_PRODUCT_DETAILS', `product:${productId}`);
 
-      if (copyResult.data) {
-        console.log('📝 DEBUG - Copy data:', {
-          hasVslScript: !!copyResult.data.vsl_script,
-          hasLandingPageCopy: !!copyResult.data.landing_page_copy,
-          hasEmailCampaign: !!copyResult.data.email_campaign,
-          hasSocialMediaContent: !!copyResult.data.social_media_content,
-          hasWhatsappMessages: !!copyResult.data.whatsapp_messages,
-          hasTelegramMessages: !!copyResult.data.telegram_messages
-        });
-      }
-
-      if (metaResult.data) {
-        console.log('🏷️ DEBUG - Meta data:', {
-          hasTags: !!metaResult.data.tags,
-          hasPrivateNotes: !!metaResult.data.private_notes,
-          hasAiEvaluation: !!metaResult.data.ai_evaluation
-        });
-      }
-
-      const productDetails: ProductDetails = {
-        ...product,
-        strategy: strategyResult.data || undefined,
-        copy: copyResult.data || undefined,
-        offer: offerResult.data || undefined,
-        meta: metaResult.data || undefined,
-      };
-
-      console.log('✅ DEBUG - Produto completo montado:', {
-        id: productDetails.id,
-        name: productDetails.name,
-        hasStrategy: !!productDetails.strategy,
-        hasOffer: !!productDetails.offer,
-        hasCopy: !!productDetails.copy,
-        hasMeta: !!productDetails.meta
-      });
-
-      return productDetails;
+      const data = await productService.getProductDetails(productId);
+      
+      console.log('✅ useProducts: Detalhes carregados via serviço');
+      return data;
     } catch (err) {
-      console.error('❌ DEBUG - Erro ao buscar detalhes do produto:', err);
-      toast.error('Erro ao carregar detalhes do produto');
+      console.error('❌ useProducts: Erro ao buscar detalhes:', err);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar detalhes do produto';
+      toast.error('Erro ao carregar detalhes', {
+        description: errorMessage,
+      });
+      return null;
+    }
+  };
+
+  const createProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'user_id'>): Promise<Product | null> => {
+    try {
+      // Log da ação
+      await securityService.logAction('CREATE_PRODUCT', 'products', { name: productData.name });
+
+      // Verificar rate limit
+      const canProceed = await securityService.checkRateLimit('CREATE_PRODUCT', 10, 60000);
+      if (!canProceed) {
+        throw new Error('Muitas criações de produto. Aguarde um momento.');
+      }
+
+      const data = await productService.createProduct(productData);
+      
+      // Atualizar lista local
+      setProducts(prev => [data, ...prev]);
+      
+      toast.success('Produto criado', {
+        description: `${data.name} foi criado com sucesso.`,
+      });
+
+      return data;
+    } catch (err) {
+      console.error('❌ useProducts: Erro ao criar produto:', err);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar produto';
+      toast.error('Erro ao criar produto', {
+        description: errorMessage,
+      });
+      return null;
+    }
+  };
+
+  const updateProduct = async (productId: string, updates: Partial<Product>): Promise<Product | null> => {
+    try {
+      // Validar acesso
+      const hasAccess = await securityService.validateResourceAccess('product', productId, 'UPDATE');
+      if (!hasAccess) {
+        toast.error('Acesso negado', {
+          description: 'Você não tem permissão para editar este produto',
+        });
+        return null;
+      }
+
+      // Log da ação
+      await securityService.logAction('UPDATE_PRODUCT', `product:${productId}`, updates);
+
+      const data = await productService.updateProduct(productId, updates);
+      
+      // Atualizar lista local
+      setProducts(prev => prev.map(p => p.id === productId ? data : p));
+      
+      toast.success('Produto atualizado', {
+        description: `${data.name} foi atualizado com sucesso.`,
+      });
+
+      return data;
+    } catch (err) {
+      console.error('❌ useProducts: Erro ao atualizar produto:', err);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar produto';
+      toast.error('Erro ao atualizar produto', {
+        description: errorMessage,
+      });
+      return null;
+    }
+  };
+
+  const deleteProduct = async (productId: string): Promise<boolean> => {
+    try {
+      // Validar acesso
+      const hasAccess = await securityService.validateResourceAccess('product', productId, 'DELETE');
+      if (!hasAccess) {
+        toast.error('Acesso negado', {
+          description: 'Você não tem permissão para deletar este produto',
+        });
+        return false;
+      }
+
+      // Log da ação
+      await securityService.logAction('DELETE_PRODUCT', `product:${productId}`);
+
+      await productService.deleteProduct(productId);
+      
+      // Remover da lista local
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      
+      toast.success('Produto excluído', {
+        description: 'O produto foi excluído com sucesso.',
+      });
+
+      return true;
+    } catch (err) {
+      console.error('❌ useProducts: Erro ao deletar produto:', err);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar produto';
+      toast.error('Erro ao deletar produto', {
+        description: errorMessage,
+      });
+      return false;
+    }
+  };
+
+  const duplicateProduct = async (productId: string): Promise<Product | null> => {
+    try {
+      // Validar acesso
+      const hasAccess = await securityService.validateResourceAccess('product', productId, 'READ');
+      if (!hasAccess) {
+        toast.error('Acesso negado', {
+          description: 'Você não tem permissão para duplicar este produto',
+        });
+        return null;
+      }
+
+      // Log da ação
+      await securityService.logAction('DUPLICATE_PRODUCT', `product:${productId}`);
+
+      const data = await productService.duplicateProduct(productId);
+      
+      // Adicionar à lista local
+      setProducts(prev => [data, ...prev]);
+      
+      toast.success('Produto duplicado', {
+        description: `${data.name} foi criado com sucesso.`,
+      });
+
+      return data;
+    } catch (err) {
+      console.error('❌ useProducts: Erro ao duplicar produto:', err);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao duplicar produto';
+      toast.error('Erro ao duplicar produto', {
+        description: errorMessage,
+      });
       return null;
     }
   };
@@ -192,5 +228,9 @@ export const useProducts = () => {
     error,
     fetchProducts,
     fetchProductDetails,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    duplicateProduct,
   };
 };
