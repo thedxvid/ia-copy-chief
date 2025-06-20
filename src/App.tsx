@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
-import LandingPage from '@/pages/LandingPage';
-import AuthPage from '@/pages/AuthPage';
+import Index from '@/pages/Index';
+import Auth from '@/pages/Auth';
 import Dashboard from '@/pages/Dashboard';
 import Tools from '@/pages/Tools';
 import History from '@/pages/History';
@@ -11,8 +12,8 @@ import Quiz from '@/pages/Quiz';
 import Admin from '@/pages/Admin';
 import NotFound from '@/pages/NotFound';
 import { Toaster } from "@/components/ui/toaster"
-import { SonnerToaster } from 'sonner';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { Toaster as SonnerToaster } from 'sonner';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TokenUpgradeProvider } from '@/contexts/TokenUpgradeContext';
 
 const queryClient = new QueryClient();
@@ -26,8 +27,8 @@ function App() {
             <TokenUpgradeProvider>
               <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-inter">
                 <Routes>
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/tools" element={<Tools />} />
                   <Route path="/history" element={<History />} />

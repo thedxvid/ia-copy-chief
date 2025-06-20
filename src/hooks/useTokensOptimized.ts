@@ -11,17 +11,11 @@ interface TokenData {
   total_used: number;
 }
 
-interface NotificationFlags {
-  notified_90: boolean;
-  notified_50: boolean;
-  notified_10: boolean;
-}
-
 const MONTHLY_TOKENS_LIMIT = 100000;
 const CACHE_KEY = 'token_cache';
 const CACHE_EXPIRY_KEY = 'token_cache_expiry';
 const CACHE_DURATION = 30000; // 30 segundos
-const AUTO_REFRESH_INTERVAL = 60000; // Reduzido para 60 segundos
+const AUTO_REFRESH_INTERVAL = 60000; // 60 segundos
 const DEBOUNCE_DELAY = 1000;
 
 export const useTokensOptimized = () => {
