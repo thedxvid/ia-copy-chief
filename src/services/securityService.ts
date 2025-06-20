@@ -36,15 +36,17 @@ class SecurityService {
 
     // Em produção, salvar no banco de dados
     try {
-      await supabase
-        .from('security_logs')
-        .insert({
-          user_id: user.id,
-          action,
-          resource,
-          metadata,
-          created_at: new Date().toISOString()
-        });
+      // Usar raw SQL para evitar erro de tipos até que os tipos sejam atualizados
+      const { error } = await supabase.rpc('log_security_action', {
+        p_user_id: user.id,
+        p_action: action,
+        p_resource: resource,
+        p_metadata: metadata || {}
+      });
+
+      if (error) {
+        console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', error);
+      }
     } catch (error) {
       console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', error);
     }

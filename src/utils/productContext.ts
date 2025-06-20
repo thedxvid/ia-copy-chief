@@ -1,5 +1,5 @@
 
-import type { ProductDetails } from '@/hooks/useProducts';
+import type { ProductDetails } from '@/services/productService';
 
 export interface ProductContextData {
   product: ProductDetails;

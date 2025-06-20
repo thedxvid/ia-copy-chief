@@ -2,8 +2,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { productService, Product, ProductDetails } from '@/services/productService';
+import { productService, type Product, type ProductDetails } from '@/services/productService';
 import { securityService } from '@/services/securityService';
+
+// Re-export types for other components
+export type { Product, ProductDetails };
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
