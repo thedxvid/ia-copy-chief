@@ -81,7 +81,7 @@ const Auth = () => {
             />
           )}
           {authMode === 'signup' && (
-            <SignUpForm onSwitchToLogin={() => setAuthMode('login')} />
+            <SignUpForm />
           )}
           {authMode === 'forgot' && (
             <ForgotPasswordForm onBackToLogin={() => setAuthMode('login')} />

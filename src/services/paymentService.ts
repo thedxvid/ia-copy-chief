@@ -19,7 +19,7 @@ class PaymentService {
   private config: PaymentConfig = {
     platform: 'digital-guru',
     checkoutUrl: 'https://clkdmg.site/subscribe/iacopychief-assinatura-mensal',
-    webhookUrl: `${import.meta.env.VITE_SUPABASE_URL || 'https://dcnjjhavlvotzpwburvw.supabase.co'}/functions/v1/digital-guru-webhook`
+    webhookUrl: `https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/digital-guru-webhook`
   };
 
   getCheckoutUrl(): string {
@@ -47,9 +47,17 @@ class PaymentService {
         return null;
       }
 
+      // Mapear status do banco para os tipos permitidos
+      let mappedStatus: 'active' | 'pending' | 'canceled' | 'expired' = 'pending';
+      const dbStatus = profile.subscription_status;
+      
+      if (dbStatus === 'active' || dbStatus === 'pending' || dbStatus === 'canceled' || dbStatus === 'expired') {
+        mappedStatus = dbStatus;
+      }
+
       return {
         platform: this.config.platform,
-        status: profile.subscription_status || 'pending',
+        status: mappedStatus,
         expiresAt: profile.subscription_expires_at || undefined,
         activatedAt: profile.payment_approved_at || undefined
       };
@@ -78,7 +86,7 @@ class PaymentService {
     
     this.config.platform = newPlatform;
     this.config.checkoutUrl = newCheckoutUrl;
-    this.config.webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://dcnjjhavlvotzpwburvw.supabase.co'}/functions/v1/${newPlatform}-webhook`;
+    this.config.webhookUrl = `https://dcnjjhavlvotzpwburvw.supabase.co/functions/v1/${newPlatform}-webhook`;
 
     await this.logPaymentAction('PLATFORM_MIGRATION', {
       from: oldPlatform,

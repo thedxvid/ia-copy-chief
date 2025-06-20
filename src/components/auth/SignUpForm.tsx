@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -157,14 +158,14 @@ export const SignUpForm: React.FC<SignUpFormProps> = React.forwardRef<HTMLDivEle
       </div>
       <div className="text-sm text-muted-foreground">
         Ou, para ter acesso imediato:{" "}
-              <Link 
-                href="https://clkdmg.site/subscribe/iacopychief-assinatura-mensal"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#3B82F6] hover:text-[#2563EB] underline font-medium"
-              >
-                Clique aqui para assinar
-              </Link>
+        <a 
+          href="https://clkdmg.site/subscribe/iacopychief-assinatura-mensal"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#3B82F6] hover:text-[#2563EB] underline font-medium"
+        >
+          Clique aqui para assinar
+        </a>
       </div>
     </div>
   )
