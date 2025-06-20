@@ -57,14 +57,39 @@ export const UserActivator: React.FC = () => {
 
       if (error) {
         console.error("Function invocation error:", error);
-        setDebugInfo(`Erro na função: ${JSON.stringify(error)}`);
-        throw new Error(error.message || "Erro desconhecido na função");
+        
+        let errorMessage = "Erro desconhecido na função";
+        let debugMessage = `Erro na invocação: ${JSON.stringify(error)}`;
+        
+        if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        if (error.message?.includes("Edge Function returned a non-2xx status code")) {
+          errorMessage = "Erro interno na função de ativação";
+          debugMessage = `Erro HTTP da função: ${error.message}`;
+        }
+        
+        setDebugInfo(debugMessage);
+        throw new Error(errorMessage);
       }
 
       if (data?.error) {
         console.error("Function returned error:", data.error);
-        setDebugInfo(`Erro retornado: ${data.error}`);
-        throw new Error(data.error);
+        
+        let errorMessage = data.error;
+        let debugMessage = `Erro retornado pela função: ${data.error}`;
+        
+        if (data.details) {
+          debugMessage += `\nDetalhes: ${data.details}`;
+        }
+        
+        if (data.stack) {
+          debugMessage += `\nStack: ${data.stack}`;
+        }
+        
+        setDebugInfo(debugMessage);
+        throw new Error(errorMessage);
       }
 
       // Sucesso
@@ -81,7 +106,17 @@ export const UserActivator: React.FC = () => {
 
       setLastActivated(email.trim());
       setEmail('');
-      setDebugInfo(`Sucesso! ${data?.isNewUser ? 'Novo usuário criado' : 'Usuário existente ativado'}. Email: ${data?.emailSent ? 'Enviado' : 'Status desconhecido'}`);
+      
+      let debugSuccessInfo = `✅ Sucesso! ${data?.isNewUser ? 'Novo usuário criado' : 'Usuário existente ativado'}`;
+      if (data?.user_id) {
+        debugSuccessInfo += `\nUser ID: ${data.user_id}`;
+      }
+      debugSuccessInfo += `\nEmail: ${data?.emailSent ? 'Enviado' : 'Status desconhecido'}`;
+      if (data?.temporaryPassword) {
+        debugSuccessInfo += `\nSenha temporária: ${data.temporaryPassword}`;
+      }
+      
+      setDebugInfo(debugSuccessInfo);
       
     } catch (error: any) {
       console.error('=== ADMIN: Error activating user ===', error);
@@ -91,10 +126,8 @@ export const UserActivator: React.FC = () => {
         errorMessage = error.message;
       }
       
-      setDebugInfo(`Erro: ${errorMessage}`);
-      
       toast({
-        title: "❌ Erro",
+        title: "❌ Erro na Ativação",
         description: errorMessage,
         variant: "destructive",
       });
@@ -191,7 +224,7 @@ export const UserActivator: React.FC = () => {
                   <Bug className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                   <div className="text-blue-300">
                     <strong>Debug Info:</strong>
-                    <div className="mt-1 text-[#CCCCCC] font-mono break-all">
+                    <div className="mt-1 text-[#CCCCCC] font-mono break-all whitespace-pre-wrap">
                       {debugInfo}
                     </div>
                   </div>
