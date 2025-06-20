@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useTokens } from '@/hooks/useTokens';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,9 +12,7 @@ import {
   AlertTriangle, 
   TrendingDown, 
   TrendingUp, 
-  DollarSign, 
   BarChart3,
-  Clock,
   Plus
 } from 'lucide-react';
 
@@ -40,6 +39,11 @@ export const TokenWidget = () => {
     }
   }, [lastUpdate]);
 
+  const handleRefreshClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    refreshTokens(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 bg-[#1E1E1E] rounded-lg border border-[#2A2A2A]">
@@ -60,7 +64,7 @@ export const TokenWidget = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={refreshTokens}
+                onClick={handleRefreshClick}
                 disabled={isRefreshing}
                 className="h-5 w-5 p-0 text-red-400 hover:text-red-300"
               >
@@ -87,37 +91,6 @@ export const TokenWidget = () => {
   const remainingPercentage = 100 - usagePercentage;
   const isLowTokens = remainingPercentage < 20;
   const isCritical = remainingPercentage < 10;
-
-  // Determinar cor e ícone baseado no status
-  const getStatusIcon = () => {
-    if (isCritical) return <AlertTriangle className="h-3 w-3 text-red-500 animate-pulse" />;
-    if (isLowTokens) return <TrendingDown className="h-3 w-3 text-yellow-500" />;
-    return <TrendingUp className="h-3 w-3 text-green-500" />;
-  };
-
-  const getProgressBarColor = () => {
-    if (remainingPercentage > 50) return 'from-green-500 to-green-400';
-    if (remainingPercentage > 20) return 'from-yellow-500 to-yellow-400';
-    return 'from-red-500 to-red-400';
-  };
-
-  const getStatusMessage = () => {
-    if (isCritical) return 'Crítico';
-    if (isLowTokens) return 'Atenção';
-    if (remainingPercentage > 80) return 'Excelente';
-    return 'Normal';
-  };
-
-  const getLastUpdateText = () => {
-    if (!lastUpdate) return 'Nunca';
-    const now = new Date();
-    const diffMs = now.getTime() - lastUpdate.getTime();
-    const diffSecs = Math.floor(diffMs / 1000);
-    
-    if (diffSecs < 60) return 'Agora';
-    if (diffSecs < 300) return `${Math.floor(diffSecs / 60)}min atrás`;
-    return lastUpdate.toLocaleTimeString();
-  };
 
   return (
     <>
@@ -176,10 +149,7 @@ export const TokenWidget = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    refreshTokens();
-                  }}
+                  onClick={handleRefreshClick}
                   disabled={isRefreshing}
                   className="h-5 w-5 p-0 text-gray-400 hover:text-[#3B82F6] transition-colors"
                 >
@@ -251,10 +221,7 @@ export const TokenWidget = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    refreshTokens();
-                  }}
+                  onClick={handleRefreshClick}
                   disabled={isRefreshing}
                   className="h-4 w-4 p-0 text-gray-400 hover:text-[#3B82F6]"
                 >

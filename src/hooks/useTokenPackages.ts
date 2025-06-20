@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface TokenPackage {
   id: string;
@@ -29,6 +30,7 @@ export const useTokenPackages = () => {
   const [purchases, setPurchases] = useState<TokenPurchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const fetchPackages = async () => {
     try {
@@ -54,10 +56,13 @@ export const useTokenPackages = () => {
         .select(`
           *,
           token_packages (
+            id,
             name,
             tokens_amount,
             price_brl,
-            description
+            description,
+            checkout_url,
+            is_active
           )
         `)
         .order('created_at', { ascending: false });
@@ -66,7 +71,7 @@ export const useTokenPackages = () => {
 
       const purchasesWithPackages = data?.map(purchase => ({
         ...purchase,
-        package: purchase.token_packages
+        package: purchase.token_packages as TokenPackage
       })) || [];
 
       setPurchases(purchasesWithPackages);
@@ -77,6 +82,10 @@ export const useTokenPackages = () => {
   };
 
   const purchaseTokens = async (packageId: string) => {
+    if (!user?.id) {
+      throw new Error('Usuário não autenticado');
+    }
+
     try {
       const selectedPackage = packages.find(p => p.id === packageId);
       if (!selectedPackage) {
@@ -86,10 +95,11 @@ export const useTokenPackages = () => {
       // Redirecionar para o checkout
       window.open(selectedPackage.checkout_url, '_blank');
 
-      // Opcional: Registrar intenção de compra no banco
+      // Registrar intenção de compra no banco
       const { error } = await supabase
         .from('token_package_purchases')
         .insert({
+          user_id: user.id,
           package_id: packageId,
           tokens_purchased: selectedPackage.tokens_amount,
           amount_paid: selectedPackage.price_brl,
