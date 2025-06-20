@@ -9,7 +9,7 @@ import {
   AlertTriangle, 
   Plus
 } from 'lucide-react';
-import { useTokensOptimized } from '@/hooks/useTokensOptimized';
+import { useTokenUpgrade } from '@/contexts/TokenUpgradeContext';
 
 export const TokenWidgetOptimized = memo(() => {
   const { 
@@ -21,7 +21,7 @@ export const TokenWidgetOptimized = memo(() => {
     getUsagePercentage,
     getStatusColor,
     shouldShowLowTokenWarning
-  } = useTokensOptimized();
+  } = useTokenUpgrade();
 
   const handleRefreshClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
