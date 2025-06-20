@@ -279,6 +279,80 @@ export const useTokenMonitoring = () => {
     }
   }, []);
 
+  // Configurar subscriptions em tempo real
+  useEffect(() => {
+    console.log('🔄 Configurando subscriptions do dashboard de monitoramento...');
+
+    const timestamp = Date.now();
+    
+    // Subscription para mudanças na tabela profiles
+    const profilesChannelName = `monitoring-profiles-${timestamp}`;
+    const profilesChannel = supabase
+      .channel(profilesChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+        },
+        (payload) => {
+          console.log('🔄 Perfil atualizado (monitoramento):', payload);
+          
+          // Verificar se os campos de token foram alterados
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          
+          const tokenFieldsChanged = 
+            newRecord.monthly_tokens !== oldRecord.monthly_tokens ||
+            newRecord.extra_tokens !== oldRecord.extra_tokens ||
+            newRecord.total_tokens_used !== oldRecord.total_tokens_used;
+
+          if (tokenFieldsChanged) {
+            console.log('💰 Tokens de usuário alterados, recarregando estatísticas...');
+            fetchTokenStats();
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status da subscription de profiles (monitoramento):', status);
+      });
+
+    // Subscription para novos registros de uso de tokens
+    const usageChannelName = `monitoring-usage-${timestamp}`;
+    const usageChannel = supabase
+      .channel(usageChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'token_usage',
+        },
+        (payload) => {
+          console.log('🔄 Novo uso de token registrado:', payload);
+          
+          // Recarregar estatísticas e histórico
+          fetchTokenStats();
+          fetchUsageHistory();
+          
+          toast.info('📊 Uso de tokens atualizado', {
+            description: 'Dashboard atualizado automaticamente',
+            duration: 3000,
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status da subscription de token usage:', status);
+      });
+
+    return () => {
+      console.log('🧹 Limpando subscriptions do monitoramento');
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(usageChannel);
+    };
+  }, [fetchTokenStats, fetchUsageHistory]);
+
   const triggerMonthlyReset = useCallback(async () => {
     try {
       console.log('🔄 Executando reset mensal manual...');

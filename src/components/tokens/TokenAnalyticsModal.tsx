@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, TrendingUp, Zap, BarChart3, PieChart as PieIcon, Clock } from 'lucide-react';
 import { format, subDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface TokenAnalyticsModalProps {
   isOpen: boolean;
@@ -67,13 +68,7 @@ export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
   const [totalTokens, setTotalTokens] = useState(0);
   const [averageDaily, setAverageDaily] = useState(0);
 
-  useEffect(() => {
-    if (isOpen && user?.id) {
-      fetchAnalytics();
-    }
-  }, [isOpen, user?.id]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = React.useCallback(async () => {
     if (!user?.id) return;
 
     try {
@@ -130,7 +125,52 @@ export const TokenAnalyticsModal: React.FC<TokenAnalyticsModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  // Configurar subscription em tempo real para analytics do usuário
+  useEffect(() => {
+    if (!isOpen || !user?.id) return;
+
+    console.log('🔄 Configurando subscription de analytics para usuário:', user.id);
+
+    const channelName = `analytics-${user.id}-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'token_usage',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('🔄 Novo uso de token para analytics:', payload);
+          
+          // Recarregar analytics automaticamente
+          fetchAnalytics();
+          
+          toast.info('📊 Analytics atualizados', {
+            description: 'Novo uso de tokens detectado',
+            duration: 3000,
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status da subscription de analytics:', status);
+      });
+
+    return () => {
+      console.log('🧹 Limpando subscription de analytics');
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, user?.id, fetchAnalytics]);
+
+  useEffect(() => {
+    if (isOpen && user?.id) {
+      fetchAnalytics();
+    }
+  }, [isOpen, user?.id, fetchAnalytics]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

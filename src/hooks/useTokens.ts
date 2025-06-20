@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -141,6 +140,51 @@ export const useTokens = () => {
       }
     }
   }, [user?.id, lastResetDate, fetchTokens]);
+
+  // Configurar subscription em tempo real
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔄 Configurando subscription de tokens para usuário:', user.id);
+
+    const channelName = `tokens-${user.id}-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('🔄 Token profile atualizado em tempo real:', payload);
+          
+          // Verificar se os campos de token foram alterados
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          
+          const tokenFieldsChanged = 
+            newRecord.monthly_tokens !== oldRecord.monthly_tokens ||
+            newRecord.extra_tokens !== oldRecord.extra_tokens ||
+            newRecord.total_tokens_used !== oldRecord.total_tokens_used;
+
+          if (tokenFieldsChanged) {
+            console.log('💰 Tokens alterados, atualizando estado...');
+            fetchTokens(true);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status da subscription de tokens:', status);
+      });
+
+    return () => {
+      console.log('🧹 Limpando subscription de tokens');
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchTokens]);
 
   // Auto-refresh quando a aba voltar a ficar ativa
   useEffect(() => {
