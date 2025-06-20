@@ -6,7 +6,6 @@ import { AppProvider } from '@/contexts/AppContext';
 import Index from '@/pages/Index';
 import Auth from '@/pages/Auth';
 import Dashboard from '@/pages/Dashboard';
-import Tools from '@/pages/Tools';
 import History from '@/pages/History';
 import Quiz from '@/pages/Quiz';
 import Admin from '@/pages/Admin';
@@ -30,7 +29,6 @@ function App() {
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/tools" element={<Tools />} />
                   <Route path="/history" element={<History />} />
                   <Route path="/quiz" element={<Quiz />} />
                   <Route path="/admin" element={<Admin />} />
