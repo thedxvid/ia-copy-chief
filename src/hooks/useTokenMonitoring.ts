@@ -187,47 +187,81 @@ export const useTokenMonitoring = () => {
 
   const fetchUsageHistory = useCallback(async () => {
     try {
-      console.log('📊 Buscando histórico de uso...');
+      console.log('📊 AUDITORIA: Iniciando busca de histórico de uso...');
 
-      // Buscar registros dos últimos 30 dias
+      // Buscar registros dos últimos 30 dias com logs detalhados
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      console.log('📅 Buscando registros desde:', thirtyDaysAgo.toISOString());
+      console.log('📅 AUDITORIA: Buscando registros desde:', thirtyDaysAgo.toISOString());
 
       const { data: usage, error: usageError } = await supabase
         .from('token_usage')
-        .select('created_at, tokens_used, feature_used, user_id')
+        .select('created_at, tokens_used, feature_used, user_id, prompt_tokens, completion_tokens, total_tokens')
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
-      console.log('📈 Histórico de uso encontrado:', usage?.length || 0, 'registros');
+      console.log('📈 AUDITORIA: Histórico de uso encontrado:', {
+        registros: usage?.length || 0, 
+        error: usageError,
+        ultimosRegistros: usage?.slice(0, 3).map(r => ({
+          data: r.created_at,
+          tokens: r.tokens_used,
+          feature: r.feature_used,
+          total: r.total_tokens
+        }))
+      });
 
       if (usageError) {
-        console.error('❌ Erro ao buscar histórico:', usageError);
+        console.error('❌ AUDITORIA: Erro ao buscar histórico:', usageError);
         throw usageError;
       }
 
       if (!usage || usage.length === 0) {
-        console.log('⚠️ Nenhum histórico de uso encontrado');
+        console.log('⚠️ AUDITORIA: Nenhum histórico de uso encontrado nos últimos 30 dias');
         setUsageHistory([]);
         return;
       }
 
-      // Debug: mostrar os dados brutos
-      console.log('🔍 Dados brutos do histórico:', usage.slice(0, 5));
+      // AUDITORIA: Verificar se há discrepâncias nos registros
+      const inconsistentRecords = usage.filter(record => {
+        const expectedTotal = (record.prompt_tokens || 0) + (record.completion_tokens || 0);
+        const actualTotal = record.total_tokens || record.tokens_used;
+        return Math.abs(expectedTotal - actualTotal) > 100; // Tolerância de 100 tokens
+      });
 
-      // Agrupar por data usando UTC para evitar problemas de timezone
+      if (inconsistentRecords.length > 0) {
+        console.warn('⚠️ AUDITORIA: Registros inconsistentes encontrados:', {
+          quantidade: inconsistentRecords.length,
+          exemplos: inconsistentRecords.slice(0, 2).map(r => ({
+            id: r.user_id?.slice(0, 8),
+            expected: (r.prompt_tokens || 0) + (r.completion_tokens || 0),
+            actual: r.total_tokens || r.tokens_used,
+            diferença: Math.abs(((r.prompt_tokens || 0) + (r.completion_tokens || 0)) - (r.total_tokens || r.tokens_used))
+          }))
+        });
+      }
+
+      // Agrupar por data usando UTC para consistência
       const dailyUsage: { [key: string]: TokenUsageHistory } = {};
       const uniqueUsers: { [key: string]: Set<string> } = {};
 
-      usage.forEach(record => {
+      usage.forEach((record, index) => {
         // Usar UTC para evitar problemas de timezone
         const date = new Date(record.created_at);
         const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
         const dateKey = utcDate.toISOString().split('T')[0];
         
-        console.log(`📅 Processando registro: ${record.created_at} -> ${dateKey}`);
+        if (index < 5) { // Log apenas os primeiros 5 para debug
+          console.log(`📅 AUDITORIA: Processando registro ${index + 1}:`, {
+            originalDate: record.created_at,
+            processedDate: dateKey,
+            tokens: record.tokens_used,
+            totalTokens: record.total_tokens,
+            feature: record.feature_used,
+            userId: record.user_id?.slice(0, 8)
+          });
+        }
         
         if (!dailyUsage[dateKey]) {
           dailyUsage[dateKey] = {
@@ -239,13 +273,16 @@ export const useTokenMonitoring = () => {
           uniqueUsers[dateKey] = new Set();
         }
 
-        dailyUsage[dateKey].total_tokens_used += record.tokens_used;
+        // Usar o campo mais apropriado para tokens
+        const tokensToAdd = record.total_tokens || record.tokens_used || 0;
+        dailyUsage[dateKey].total_tokens_used += tokensToAdd;
         uniqueUsers[dateKey].add(record.user_id);
         
-        if (!dailyUsage[dateKey].feature_breakdown[record.feature_used]) {
-          dailyUsage[dateKey].feature_breakdown[record.feature_used] = 0;
+        const feature = record.feature_used || 'unknown';
+        if (!dailyUsage[dateKey].feature_breakdown[feature]) {
+          dailyUsage[dateKey].feature_breakdown[feature] = 0;
         }
-        dailyUsage[dateKey].feature_breakdown[record.feature_used] += record.tokens_used;
+        dailyUsage[dateKey].feature_breakdown[feature] += tokensToAdd;
       });
 
       // Atualizar contagem de usuários únicos
@@ -257,19 +294,47 @@ export const useTokenMonitoring = () => {
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      console.log('📊 Histórico processado:', historyArray.length, 'dias');
-      console.log('🔍 Dados processados:', historyArray.slice(0, 5));
+      console.log('📊 AUDITORIA: Histórico processado:', {
+        diasProcessados: historyArray.length,
+        totalTokensNoPeriodo: historyArray.reduce((sum, day) => sum + day.total_tokens_used, 0),
+        diasComMaisUso: historyArray.slice(0, 3).map(day => ({
+          data: day.date,
+          tokens: day.total_tokens_used,
+          usuarios: day.unique_users
+        })),
+        diasVazios: historyArray.filter(day => day.total_tokens_used === 0).length
+      });
+
+      // AUDITORIA: Verificar se há dias com muito pouco uso (possível perda de dados)
+      const suspiciouslyLowDays = historyArray.filter(day => 
+        day.total_tokens_used > 0 && day.total_tokens_used < 500
+      );
+
+      if (suspiciouslyLowDays.length > 0) {
+        console.warn('⚠️ AUDITORIA: Dias com uso suspeitosamente baixo:', {
+          quantidade: suspiciouslyLowDays.length,
+          exemplos: suspiciouslyLowDays.slice(0, 3).map(day => ({
+            data: day.date,
+            tokens: day.total_tokens_used,
+            usuarios: day.unique_users
+          }))
+        });
+      }
 
       setUsageHistory(historyArray.slice(0, 30));
 
-      // Toast de sucesso quando dados são atualizados
-      toast.success('Histórico atualizado!', {
-        description: `${historyArray.length} dias de dados carregados`,
-        duration: 3000,
+      // Toast de sucesso com informações de auditoria
+      const auditInfo = inconsistentRecords.length > 0 ? 
+        ` • ${inconsistentRecords.length} inconsistências detectadas` : 
+        ' • Dados consistentes';
+
+      toast.success('📊 Histórico atualizado!', {
+        description: `${historyArray.length} dias processados${auditInfo}`,
+        duration: 5000,
       });
 
     } catch (err) {
-      console.error('❌ Erro ao buscar histórico de uso:', err);
+      console.error('❌ AUDITORIA: Erro ao buscar histórico de uso:', err);
       toast.error('Erro ao carregar histórico', {
         description: 'Falha ao buscar dados de uso de tokens',
         duration: 5000,
@@ -277,9 +342,9 @@ export const useTokenMonitoring = () => {
     }
   }, []);
 
-  // Configurar subscriptions em tempo real
+  // Configurar subscriptions em tempo real com melhor detecção
   useEffect(() => {
-    console.log('🔄 Configurando subscriptions do dashboard de monitoramento...');
+    console.log('🔄 AUDITORIA: Configurando subscriptions do dashboard de monitoramento...');
 
     const timestamp = Date.now();
     
@@ -295,7 +360,12 @@ export const useTokenMonitoring = () => {
           table: 'profiles',
         },
         (payload) => {
-          console.log('🔄 Perfil atualizado (monitoramento):', payload);
+          console.log('🔄 AUDITORIA: Perfil atualizado (monitoramento):', {
+            userId: payload.new?.id?.slice(0, 8),
+            oldTokens: payload.old?.total_tokens_used,
+            newTokens: payload.new?.total_tokens_used,
+            difference: (payload.new?.total_tokens_used || 0) - (payload.old?.total_tokens_used || 0)
+          });
           
           // Verificar se os campos de token foram alterados
           const newRecord = payload.new as any;
@@ -307,13 +377,13 @@ export const useTokenMonitoring = () => {
             newRecord.total_tokens_used !== oldRecord.total_tokens_used;
 
           if (tokenFieldsChanged) {
-            console.log('💰 Tokens de usuário alterados, recarregando estatísticas...');
+            console.log('💰 AUDITORIA: Tokens de usuário alterados, recarregando estatísticas...');
             fetchTokenStats();
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 Status da subscription de profiles (monitoramento):', status);
+        console.log('📡 AUDITORIA: Status da subscription de profiles (monitoramento):', status);
       });
 
     // Subscription para novos registros de uso de tokens
@@ -328,24 +398,49 @@ export const useTokenMonitoring = () => {
           table: 'token_usage',
         },
         (payload) => {
-          console.log('🔄 Novo uso de token registrado:', payload);
+          console.log('🔄 AUDITORIA: Novo uso de token registrado:', {
+            userId: payload.new?.user_id?.slice(0, 8),
+            tokens: payload.new?.tokens_used || payload.new?.total_tokens,
+            feature: payload.new?.feature_used,
+            timestamp: payload.new?.created_at
+          });
           
           // Recarregar estatísticas e histórico imediatamente
           fetchTokenStats();
           fetchUsageHistory();
           
-          toast.info('📊 Dados atualizados em tempo real', {
-            description: 'Novo uso de token detectado',
+          toast.info('📊 AUDITORIA: Dados atualizados', {
+            description: `Novo uso detectado: ${payload.new?.tokens_used || payload.new?.total_tokens || 0} tokens`,
             duration: 3000,
           });
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'token_usage',
+        },
+        (payload) => {
+          console.log('🔄 AUDITORIA: Registro de uso atualizado:', {
+            userId: payload.new?.user_id?.slice(0, 8),
+            oldTokens: payload.old?.tokens_used || payload.old?.total_tokens,
+            newTokens: payload.new?.tokens_used || payload.new?.total_tokens,
+            feature: payload.new?.feature_used
+          });
+          
+          // Recarregar dados quando um registro é atualizado
+          fetchTokenStats();
+          fetchUsageHistory();
+        }
+      )
       .subscribe((status) => {
-        console.log('📡 Status da subscription de token usage:', status);
+        console.log('📡 AUDITORIA: Status da subscription de token usage:', status);
       });
 
     return () => {
-      console.log('🧹 Limpando subscriptions do monitoramento');
+      console.log('🧹 AUDITORIA: Limpando subscriptions do monitoramento');
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(usageChannel);
     };
@@ -432,9 +527,9 @@ export const useTokenMonitoring = () => {
 
   // Função para refresh manual
   const forceRefresh = useCallback(async () => {
-    console.log('🔄 Refresh manual iniciado...');
-    toast.info('Atualizando dados...', {
-      description: 'Carregando dados mais recentes',
+    console.log('🔄 AUDITORIA: Refresh manual iniciado...');
+    toast.info('🔍 Auditando sistema...', {
+      description: 'Carregando dados mais recentes e verificando consistência',
       duration: 2000,
     });
     
@@ -445,7 +540,7 @@ export const useTokenMonitoring = () => {
   }, [fetchTokenStats, fetchUsageHistory]);
 
   useEffect(() => {
-    console.log('🚀 Iniciando carregamento do dashboard de monitoramento...');
+    console.log('🚀 AUDITORIA: Iniciando carregamento do dashboard de monitoramento...');
     fetchTokenStats();
     fetchUsageHistory();
   }, [fetchTokenStats, fetchUsageHistory]);
