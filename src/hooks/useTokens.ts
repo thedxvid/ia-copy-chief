@@ -16,8 +16,9 @@ interface NotificationFlags {
   notified_10: boolean;
 }
 
-const MONTHLY_TOKENS_LIMIT = 100000; // Atualizado para 100k tokens
+const MONTHLY_TOKENS_LIMIT = 100000; // 100k tokens
 const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
+const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
@@ -27,6 +28,8 @@ export const useTokens = () => {
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [lastNotificationTime, setLastNotificationTime] = useState<{ [key: string]: number }>({});
   const { user } = useAuth();
 
   const fetchTokens = useCallback(async (showRefreshing = false) => {
@@ -67,7 +70,7 @@ export const useTokens = () => {
         setLastResetDate(profileData?.tokens_reset_date || null);
         setLastUpdate(new Date());
         
-        // Verificar se precisa mostrar notificações
+        // Verificar se precisa mostrar notificações ou popup
         checkAndShowNotifications(tokenInfo, profileData);
         
         console.log('Tokens atualizados:', tokenInfo);
@@ -87,30 +90,81 @@ export const useTokens = () => {
   const checkAndShowNotifications = useCallback((tokenData: TokenData, flags: NotificationFlags | null) => {
     if (!tokenData || !flags) return;
 
+    const now = Date.now();
     const usagePercentage = ((MONTHLY_TOKENS_LIMIT - tokenData.total_available) / MONTHLY_TOKENS_LIMIT) * 100;
     
-    // Notificação 90% usado (crítico)
+    // Verificar se tokens acabaram - mostrar popup imediatamente
+    if (tokenData.total_available === 0) {
+      const lastZeroNotification = lastNotificationTime['zero'] || 0;
+      if (now - lastZeroNotification > NOTIFICATION_COOLDOWN) {
+        setShowUpgradeModal(true);
+        setLastNotificationTime(prev => ({ ...prev, zero: now }));
+        
+        // Atualizar flag no banco
+        supabase
+          .from('profiles')
+          .update({ notified_90: true })
+          .eq('id', user?.id);
+      }
+      return;
+    }
+    
+    // Notificação 90% usado (crítico) - mostrar popup
     if (usagePercentage >= 90 && !flags.notified_90) {
-      toast.warning('⚠️ Tokens Críticos!', {
-        description: `Você usou 90% dos seus tokens mensais. Restam apenas ${tokenData.total_available.toLocaleString()} tokens.`,
-        duration: 8000,
-      });
+      const lastCriticalNotification = lastNotificationTime['critical'] || 0;
+      if (now - lastCriticalNotification > NOTIFICATION_COOLDOWN) {
+        setShowUpgradeModal(true);
+        setLastNotificationTime(prev => ({ ...prev, critical: now }));
+        
+        toast.warning('⚠️ Tokens Críticos!', {
+          description: `Você usou 90% dos seus tokens mensais. Restam apenas ${tokenData.total_available.toLocaleString()} tokens.`,
+          duration: 8000,
+        });
+        
+        // Atualizar flag no banco
+        supabase
+          .from('profiles')
+          .update({ notified_90: true })
+          .eq('id', user?.id);
+      }
     }
     // Notificação 50% usado (atenção)
     else if (usagePercentage >= 50 && !flags.notified_50) {
-      toast.info('📊 Meio Caminho', {
-        description: `Você já usou metade dos seus tokens mensais. Restam ${tokenData.total_available.toLocaleString()} tokens.`,
-        duration: 6000,
-      });
+      const lastWarningNotification = lastNotificationTime['warning'] || 0;
+      if (now - lastWarningNotification > NOTIFICATION_COOLDOWN) {
+        toast.info('📊 Meio Caminho', {
+          description: `Você já usou metade dos seus tokens mensais. Restam ${tokenData.total_available.toLocaleString()} tokens.`,
+          duration: 6000,
+        });
+        
+        setLastNotificationTime(prev => ({ ...prev, warning: now }));
+        
+        // Atualizar flag no banco
+        supabase
+          .from('profiles')
+          .update({ notified_50: true })
+          .eq('id', user?.id);
+      }
     }
     // Notificação 10% restantes (primeiro aviso)
     else if (usagePercentage >= 10 && !flags.notified_10) {
-      toast.success('💡 Primeiros 10% Usados', {
-        description: `Você começou a usar seus tokens mensais. Restam ${tokenData.total_available.toLocaleString()} tokens.`,
-        duration: 4000,
-      });
+      const lastInfoNotification = lastNotificationTime['info'] || 0;
+      if (now - lastInfoNotification > NOTIFICATION_COOLDOWN) {
+        toast.success('💡 Primeiros 10% Usados', {
+          description: `Você começou a usar seus tokens mensais. Restam ${tokenData.total_available.toLocaleString()} tokens.`,
+          duration: 4000,
+        });
+        
+        setLastNotificationTime(prev => ({ ...prev, info: now }));
+        
+        // Atualizar flag no banco
+        supabase
+          .from('profiles')
+          .update({ notified_10: true })
+          .eq('id', user?.id);
+      }
     }
-  }, []);
+  }, [lastNotificationTime, user?.id]);
 
   const checkResetNeeded = useCallback(async () => {
     if (!user?.id || !lastResetDate) return;
@@ -243,6 +297,8 @@ export const useTokens = () => {
     lastResetDate,
     lastUpdate,
     isRefreshing,
+    showUpgradeModal,
+    setShowUpgradeModal,
     refreshTokens: fetchTokens,
     getUsagePercentage: useCallback(() => {
       if (!tokens) return 0;
@@ -304,23 +360,7 @@ export const useTokens = () => {
       return tokens.total_available >= estimates[feature];
     }, [tokens]),
     getMonthlyLimit,
-    getDaysUntilReset: useCallback(() => {
-      if (!lastResetDate) return null;
-      
-      const resetDate = new Date(lastResetDate);
-      const nextReset = new Date(resetDate);
-      nextReset.setMonth(nextReset.getMonth() + 1);
-      
-      const today = new Date();
-      const daysUntilReset = Math.ceil((nextReset.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      
-      return Math.max(0, daysUntilReset);
-    }, [lastResetDate]),
-    getMonthlyUsageProgress: useCallback(() => {
-      if (!tokens) return 0;
-      
-      const usedTokens = MONTHLY_TOKENS_LIMIT - tokens.total_available;
-      return Math.min(100, Math.max(0, (usedTokens / MONTHLY_TOKENS_LIMIT) * 100));
-    }, [tokens]),
+    getDaysUntilReset,
+    getMonthlyUsageProgress,
   };
 };

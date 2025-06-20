@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,7 +41,22 @@ export const useTokenPackages = () => {
 
       if (error) throw error;
 
-      setPackages(data || []);
+      // Atualizar links de checkout se necessário
+      const packagesWithUpdatedLinks = data?.map(pkg => {
+        const checkoutUrls: { [key: number]: string } = {
+          100000: 'https://clkdmg.site/pay/100-mil-tokens',
+          250000: 'https://clkdmg.site/pay/250-mil-tokens', 
+          500000: 'https://clkdmg.site/pay/500-mil-tokens',
+          1000000: 'https://clkdmg.site/pay/1-milhao-de-tokens'
+        };
+        
+        return {
+          ...pkg,
+          checkout_url: checkoutUrls[pkg.tokens_amount] || pkg.checkout_url
+        };
+      }) || [];
+
+      setPackages(packagesWithUpdatedLinks);
     } catch (err) {
       console.error('Erro ao buscar pacotes de tokens:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar pacotes');
