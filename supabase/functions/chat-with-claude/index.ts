@@ -468,57 +468,10 @@ INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
       );
     }
 
-        let aiResponse = aiResponseData.content[0]?.text;
+    let aiResponse = claudeData.content[0]?.text;
 
     if (!aiResponse) {
       console.error('❌ Texto da resposta inválido.');
-      throw new Error("A resposta da IA está vazia ou em formato inválido.");
-    }
-
-    // ===============================================================
-    // CÓDIGO CORRETO PARA CONSUMO DE TOKENS
-    // ===============================================================
-    
-    // 1. Usa o total de tokens retornado diretamente pela API do Claude. É mais preciso.
-    const totalTokensUsed = (aiResponseData.usage?.input_tokens || 0) + (aiResponseData.usage?.output_tokens || 0);
-
-    // 2. Consome os tokens do usuário no banco de dados, se algum token foi usado.
-    if (totalTokensUsed > 0) {
-      const { error: consumeError } = await supabase.rpc('consume_tokens', {
-        p_user_id: userId,
-        p_tokens_used: totalTokensUsed,
-        p_feature_used: 'chat_ia', // Categoria do gasto
-        p_prompt_tokens: aiResponseData.usage?.input_tokens || 0,
-        p_completion_tokens: aiResponseData.usage?.output_tokens || 0,
-      });
-
-      if (consumeError) {
-        // Loga o erro, mas não interrompe o fluxo para o usuário não perder a resposta.
-        console.error('⚠️ Erro não-crítico ao consumir tokens:', consumeError);
-      } else {
-        console.log(`✅ Tokens consumidos: ${totalTokensUsed} para o usuário ${userId}`);
-      }
-    }
-    // ===============================================================
-
-    // 3. Salva a resposta da IA no histórico da sessão de chat.
-    await supabase.from('chat_messages').insert([
-      { session_id: sessionId, role: 'assistant', content: aiResponse, tokens: totalTokensUsed }
-    ]);
-
-    console.log('🎯 Processamento concluído e resposta enviada ao cliente.');
-
-    // 4. Retorna a resposta final para o frontend.
-    return new Response(JSON.stringify({
-      aiResponse,
-      tokensUsed: totalTokensUsed,
-      tokensRemaining: (userTokens.total_available || 0) - totalTokensUsed,
-      sessionId: sessionId,
-      chatHistory: [...messages, { role: 'assistant', content: aiResponse }]
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
       return new Response(
         JSON.stringify({ 
           error: 'Invalid response format from AI service',
