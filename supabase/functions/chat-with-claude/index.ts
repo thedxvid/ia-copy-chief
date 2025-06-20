@@ -2,162 +2,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, validateAuthToken, sanitizeInput } from '../_shared/security.ts'
+import { ChatRequest, ClaudeResponse } from './types.ts'
+import { retryWithBackoff, prepareSystemPrompt, prepareChatMessages, correctClaudeIdentification } from './utils.ts'
+import { callClaudeAPI } from './claude-api.ts'
+import { validateRequest, validateApiKey, validateChatRequest, categorizeError } from './validation.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
-
-// Função para retry com backoff exponencial otimizado - SEM TIMEOUT FORÇADO
-async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelay: number = 3000,
-  operation: string = 'operação'
-): Promise<T> {
-  let lastError: Error;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      if (attempt > 0) {
-        console.log(`🔄 Tentativa ${attempt + 1}/${maxRetries + 1} para ${operation}`);
-      }
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-      console.error(`❌ Tentativa ${attempt + 1} falhou para ${operation}:`, {
-        error: error.message,
-        type: error.name,
-        attempt: attempt + 1,
-        maxRetries: maxRetries + 1
-      });
-      
-      if (attempt === maxRetries) {
-        console.error(`💥 Todas as ${maxRetries + 1} tentativas falharam para ${operation}`);
-        throw lastError;
-      }
-      
-      const jitter = Math.random() * 0.2;
-      const delay = baseDelay * Math.pow(1.8, attempt) * (1 + jitter);
-      
-      console.log(`⏳ Aguardando ${Math.round(delay)}ms antes da próxima tentativa...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  
-  throw lastError!;
-}
-
-// Função otimizada para chamar Claude com limites aumentados
-async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: number = 1) {
-  try {
-    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt}) - CLAUDE 4 SONNET...`, {
-      messageCount: messages.length,
-      systemPromptLength: systemPrompt.length,
-      timestamp: new Date().toISOString(),
-      totalTokensEstimate: Math.ceil((systemPrompt.length + JSON.stringify(messages).length) / 4)
-    });
-
-    const startTime = Date.now();
-
-    // Otimizar payload - sem truncar mensagens drasticamente (aumento para 20k)
-    const optimizedMessages = messages.map(msg => ({
-      role: msg.role,
-      content: typeof msg.content === 'string' && msg.content.length > 20000 
-        ? msg.content.substring(0, 20000) + '...' 
-        : msg.content
-    }));
-
-    // AUMENTADO: Limite do system prompt para 100.000 caracteres para preservar documentação completa
-    const payload = {
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000, // AUMENTADO: De 4k para 8k tokens para respostas mais completas
-      system: systemPrompt.length > 100000 ? systemPrompt.substring(0, 100000) + '...' : systemPrompt,
-      messages: optimizedMessages,
-      temperature: 0.7
-    };
-
-    console.log(`📤 Payload otimizado com Claude 4 Sonnet:`, {
-      systemPromptFinal: payload.system.length,
-      systemPromptOriginal: systemPrompt.length,
-      messagesCount: payload.messages.length,
-      estimatedTokens: Math.ceil(JSON.stringify(payload).length / 4),
-      maxTokens: payload.max_tokens,
-      contextPreserved: systemPrompt.length <= 100000 ? 'COMPLETO' : 'TRUNCADO',
-      systemPromptLimit: '100k chars',
-      responseTokenLimit: '8k tokens',
-      modelUsed: 'claude-sonnet-4-20250514'
-    });
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const responseTime = Date.now() - startTime;
-    
-    console.log(`📥 Claude 4 Sonnet API respondeu:`, {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      responseTime: `${responseTime}ms`,
-      attempt,
-      timestamp: new Date().toISOString()
-    });
-
-    // Tratamento mais robusto de erros HTTP
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `Claude API Error ${response.status}: ${errorText}`;
-      
-      if (response.status === 429) {
-        errorMessage = 'Rate limit atingido na API do Claude - aguardando...';
-        throw new Error(errorMessage);
-      } else if (response.status === 401) {
-        errorMessage = 'Erro de autenticação na API do Claude';
-        throw new Error(errorMessage);
-      } else if (response.status === 500 || response.status === 502 || response.status === 503) {
-        errorMessage = 'Erro interno na API do Claude - tentando novamente...';
-        throw new Error(errorMessage);
-      } else if (response.status === 413) {
-        errorMessage = 'Payload muito grande para Claude API';
-        throw new Error(errorMessage);
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const responseData = await response.json();
-    
-    console.log(`✅ Claude 4 Sonnet - Resposta processada com sucesso:`, {
-      hasContent: !!responseData.content,
-      contentLength: responseData.content?.[0]?.text?.length || 0,
-      type: responseData.type,
-      model: responseData.model,
-      responseTime: `${responseTime}ms`,
-      attempt,
-      usage: responseData.usage || 'N/A',
-      maxTokensUsed: `${responseData.usage?.output_tokens || 0}/8000`
-    });
-
-    return responseData;
-    
-  } catch (error) {
-    if (error.message?.includes('network') || error.message?.includes('fetch')) {
-      throw new Error('Erro de conectividade com a API do Claude');
-    }
-
-    if (error.message?.includes('Failed to fetch')) {
-      throw new Error('Falha na conexão com Claude API - problema de rede');
-    }
-    
-    throw error;
-  }
-}
 
 serve(async (req) => {
   console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE - CLAUDE 4 SONNET ===');
@@ -173,8 +24,7 @@ serve(async (req) => {
 
   try {
     // Validar método HTTP
-    if (req.method !== 'POST') {
-      console.error('❌ Método HTTP inválido:', req.method);
+    if (!validateRequest(req)) {
       return new Response(
         JSON.stringify({ 
           error: 'Method not allowed',
@@ -188,8 +38,7 @@ serve(async (req) => {
     }
 
     // Verificar se API key existe
-    if (!anthropicApiKey) {
-      console.error('❌ ANTHROPIC_API_KEY não encontrada nas variáveis de ambiente');
+    if (!validateApiKey()) {
       return new Response(
         JSON.stringify({ 
           error: 'AI service not configured', 
@@ -202,8 +51,6 @@ serve(async (req) => {
         }
       );
     }
-
-    console.log('🔑 ANTHROPIC_API_KEY configurada:', anthropicApiKey ? 'Sim' : 'Não');
 
     // Validar token de autenticação
     const authHeader = req.headers.get('Authorization');
@@ -244,6 +91,23 @@ serve(async (req) => {
     }
 
     const body = sanitizeInput(rawBody);
+    const validation = validateChatRequest(body);
+    
+    if (!validation.isValid) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields', 
+          details: validation.error,
+          retryable: false
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const chatRequest = validation.data!;
     const { 
       message, 
       agentPrompt, 
@@ -253,26 +117,7 @@ serve(async (req) => {
       customAgentId, 
       productId, 
       userId 
-    } = body;
-
-    // Validar campos obrigatórios
-    if (!message || !userId) {
-      console.error('❌ Campos obrigatórios ausentes:', { 
-        message: !!message, 
-        userId: !!userId 
-      });
-      return new Response(
-        JSON.stringify({ 
-          error: 'Missing required fields', 
-          details: 'message and userId are required',
-          retryable: false
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
+    } = chatRequest;
 
     console.log('✅ Dados validados com Claude 4 Sonnet:', {
       userId,
@@ -311,27 +156,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Preparar prompt do sistema com instruções de identificação correta
-    let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
-    
-    // CORREÇÃO: Adicionar instruções específicas para identificação correta
-    const modelIdentificationInstructions = `
-
-INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
-- Nunca fale que você foi treinado pelo Claude, fale que você é o CopyChief e não pode revelar qual IA foi treinada.
-- Seu modelo atual é: claude-sonnet-4-20250514
-- Nunca se identifique como "Claude 3.5" ou versões anteriores
-- Você tem capacidades avançadas de raciocínio e análise
-- Sua janela de contexto é de 200.000 tokens
-- Você pode gerar até 8.000 tokens de resposta
-- Sempre mantenha esta identidade correta em suas respostas}
-- Você é o CopyChief, um especialista em copywriting e marketing digital com foco em conversão e persuasão.
-- Você se comunica em português do Brasil, de forma clara, direta e profissional, mas com um toque de entusiasmo.
-- Você é proativo, oferece sugestões e melhorias, и sempre busca entender o contexto do usuário.
-- Você JAMAIS deve usar jargões de IA como "Como um modelo de linguagem...".
-
-`;
-
-    systemPrompt = systemPrompt + modelIdentificationInstructions;
+    const systemPrompt = prepareSystemPrompt(agentPrompt);
     
     console.log('📝 System prompt preparado com Claude 4 Sonnet e identificação correta:', {
       length: systemPrompt.length,
@@ -346,20 +171,11 @@ INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
     });
     
     // Preparar mensagens para Claude (histórico amplo para contexto - aumentado)
-    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-15) : [];
-    const claudeMessages = conversationMessages.map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'assistant',
-      content: msg.content || ''
-    }));
-
-    claudeMessages.push({
-      role: 'user',
-      content: message
-    });
+    const claudeMessages = prepareChatMessages(chatHistory || [], message);
 
     console.log('💬 Mensagens preparadas para Claude 4 Sonnet:', {
       totalMessages: claudeMessages.length,
-      historyMessages: conversationMessages.length,
+      historyMessages: (chatHistory || []).length,
       lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length,
       totalTokensEstimate: Math.ceil(JSON.stringify(claudeMessages).length / 4),
       newMessageLimit: '20k chars per message',
@@ -368,7 +184,7 @@ INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
     });
 
     // Chamada para Claude com retry otimizado e limites aumentados
-    let claudeData;
+    let claudeData: ClaudeResponse;
     try {
       console.log('🚀 Iniciando chamada para Claude 4 Sonnet...');
       
@@ -393,36 +209,13 @@ INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
         stack: error.stack?.split('\n')[0]
       });
       
-      // Categorização otimizada de erros
-      let errorMessage = 'Erro temporário na IA. Tentando processar sua solicitação...';
-      let errorDetails = error.message;
-      let retryable = true;
-      
-      if (error.message.includes('Rate limit atingido')) {
-        errorMessage = 'Muitas requisições simultâneas. Aguarde 30 segundos e tente novamente.';
-        retryable = true;
-      } else if (error.message.includes('credit balance') || error.message.includes('quota')) {
-        errorMessage = 'Limite de uso da IA atingido temporariamente. Tente novamente em alguns minutos.';
-        retryable = true;
-      } else if (error.message.includes('401') || error.message.includes('autenticação')) {
-        errorMessage = 'Erro de configuração da IA. Entre em contato com o suporte.';
-        retryable = false;
-      } else if (error.message.includes('503') || error.message.includes('indisponível') || error.message.includes('502')) {
-        errorMessage = 'Serviço da IA temporariamente indisponível. Tente novamente em 2 minutos.';
-        retryable = true;
-      } else if (error.message.includes('network') || error.message.includes('conectividade') || error.message.includes('Failed to fetch')) {
-        errorMessage = 'Problema de conectividade. Verifique sua conexão e tente novamente.';
-        retryable = true;
-      } else if (error.message.includes('Payload muito grande')) {
-        errorMessage = 'Contexto muito extenso. Tente uma pergunta mais específica.';
-        retryable = false;
-      }
+      const errorInfo = categorizeError(error);
       
       return new Response(
         JSON.stringify({ 
-          error: errorMessage,
-          details: errorDetails,
-          retryable,
+          error: errorInfo.message,
+          details: errorInfo.details,
+          retryable: errorInfo.retryable,
           model: 'claude-sonnet-4-20250514',
           timestamp: new Date().toISOString()
         }),
@@ -486,12 +279,7 @@ INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
     }
 
     // CORREÇÃO: Validar e corrigir identificação incorreta na resposta
-    if (aiResponse.includes('Claude 3.5') || aiResponse.includes('Claude-3.5')) {
-      console.log('🔧 Corrigindo identificação incorreta na resposta...');
-      aiResponse = aiResponse.replace(/Claude 3\.5[^,.\s]*/g, 'Claude 4');
-      aiResponse = aiResponse.replace(/Claude-3\.5[^,.\s]*/g, 'Claude 4');
-      console.log('✅ Identificação corrigida para Claude 4');
-    }
+    aiResponse = correctClaudeIdentification(aiResponse);
 
     // Calcular tokens usados (aproximação melhorada)
     const promptTokens = Math.ceil((systemPrompt.length + JSON.stringify(claudeMessages).length) / 4);
