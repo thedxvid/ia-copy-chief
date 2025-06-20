@@ -46,7 +46,6 @@ export const useTokenMonitoring = () => {
       console.log('🔍 Iniciando busca de estatísticas de créditos...');
 
       // Buscar TODOS os usuários da tabela profiles
-      // Como admin, agora posso ver todos os profiles devido às novas políticas RLS
       console.log('📊 Buscando todos os profiles...');
       
       const { data: profilesData, error: profilesError } = await supabase
@@ -178,7 +177,7 @@ export const useTokenMonitoring = () => {
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       
       toast.error('Erro ao carregar dados', {
-        description: 'Falha ao buscar informações dos usuários. As políticas RLS foram atualizadas.',
+        description: 'Falha ao buscar informações dos usuários.',
         duration: 5000,
       });
     } finally {
@@ -190,10 +189,16 @@ export const useTokenMonitoring = () => {
     try {
       console.log('📊 Buscando histórico de uso...');
 
+      // Buscar registros dos últimos 30 dias
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      console.log('📅 Buscando registros desde:', thirtyDaysAgo.toISOString());
+
       const { data: usage, error: usageError } = await supabase
         .from('token_usage')
         .select('created_at, tokens_used, feature_used, user_id')
-        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
       console.log('📈 Histórico de uso encontrado:', usage?.length || 0, 'registros');
@@ -209,30 +214,38 @@ export const useTokenMonitoring = () => {
         return;
       }
 
-      // Agrupar por data
+      // Debug: mostrar os dados brutos
+      console.log('🔍 Dados brutos do histórico:', usage.slice(0, 5));
+
+      // Agrupar por data usando UTC para evitar problemas de timezone
       const dailyUsage: { [key: string]: TokenUsageHistory } = {};
       const uniqueUsers: { [key: string]: Set<string> } = {};
 
       usage.forEach(record => {
-        const date = new Date(record.created_at).toISOString().split('T')[0];
+        // Usar UTC para evitar problemas de timezone
+        const date = new Date(record.created_at);
+        const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+        const dateKey = utcDate.toISOString().split('T')[0];
         
-        if (!dailyUsage[date]) {
-          dailyUsage[date] = {
-            date,
+        console.log(`📅 Processando registro: ${record.created_at} -> ${dateKey}`);
+        
+        if (!dailyUsage[dateKey]) {
+          dailyUsage[dateKey] = {
+            date: dateKey,
             total_tokens_used: 0,
             unique_users: 0,
             feature_breakdown: {}
           };
-          uniqueUsers[date] = new Set();
+          uniqueUsers[dateKey] = new Set();
         }
 
-        dailyUsage[date].total_tokens_used += record.tokens_used;
-        uniqueUsers[date].add(record.user_id);
+        dailyUsage[dateKey].total_tokens_used += record.tokens_used;
+        uniqueUsers[dateKey].add(record.user_id);
         
-        if (!dailyUsage[date].feature_breakdown[record.feature_used]) {
-          dailyUsage[date].feature_breakdown[record.feature_used] = 0;
+        if (!dailyUsage[dateKey].feature_breakdown[record.feature_used]) {
+          dailyUsage[dateKey].feature_breakdown[record.feature_used] = 0;
         }
-        dailyUsage[date].feature_breakdown[record.feature_used] += record.tokens_used;
+        dailyUsage[dateKey].feature_breakdown[record.feature_used] += record.tokens_used;
       });
 
       // Atualizar contagem de usuários únicos
@@ -244,11 +257,23 @@ export const useTokenMonitoring = () => {
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
+      console.log('📊 Histórico processado:', historyArray.length, 'dias');
+      console.log('🔍 Dados processados:', historyArray.slice(0, 5));
+
       setUsageHistory(historyArray.slice(0, 30));
-      console.log('✅ Histórico processado:', historyArray.length, 'dias');
+
+      // Toast de sucesso quando dados são atualizados
+      toast.success('Histórico atualizado!', {
+        description: `${historyArray.length} dias de dados carregados`,
+        duration: 3000,
+      });
 
     } catch (err) {
       console.error('❌ Erro ao buscar histórico de uso:', err);
+      toast.error('Erro ao carregar histórico', {
+        description: 'Falha ao buscar dados de uso de tokens',
+        duration: 5000,
+      });
     }
   }, []);
 
@@ -305,12 +330,12 @@ export const useTokenMonitoring = () => {
         (payload) => {
           console.log('🔄 Novo uso de token registrado:', payload);
           
-          // Recarregar estatísticas e histórico
+          // Recarregar estatísticas e histórico imediatamente
           fetchTokenStats();
           fetchUsageHistory();
           
-          toast.info('📊 Uso de tokens atualizado', {
-            description: 'Dashboard atualizado automaticamente',
+          toast.info('📊 Dados atualizados em tempo real', {
+            description: 'Novo uso de token detectado',
             duration: 3000,
           });
         }
@@ -405,6 +430,20 @@ export const useTokenMonitoring = () => {
     }
   }, [userDetails]);
 
+  // Função para refresh manual
+  const forceRefresh = useCallback(async () => {
+    console.log('🔄 Refresh manual iniciado...');
+    toast.info('Atualizando dados...', {
+      description: 'Carregando dados mais recentes',
+      duration: 2000,
+    });
+    
+    await Promise.all([
+      fetchTokenStats(),
+      fetchUsageHistory()
+    ]);
+  }, [fetchTokenStats, fetchUsageHistory]);
+
   useEffect(() => {
     console.log('🚀 Iniciando carregamento do dashboard de monitoramento...');
     fetchTokenStats();
@@ -418,6 +457,7 @@ export const useTokenMonitoring = () => {
     loading,
     error,
     refreshData: fetchTokenStats,
+    forceRefresh,
     triggerMonthlyReset,
     exportTokenReport
   };
