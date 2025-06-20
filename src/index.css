@@ -1,5 +1,4 @@
 
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 @tailwind base;
 @tailwind components;
@@ -59,40 +58,33 @@ body {
 }
 
 .modern-card {
-  @apply bg-[#1E1E1E] border border-[#4B5563]/20 rounded-2xl shadow-lg backdrop-blur-sm;
+  background-color: #1E1E1E;
+  border: 1px solid rgba(75, 85, 99, 0.2);
+  border-radius: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(4px);
   transition: all 0.2s ease-in-out;
 }
 
 .modern-card:hover {
-  @apply border-[#4B5563]/40 shadow-xl;
+  border-color: rgba(75, 85, 99, 0.4);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   transform: translateY(-1px);
 }
 
-/* Arredondar bordas de elementos retangulares - exceto sidebar */
 .glass-card {
-  @apply bg-[#1E1E1E]/80 backdrop-blur-sm border border-[#4B5563]/30 rounded-2xl p-6;
-}
-
-/* Componentes de interface com bordas arredondadas - exceto sidebar */
-.recharts-wrapper:not([data-sidebar]),
-.recharts-surface:not([data-sidebar]) {
-  border-radius: 1rem !important;
-}
-
-/* Cards de métricas e gráficos - exceto elementos da sidebar */
-[class*="bg-"][class*="border"]:not([data-sidebar]):not([data-sidebar] *) {
-  border-radius: 1rem !important;
-}
-
-/* Botões e inputs com bordas mais arredondadas - exceto sidebar */
-.ui-button:not([data-sidebar] *), 
-.ui-input:not([data-sidebar] *), 
-.ui-card:not([data-sidebar] *) {
-  border-radius: 0.75rem !important;
+  background-color: rgba(30, 30, 30, 0.8);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  border-radius: 1rem;
+  padding: 1.5rem;
 }
 
 .skeleton {
-  @apply bg-gradient-to-r from-[#2A2A2A] via-[#3A3A3A] to-[#2A2A2A] bg-[length:200%_100%] animate-skeleton rounded-xl;
+  background: linear-gradient(90deg, #2A2A2A 0%, #3A3A3A 50%, #2A2A2A 100%);
+  background-size: 200% 100%;
+  animation: skeleton 1.5s ease-in-out infinite;
+  border-radius: 0.75rem;
 }
 
 @keyframes skeleton {
