@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -30,11 +31,6 @@ interface TokenUsageHistory {
   feature_breakdown: { [key: string]: number };
 }
 
-interface UserEmail {
-  id: string;
-  email: string;
-}
-
 export const useTokenMonitoring = () => {
   const [stats, setStats] = useState<TokenStats | null>(null);
   const [userDetails, setUserDetails] = useState<UserTokenData[]>([]);
@@ -49,7 +45,8 @@ export const useTokenMonitoring = () => {
 
       console.log('🔍 Iniciando busca de estatísticas de créditos...');
 
-      // Buscar TODOS os usuários da tabela profiles com uma query mais simples
+      // Buscar TODOS os usuários da tabela profiles
+      // Como admin, agora posso ver todos os profiles devido às novas políticas RLS
       console.log('📊 Buscando todos os profiles...');
       
       const { data: profilesData, error: profilesError } = await supabase
@@ -67,9 +64,6 @@ export const useTokenMonitoring = () => {
         throw profilesError;
       }
 
-      // Log completo dos dados encontrados
-      console.log('📋 Dados brutos dos profiles:', profilesData);
-
       if (!profilesData || profilesData.length === 0) {
         console.log('⚠️ Nenhum perfil encontrado');
         setStats({
@@ -85,13 +79,9 @@ export const useTokenMonitoring = () => {
       }
 
       console.log('👥 Total de profiles encontrados:', profilesData.length);
-      
-      // Verificar se algum profile está sendo filtrado
-      const validProfiles = profilesData.filter(profile => profile.id);
-      console.log('✅ Profiles válidos (com ID):', validProfiles.length);
 
       // Processar TODOS os usuários encontrados
-      const processedUsers: UserTokenData[] = validProfiles.map((profile, index) => {
+      const processedUsers: UserTokenData[] = profilesData.map((profile, index) => {
         console.log(`🔄 Processando usuário ${index + 1}:`, {
           id: profile.id.slice(0, 8),
           name: profile.full_name || 'Sem nome',
@@ -120,26 +110,11 @@ export const useTokenMonitoring = () => {
       });
 
       console.log('✅ Usuários processados:', processedUsers.length);
-      console.log('📝 Lista de usuários processados:', processedUsers.map((u, i) => ({
-        index: i + 1,
-        id: u.id.slice(0, 8),
-        name: u.full_name || 'Sem nome',
-        available: u.total_available,
-        used: u.total_tokens_used
-      })));
-
-      // Verificar se o array está sendo criado corretamente
-      if (processedUsers.length !== validProfiles.length) {
-        console.error('⚠️ ATENÇÃO: Discrepância no processamento!', {
-          profilesEncontrados: validProfiles.length,
-          usuariosProcessados: processedUsers.length
-        });
-      }
 
       // Calcular estatísticas
-      const totalUsers = validProfiles.length;
-      const totalTokensUsed = validProfiles.reduce((sum, p) => sum + (p.total_tokens_used || 0), 0);
-      const totalTokensAvailable = validProfiles.reduce((sum, p) => sum + (p.monthly_tokens || 0) + (p.extra_tokens || 0), 0);
+      const totalUsers = profilesData.length;
+      const totalTokensUsed = profilesData.reduce((sum, p) => sum + (p.total_tokens_used || 0), 0);
+      const totalTokensAvailable = profilesData.reduce((sum, p) => sum + (p.monthly_tokens || 0) + (p.extra_tokens || 0), 0);
       const averageUsage = totalUsers > 0 ? Math.round(totalTokensUsed / totalUsers) : 0;
       
       const usersLowTokens = processedUsers.filter(user => 
@@ -161,17 +136,16 @@ export const useTokenMonitoring = () => {
 
       console.log('📈 Estatísticas calculadas:', calculatedStats);
 
-      // Definir os dados ANTES de tentar buscar emails
+      // Definir os dados
       setStats(calculatedStats);
       setUserDetails(processedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
 
-      console.log('✅ Dados principais definidos com sucesso - Total de usuários:', processedUsers.length);
+      console.log('✅ Dados definidos com sucesso - Total de usuários:', processedUsers.length);
 
-      // Tentar buscar emails em segundo plano (não crítico)
+      // Tentar buscar emails dos usuários
       try {
         console.log('📧 Tentando buscar emails dos usuários...');
-        const userIds = validProfiles.map(u => u.id);
-        console.log('📧 IDs para buscar emails:', userIds.length);
+        const userIds = profilesData.map(u => u.id);
 
         const { data: emailsData, error: emailsError } = await supabase
           .rpc('get_user_emails', {
@@ -204,7 +178,7 @@ export const useTokenMonitoring = () => {
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       
       toast.error('Erro ao carregar dados', {
-        description: 'Falha ao buscar informações dos usuários. Verifique os logs do console.',
+        description: 'Falha ao buscar informações dos usuários. As políticas RLS foram atualizadas.',
         duration: 5000,
       });
     } finally {
@@ -216,7 +190,6 @@ export const useTokenMonitoring = () => {
     try {
       console.log('📊 Buscando histórico de uso...');
 
-      // Buscar histórico de uso dos últimos 30 dias
       const { data: usage, error: usageError } = await supabase
         .from('token_usage')
         .select('created_at, tokens_used, feature_used, user_id')
@@ -271,7 +244,7 @@ export const useTokenMonitoring = () => {
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      setUsageHistory(historyArray.slice(0, 30)); // Últimos 30 dias
+      setUsageHistory(historyArray.slice(0, 30));
       console.log('✅ Histórico processado:', historyArray.length, 'dias');
 
     } catch (err) {
@@ -400,7 +373,7 @@ export const useTokenMonitoring = () => {
           user.monthly_tokens,
           user.extra_tokens,
           user.total_available,
-          user.total_tokens_used,
+          user.total_tokens_used, 
           user.usage_percentage,
           user.tokens_reset_date
         ])

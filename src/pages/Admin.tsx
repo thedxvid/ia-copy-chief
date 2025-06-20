@@ -3,16 +3,17 @@ import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { TokenMonitoringDashboard } from '@/components/tokens/TokenMonitoringDashboard';
 import { UserActivator } from '@/components/admin/UserActivator';
+import { AdminUserTable } from '@/components/admin/AdminUserTable';
 import { QuizTemplatesManager } from '@/components/admin/QuizTemplatesManager';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, Users, HelpCircle, BarChart3 } from 'lucide-react';
+import { Settings, Users, HelpCircle, BarChart3, UserCheck } from 'lucide-react';
 
 const Admin = () => {
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState<'overview' | 'tokens' | 'users' | 'quiz'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'tokens' | 'users' | 'user-table' | 'quiz'>('overview');
 
   // Lista de emails de administradores definitivos
   const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
@@ -34,9 +35,15 @@ const Admin = () => {
     },
     {
       id: 'tokens' as const,
-      title: 'Monitoramento de Tokens',
+      title: 'Monitoramento de Tokens', 
       description: 'Acompanhe o uso de tokens dos usuários',
       icon: Settings
+    },
+    {
+      id: 'user-table' as const,
+      title: 'Tabela de Usuários',
+      description: 'Visualize todos os usuários e seus dados',
+      icon: UserCheck
     },
     {
       id: 'users' as const,
@@ -56,6 +63,8 @@ const Admin = () => {
     switch (activeSection) {
       case 'tokens':
         return <TokenMonitoringDashboard />;
+      case 'user-table':
+        return <AdminUserTable />;
       case 'users':
         return <UserActivator />;
       case 'quiz':
