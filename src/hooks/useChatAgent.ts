@@ -323,21 +323,44 @@ export const useChatAgent = (selectedProductId?: string) => {
         console.log('ℹ️ DEBUG - Nenhum produto selecionado');
       }
 
-      // Preparar dados para a Edge Function com os parâmetros corretos
-      const requestData = {
-        message: content,
-        sessionId: activeSession.id,
-        userId: user?.id,
-        agentId: selectedAgent.id,
-        productContext: productContext || null
-      };
+      let enhancedPrompt = selectedAgent.prompt;
+      if (productContext && productContext.trim()) {
+        enhancedPrompt = `${selectedAgent.prompt}
 
-      console.log('🚀 DEBUG - Chamando Edge Function com dados:', {
-        sessionId: requestData.sessionId,
-        userId: requestData.userId,
-        agentId: requestData.agentId,
-        hasProductContext: !!requestData.productContext,
-        messageLength: requestData.message.length
+---
+CONTEXTO DO PRODUTO SELECIONADO:
+${productContext}
+
+---
+INSTRUÇÕES IMPORTANTES:
+- Use as informações do produto acima como contexto principal quando relevante
+- Se o usuário perguntar sobre criar conteúdo para "meu produto" ou "esse produto", refira-se ao produto do contexto
+- Não pergunte novamente sobre qual produto quando as informações já estão disponíveis no contexto
+- Mantenha consistência com a estratégia e posicionamento definidos no produto
+- Sempre que mencionar "seu produto", refira-se especificamente ao ${productDetails?.name}
+`;
+
+        console.log('🚀 DEBUG - Prompt aprimorado com contexto:', {
+          originalPromptLength: selectedAgent.prompt.length,
+          enhancedPromptLength: enhancedPrompt.length,
+          contextAdded: enhancedPrompt.length - selectedAgent.prompt.length,
+          hasProductContext: enhancedPrompt.includes('CONTEXTO DO PRODUTO'),
+          productName: productDetails?.name
+        });
+      } else {
+        console.log('ℹ️ DEBUG - Usando prompt original sem contexto do produto');
+      }
+
+      // Determinar se é agente customizado
+      const isCustomAgent = selectedAgent?.id.startsWith('custom-');
+
+      console.log('🚀 DEBUG - Preparando chamada para IA:', {
+        userId: user?.id,
+        agentName: selectedAgent.name,
+        isCustomAgent,
+        hasProductContext: !!productContext,
+        productId: selectedProductId,
+        promptLength: enhancedPrompt.length
       });
 
       // Toast otimizado para processamento
@@ -346,7 +369,19 @@ export const useChatAgent = (selectedProductId?: string) => {
       });
 
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
-        body: requestData
+        body: {
+          message: content,
+          agentPrompt: enhancedPrompt,
+          chatHistory: activeSession.messages.slice(-10).map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          agentName: selectedAgent.name,
+          isCustomAgent,
+          customAgentId: isCustomAgent ? selectedAgent.id.replace('custom-', '') : null,
+          productId: selectedProductId,
+          userId: user?.id
+        }
       });
 
       // Remover toast de loading
@@ -355,7 +390,8 @@ export const useChatAgent = (selectedProductId?: string) => {
       console.log('📥 DEBUG - Resposta da função:', { 
         hasData: !!data, 
         hasError: !!error,
-        dataKeys: data ? Object.keys(data) : []
+        dataKeys: data ? Object.keys(data) : [],
+        contextPreserved: data?.contextPreserved
       });
 
       if (error) {
@@ -419,7 +455,7 @@ export const useChatAgent = (selectedProductId?: string) => {
       }
 
       // Validar se a resposta contém o campo correto
-      const aiResponseText = data.message;
+      const aiResponseText = data.response || data.generatedCopy || data.text;
       if (!aiResponseText || typeof aiResponseText !== 'string') {
         console.error('❌ DEBUG - Resposta inválida:', data);
         toast.error('❌ Erro: Resposta inválida do servidor');
@@ -437,7 +473,8 @@ export const useChatAgent = (selectedProductId?: string) => {
       console.log('📨 DEBUG - Resposta processada com sucesso:', {
         messageId: assistantMessageId,
         responseLength: aiResponseText.length,
-        hadProductContext: !!productContext
+        hadProductContext: !!productContext,
+        contextPreserved: data.contextPreserved
       });
 
       const finalSession = {

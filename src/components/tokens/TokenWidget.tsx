@@ -29,7 +29,7 @@ export const TokenWidget = () => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [pulseAnimation, setPulseAnimation] = useState(false);
 
-  // Animação de pulse quando há atualização - REMOVIDO AUTO-REFRESH CONFLITANTE
+  // Animação de pulse quando há atualização
   useEffect(() => {
     if (lastUpdate) {
       setPulseAnimation(true);
@@ -112,8 +112,7 @@ export const TokenWidget = () => {
     const diffMs = now.getTime() - lastUpdate.getTime();
     const diffSecs = Math.floor(diffMs / 1000);
     
-    if (diffSecs < 5) return 'Agora';
-    if (diffSecs < 60) return `${diffSecs}s atrás`;
+    if (diffSecs < 60) return 'Agora';
     if (diffSecs < 300) return `${Math.floor(diffSecs / 60)}min atrás`;
     return lastUpdate.toLocaleTimeString();
   };
@@ -208,7 +207,7 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-600">
-                  💡 Clique para ver analytics detalhados • Atualização em tempo real ativa
+                  💡 Clique para ver analytics detalhados • Auto-atualização a cada 30s
                 </p>
               </div>
             </TooltipContent>
@@ -267,7 +266,7 @@ export const TokenWidget = () => {
                 <p className="text-green-400 text-xs">
                   Atualizado: {getLastUpdateText()}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">Toque para analytics • Tempo real ativo</p>
+                <p className="text-xs text-gray-400 mt-1">Toque para analytics • Auto-refresh ativo</p>
               </div>
             </TooltipContent>
           </Tooltip>

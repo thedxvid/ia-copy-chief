@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -16,16 +17,20 @@ serve(async (req) => {
     const requestBody = await req.json();
     console.log('🔍 Raw request body received:', JSON.stringify(requestBody, null, 2));
 
-    // Extrair userId e dados da requisição
+    // Extrair userId de diferentes estruturas possíveis
     let userId = requestBody.userId || requestBody.user_id;
+    
+    // Extrair dados da requisição com compatibilidade para ambas as estruturas
     let copyType, productData, customInstructions, type, data;
     
     if (requestBody.type && requestBody.data) {
+      // Nova estrutura do Quiz: { type, user_id, data }
       console.log('📋 Using Quiz structure');
       type = requestBody.type;
       data = requestBody.data;
       copyType = data.copy_type || requestBody.type;
       
+      // Para o Quiz, os dados estão em requestBody.data
       productData = {
         quiz_answers: data.quiz_answers || data.briefing,
         copy_type: data.copy_type,
@@ -34,6 +39,7 @@ serve(async (req) => {
         product_info: data.product_info || data.quiz_answers?.product
       };
     } else if (requestBody.briefing) {
+      // Estrutura das páginas especializadas: { briefing, userId }
       console.log('🔧 Using specialized pages structure');
       const briefing = requestBody.briefing;
       productData = briefing;
@@ -42,6 +48,7 @@ serve(async (req) => {
       type = 'copy_generation';
       data = requestBody;
     } else {
+      // Estrutura antiga das outras ferramentas: { userId, copyType, productData, customInstructions }
       console.log('🔧 Using legacy structure');
       productData = requestBody.productData;
       copyType = requestBody.copyType;
@@ -52,12 +59,16 @@ serve(async (req) => {
 
     console.log('👤 Extracted userId:', userId);
     console.log('📝 Copy type:', copyType);
+    console.log('📦 Product data:', JSON.stringify(productData, null, 2));
 
+    // Validação crítica do userId
     if (!userId) {
       console.error('❌ CRITICAL: No userId found in request');
+      console.log('Available fields:', Object.keys(requestBody));
       throw new Error('User ID é obrigatório');
     }
 
+    // Validação do tipo de operação
     if (!type) {
       console.error('❌ CRITICAL: No operation type found');
       throw new Error('Tipo de operação é obrigatório');
@@ -74,11 +85,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Determinar prompt e estimar tokens
+    // Determinar prompt baseado no tipo de requisição
     let prompt = '';
-    let estimatedTokens = 2500;
+    let estimatedTokens = 2500; // Tokens estimados para Claude 4 Sonnet
 
     if (type === 'copy_generation' && (data?.copy_type || copyType)) {
+      // Nova estrutura para copies especializadas (Quiz e páginas especializadas)
       console.log('🎯 Processing specialized copy generation');
       
       if (data?.prompt) {
@@ -89,6 +101,7 @@ serve(async (req) => {
       
       estimatedTokens = estimateSpecializedTokens(data?.copy_type || copyType);
     } else {
+      // Estrutura antiga para compatibilidade (outras ferramentas)
       console.log('🔄 Processing legacy copy generation');
       prompt = buildCopyPrompt(copyType, productData, customInstructions);
       estimatedTokens = estimateTokensForCopy(copyType, productData, customInstructions);
@@ -120,7 +133,7 @@ serve(async (req) => {
 
     console.log('🤖 Calling AI API...');
 
-    // Chamar API de IA
+    // Chamar API de IA com a sintaxe correta
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -129,7 +142,7 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-5-sonnet-20241022', // Modelo correto Claude 3.5 Sonnet
         max_tokens: 4000,
         messages: [
           { role: 'user', content: prompt }
@@ -141,11 +154,15 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('❌ AI API error:', response.status, errorText);
       
+      // Melhor tratamento de erros específicos da API
       if (response.status === 400) {
+        console.error('🚨 Bad Request - Verificar sintaxe da requisição');
         throw new Error('Erro na formatação da requisição para IA API');
       } else if (response.status === 401) {
+        console.error('🚨 Unauthorized - API Key inválida');
         throw new Error('Chave da API de IA inválida');
       } else if (response.status === 429) {
+        console.error('🚨 Rate Limited - Muitas requisições');
         throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos');
       } else {
         throw new Error(`Falha na comunicação com IA API: ${response.status}`);
@@ -154,6 +171,7 @@ serve(async (req) => {
 
     const aiData = await response.json();
     
+    // Validação robusta da resposta
     if (!aiData.content || !Array.isArray(aiData.content) || aiData.content.length === 0) {
       console.error('❌ Resposta inválida da API:', aiData);
       throw new Error('Resposta inválida da API de IA');
@@ -185,26 +203,10 @@ serve(async (req) => {
       console.error('⚠️ Error consuming tokens:', consumeError);
     } else {
       console.log('✅ Tokens consumed successfully');
-      
-      // 🔔 BROADCAST DA MUDANÇA PARA ATUALIZAÇÃO EM TEMPO REAL
-      try {
-        await supabase
-          .channel('token-updates')
-          .send({
-            type: 'broadcast',
-            event: 'token-consumed',
-            payload: { 
-              userId, 
-              tokensUsed: actualTokensUsed,
-              feature: `copy_generation_${data?.copy_type || copyType}`,
-              timestamp: new Date().toISOString()
-            }
-          });
-        console.log('📡 Broadcast enviado para atualização em tempo real');
-      } catch (broadcastError) {
-        console.error('⚠️ Erro no broadcast:', broadcastError);
-      }
     }
+
+    // Verificar notificações
+    await checkAndSendNotifications(supabase, userId, userTokens.total_available - actualTokensUsed);
 
     console.log('🎉 Copy generation completed successfully');
 
@@ -219,6 +221,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('💥 Error in copy generation:', error);
+    
+    // Log detalhado para debugging
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     
     return new Response(JSON.stringify({
       error: error.message || 'Erro interno do servidor',

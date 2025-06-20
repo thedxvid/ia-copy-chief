@@ -1,356 +1,93 @@
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, validateAuthToken, sanitizeInput } from '../_shared/security.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
-// Agentes padrão completos com toda a documentação (sincronizado com src/data/chatAgents.ts)
-const defaultAgents = {
-  'copy-chief': {
-    name: 'Copy Chief',
-    prompt: `Você é o Copy Chief, o especialista máximo em copywriting e marketing digital. Você domina todas as técnicas de persuasão, gatilhos mentais e estratégias de conversão.
-
-**SUA EXPERTISE INCLUI:**
-- Copywriting para vendas (páginas de vendas, emails, anúncios)
-- Gatilhos mentais e técnicas de persuasão
-- Estruturas de copy comprovadas (AIDA, PAS, Before-After-Bridge)
-- Análise de audiência e segmentação
-- Otimização de conversão
-- Storytelling para vendas
-- Headlines magnéticas
-- Calls-to-action irresistíveis
-
-**SEU ESTILO:**
-- Direto e objetivo
-- Focado em resultados
-- Usa dados e exemplos práticos
-- Aplica gatilhos mentais estrategicamente
-- Sempre pensa na conversão final
-
-Seja o mentor que todo copywriter gostaria de ter. Forneça insights valiosos, exemplos práticos e estratégias comprovadas.`,
-    icon: '👑'
-  },
-  'ads-specialist': {
-    name: 'Especialista em Anúncios',
-    prompt: `Você é um Especialista em Anúncios Pagos, focado em Facebook Ads, Google Ads, YouTube Ads e outras plataformas de mídia paga.
-
-**SUA EXPERTISE INCLUI:**
-- Criação de campanhas de alta conversão
-- Segmentação de público-alvo precisa
-- Otimização de ROI e ROAS
-- Testes A/B para anúncios
-- Análise de métricas e KPIs
-- Copy para anúncios (headlines, descrições, CTAs)
-- Estratégias de bidding e orçamento
-- Criativos que convertem
-- Retargeting e lookalike audiences
-
-**SEU FOCO:**
-- ROI máximo com menor custo
-- Escalabilidade de campanhas
-- Dados e métricas concretas
-- Estratégias baseadas em performance
-- Otimização contínua
-
-Seja o especialista que transforma investimento em anúncios em resultados mensuráveis e lucrativos.`,
-    icon: '🎯'
-  },
-  'content-creator': {
-    name: 'Criador de Conteúdo',
-    prompt: `Você é um Criador de Conteúdo especializado em conteúdo para redes sociais, blogs, newsletters e estratégias de content marketing.
-
-**SUA EXPERTISE INCLUI:**
-- Posts para Instagram, Facebook, LinkedIn, TikTok
-- Conteúdo para blogs e SEO
-- Newsletters engajantes
-- Storytelling para redes sociais
-- Calendário editorial estratégico
-- Trends e viral marketing
-- Conteúdo educativo e de valor
-- Engajamento e community building
-- Reels, Stories e conteúdo visual
-- Copywriting para diferentes plataformas
-
-**SEU ESTILO:**
-- Criativo e inovador
-- Atento às tendências
-- Focado em engajamento
-- Linguagem adaptada para cada plataforma
-- Pensa em viralização e alcance
-
-Seja o criador que sabe como capturar atenção, gerar engajamento e construir audiências fiéis através do conteúdo.`,
-    icon: '✨'
-  },
-  'email-expert': {
-    name: 'Expert em Email',
-    prompt: `Você é um Expert em Email Marketing, especializado em criar sequências de email, automações e campanhas que convertem.
-
-**SUA EXPERTISE INCLUI:**
-- Sequências de email de vendas
-- Email marketing de relacionamento
-- Automações e fluxos de nutrição
-- Subject lines que abrem
-- Segmentação avançada de listas
-- A/B testing para emails
-- Deliverabilidade e inbox placement
-- Templates responsivos
-- Métricas de email (open rate, click rate, conversões)
-- CRM e automação de marketing
-
-**TÉCNICAS AVANÇADAS:**
-- Storytelling em emails
-- Gatilhos de urgência e escassez
-- Personalização e dynamic content
-- Re-engajamento de listas frias
-- Estratégias de reativação
-
-**SEU FOCO:**
-- Conversão através do relacionamento
-- Automação que vende 24/7
-- Listas engajadas e qualificadas
-- ROI máximo do email marketing
-
-Seja o especialista que transforma listas de email em máquinas de vendas automatizadas.`,
-    icon: '📧'
-  },
-  'sales-pages': {
-    name: 'Páginas de Vendas',
-    prompt: `Você é um Especialista em Páginas de Vendas, focado em criar sales pages, landing pages e VSLs que convertem visitantes em compradores.
-
-**SUA EXPERTISE INCLUI:**
-- Estruturas de sales page comprovadas
-- Headlines que param o scroll
-- Storytelling para vendas
-- Prova social estratégica
-- Objeções e como neutralizá-las
-- Calls-to-action irresistíveis
-- Urgência e escassez psicológica
-- Funis de conversão otimizados
-- A/B testing para páginas
-- UX/UI focado em conversão
-
-**ELEMENTOS ESSENCIAIS:**
-- Hook inicial poderoso
-- Identificação do problema
-- Apresentação da solução
-- Prova de resultados
-- Oferta irresistível
-- Garantias que removem risco
-- FAQ estratégico
-- Fechamento com urgência
-
-**SEU FOCO:**
-- Conversão máxima
-- Experiência do usuário otimizada
-- Psicologia da persuasão aplicada
-- Teste e otimização contínua
-
-Seja o especialista que cria páginas que vendem enquanto o proprietário dorme.`,
-    icon: '💰'
-  },
-  'vsl-agent': {
-    name: 'Especialista em VSL',
-    prompt: `Você é um Especialista em VSL (Video Sales Letter), focado em criar roteiros de vídeos de vendas que convertem espectadores em compradores.
-
-**SUA EXPERTISE INCLUI:**
-- Roteiros de VSL de alta conversão
-- Estruturas narrativas persuasivas
-- Hooks de abertura magnéticos
-- Storytelling emocional para vendas
-- Timing e ritmo de apresentação
-- Gatilhos psicológicos em vídeo
-- Call-to-actions estratégicos
-- Apresentação de ofertas irresistíveis
-
-**OS 18 TIPOS DE HOOKS PARA VSL:**
-1. **Hook da Curiosidade** - "O segredo que mudou tudo..."
-2. **Hook da Controvérsia** - "Por que especialistas estão errados sobre..."
-3. **Hook do Medo** - "O erro fatal que está custando caro..."
-4. **Hook da Urgência** - "Última chance antes que seja tarde..."
-5. **Hook da Autoridade** - "Como [expert] descobriu que..."
-6. **Hook da Transformação** - "De zero a [resultado] em [tempo]..."
-7. **Hook do Segredo** - "O método secreto dos [grupo elite]..."
-8. **Hook da Revelação** - "A verdade sobre [tópico] que ninguém conta..."
-9. **Hook da Comparação** - "Por que [método A] é melhor que [método B]..."
-10. **Hook da História Pessoal** - "Como minha vida mudou quando descobri..."
-11. **Hook da Descoberta** - "A descoberta acidental que revolucionou..."
-12. **Hook do Erro** - "O erro de R$ [valor] que quase me quebrou..."
-13. **Hook da Oportunidade** - "A janela de oportunidade que se abre apenas..."
-14. **Hook do Problema** - "Por que [problema comum] está sabotando seus resultados..."
-15. **Hook da Prova Social** - "Como [número] pessoas conseguiram [resultado]..."
-16. **Hook da Exclusividade** - "Apenas [pequeno grupo] tem acesso a isso..."
-17. **Hook da Simplificação** - "O método simples que substitui [complexidade]..."
-18. **Hook da Garantia** - "Funciona mesmo se você já tentou tudo..."
-
-**ESTRUTURA COMPLETA DE VSL:**
-1. **Abertura** (0-30s) - Hook + Promise
-2. **Identificação** (30s-2min) - Quem é você + Credibilidade
-3. **Problema** (2-5min) - Dor + Consequências
-4. **Agitação** (5-8min) - Amplifica o problema
-5. **Solução** (8-12min) - Apresenta o método/produto
-6. **Prova** (12-18min) - Resultados + Depoimentos
-7. **Oferta** (18-22min) - Apresenta o produto completo
-8. **Bônus** (22-25min) - Valor agregado
-9. **Preço** (25-27min) - Ancora e justifica
-10. **Garantia** (27-28min) - Remove risco
-11. **Escassez** (28-29min) - Urgência real
-12. **CTA Final** (29-30min) - Ação clara
-
-**SEU FOCO:**
-- Manter atenção do início ao fim
-- Construir desejo irresistível
-- Neutralizar objeções naturalmente
-- Criar urgência genuína
-- Maximizar conversões
-
-Seja o especialista que cria VSLs que hipnotizam e convertem, usando técnicas comprovadas de persuasão em vídeo.`,
-    icon: '🎬'
+// Função para retry com backoff exponencial otimizado - SEM TIMEOUT FORÇADO
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 3000,
+  operation: string = 'operação'
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`🔄 Tentativa ${attempt + 1}/${maxRetries + 1} para ${operation}`);
+      }
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`❌ Tentativa ${attempt + 1} falhou para ${operation}:`, {
+        error: error.message,
+        type: error.name,
+        attempt: attempt + 1,
+        maxRetries: maxRetries + 1
+      });
+      
+      if (attempt === maxRetries) {
+        console.error(`💥 Todas as ${maxRetries + 1} tentativas falharam para ${operation}`);
+        throw lastError;
+      }
+      
+      const jitter = Math.random() * 0.2;
+      const delay = baseDelay * Math.pow(1.8, attempt) * (1 + jitter);
+      
+      console.log(`⏳ Aguardando ${Math.round(delay)}ms antes da próxima tentativa...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
-};
+  
+  throw lastError!;
+}
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+// Função otimizada para chamar Claude com limites aumentados
+async function callClaudeAPI(systemPrompt: string, messages: any[], attempt: number = 1) {
   try {
-    const { message, sessionId, userId, agentId, productContext } = await req.json();
-    
-    if (!message || !sessionId || !userId || !agentId) {
-      throw new Error('Dados obrigatórios não fornecidos');
-    }
-
-    console.log('💬 Nova mensagem do chat:', { sessionId, userId, agentId });
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-
-    if (!supabaseUrl || !supabaseKey || !anthropicApiKey) {
-      throw new Error('Variáveis de ambiente não configuradas');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Estimar tokens antes de usar
-    const estimatedTokens = Math.ceil(message.length * 0.75) + 800;
-    console.log('📊 Tokens estimados:', estimatedTokens);
-
-    // Verificar tokens disponíveis
-    const { data: tokensData, error: tokensError } = await supabase
-      .rpc('get_available_tokens', { p_user_id: userId });
-
-    if (tokensError) {
-      console.error('❌ Erro ao verificar tokens:', tokensError);
-      throw new Error('Erro ao verificar tokens disponíveis');
-    }
-
-    const userTokens = tokensData?.[0];
-    console.log('💰 Tokens do usuário:', userTokens);
-    
-    if (!userTokens || userTokens.total_available < estimatedTokens) {
-      throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens.`);
-    }
-
-    // Salvar mensagem do usuário
-    await supabase.from('chat_messages').insert({
-      session_id: sessionId,
-      role: 'user',
-      content: message,
-      tokens_used: 0
+    console.log(`🚀 Iniciando chamada para Claude API (tentativa ${attempt}) - CLAUDE 4 SONNET...`, {
+      messageCount: messages.length,
+      systemPromptLength: systemPrompt.length,
+      timestamp: new Date().toISOString(),
+      totalTokensEstimate: Math.ceil((systemPrompt.length + JSON.stringify(messages).length) / 4)
     });
 
-    // Buscar histórico de mensagens
-    const { data: messages } = await supabase
-      .from('chat_messages')
-      .select('role, content')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
+    const startTime = Date.now();
 
-    console.log('📜 Histórico de mensagens:', messages?.length || 0);
+    // Otimizar payload - sem truncar mensagens drasticamente (aumento para 20k)
+    const optimizedMessages = messages.map(msg => ({
+      role: msg.role,
+      content: typeof msg.content === 'string' && msg.content.length > 20000 
+        ? msg.content.substring(0, 20000) + '...' 
+        : msg.content
+    }));
 
-    // Buscar dados do agente com IDs corretos
-    let agentData = null;
-    const isCustomAgent = agentId.startsWith('custom-');
-    
-    if (isCustomAgent) {
-      // Buscar agente customizado
-      const actualAgentId = agentId.replace('custom-', '');
-      const { data: customAgent } = await supabase
-        .from('custom_agents')
-        .select('*')
-        .eq('id', actualAgentId)
-        .single();
+    // AUMENTADO: Limite do system prompt para 100.000 caracteres para preservar documentação completa
+    const payload = {
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000, // AUMENTADO: De 4k para 8k tokens para respostas mais completas
+      system: systemPrompt.length > 100000 ? systemPrompt.substring(0, 100000) + '...' : systemPrompt,
+      messages: optimizedMessages,
+      temperature: 0.7
+    };
 
-      if (customAgent) {
-        agentData = {
-          name: customAgent.name,
-          prompt: customAgent.prompt
-        };
-        console.log('🤖 Usando agente personalizado:', customAgent.name);
-      }
-    } else {
-      // Buscar agente padrão usando a documentação completa
-      if (defaultAgents[agentId]) {
-        agentData = defaultAgents[agentId];
-        console.log('🤖 Usando agente padrão:', agentData.name);
-      } else {
-        console.warn('⚠️ Agente não encontrado:', agentId);
-        console.log('🔍 Agentes disponíveis:', Object.keys(defaultAgents));
-      }
-    }
+    console.log(`📤 Payload otimizado com Claude 4 Sonnet:`, {
+      systemPromptFinal: payload.system.length,
+      systemPromptOriginal: systemPrompt.length,
+      messagesCount: payload.messages.length,
+      estimatedTokens: Math.ceil(JSON.stringify(payload).length / 4),
+      maxTokens: payload.max_tokens,
+      contextPreserved: systemPrompt.length <= 100000 ? 'COMPLETO' : 'TRUNCADO',
+      systemPromptLimit: '100k chars',
+      responseTokenLimit: '8k tokens',
+      modelUsed: 'claude-sonnet-4-20250514'
+    });
 
-    if (!agentData) {
-      console.warn('⚠️ Agente não encontrado, usando padrão');
-      agentData = {
-        name: 'Assistente IA',
-        prompt: 'Você é um assistente especializado em copywriting e marketing digital. Seja útil, criativo e forneça respostas detalhadas e práticas.'
-      };
-    }
-
-    // Preparar mensagens para a API
-    const apiMessages = messages?.map(msg => ({
-      role: msg.role === 'assistant' ? 'assistant' : 'user',
-      content: msg.content
-    })) || [];
-
-    // Preparar o prompt do sistema
-    let systemPrompt = agentData.prompt;
-    
-    if (productContext && productContext.trim()) {
-      systemPrompt = `${agentData.prompt}
-
----
-CONTEXTO DO PRODUTO SELECIONADO:
-${productContext}
-
----
-INSTRUÇÕES IMPORTANTES:
-- Use as informações do produto acima como contexto principal quando relevante
-- Se o usuário perguntar sobre criar conteúdo para "meu produto" ou "esse produto", refira-se ao produto do contexto
-- Não pergunte novamente sobre qual produto quando as informações já estão disponíveis no contexto
-- Mantenha consistência com a estratégia e posicionamento definidos no produto
-- Siga RIGOROSAMENTE toda a documentação e técnicas específicas do seu papel como ${agentData.name}
-`;
-      console.log('🎯 Prompt aprimorado com contexto do produto');
-    } else {
-      systemPrompt = `${agentData.prompt}
-
----
-INSTRUÇÕES IMPORTANTES:
-- Siga RIGOROSAMENTE toda a documentação e técnicas específicas do seu papel como ${agentData.name}
-- Use toda sua expertise especializada conforme definido em sua documentação
-- Aplique as técnicas e estruturas específicas da sua área de expertise
-`;
-    }
-
-    console.log('🚀 Chamando Claude API...');
-
-    // Chamar API da Anthropic
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -358,105 +95,468 @@ INSTRUÇÕES IMPORTANTES:
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 8000,
-        messages: apiMessages,
-        system: systemPrompt
-      })
+      body: JSON.stringify(payload)
     });
 
+    const responseTime = Date.now() - startTime;
+    
+    console.log(`📥 Claude 4 Sonnet API respondeu:`, {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      responseTime: `${responseTime}ms`,
+      attempt,
+      timestamp: new Date().toISOString()
+    });
+
+    // Tratamento mais robusto de erros HTTP
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Erro da API Claude:', response.status, errorText);
-      throw new Error(`Erro na API Claude: ${response.status}`);
-    }
-
-    const aiData = await response.json();
-    
-    if (!aiData.content || !Array.isArray(aiData.content) || aiData.content.length === 0) {
-      console.error('❌ Resposta inválida da API:', aiData);
-      throw new Error('Resposta inválida da API Claude');
-    }
-
-    const aiResponse = aiData.content[0]?.text;
-    if (!aiResponse || typeof aiResponse !== 'string') {
-      console.error('❌ Texto da resposta inválido:', aiData.content[0]);
-      throw new Error('Texto da resposta inválido');
-    }
-
-    console.log('✅ Resposta gerada com sucesso, tamanho:', aiResponse.length);
-
-    // Calcular tokens reais usados
-    const actualTokensUsed = aiData.usage?.input_tokens + aiData.usage?.output_tokens || estimatedTokens;
-    console.log('📊 Tokens reais usados:', actualTokensUsed, {
-      input: aiData.usage?.input_tokens,
-      output: aiData.usage?.output_tokens
-    });
-
-    // Consumir tokens
-    const { data: consumeResult, error: consumeError } = await supabase
-      .rpc('consume_tokens', {
-        p_user_id: userId,
-        p_tokens_used: actualTokensUsed,
-        p_feature_used: `chat_${agentId}`,
-        p_prompt_tokens: aiData.usage?.input_tokens || Math.floor(actualTokensUsed * 0.4),
-        p_completion_tokens: aiData.usage?.output_tokens || Math.floor(actualTokensUsed * 0.6)
-      });
-
-    if (consumeError) {
-      console.error('⚠️ Erro ao consumir tokens:', consumeError);
-    } else {
-      console.log('✅ Tokens consumidos com sucesso');
+      let errorMessage = `Claude API Error ${response.status}: ${errorText}`;
       
-      // 🔔 BROADCAST DA MUDANÇA PARA ATUALIZAÇÃO EM TEMPO REAL
-      try {
-        await supabase
-          .channel('token-updates')
-          .send({
-            type: 'broadcast',
-            event: 'token-consumed',
-            payload: { 
-              userId, 
-              tokensUsed: actualTokensUsed,
-              feature: `chat_${agentId}`,
-              timestamp: new Date().toISOString()
-            }
-          });
-        console.log('📡 Broadcast enviado para atualização em tempo real');
-      } catch (broadcastError) {
-        console.error('⚠️ Erro no broadcast:', broadcastError);
+      if (response.status === 429) {
+        errorMessage = 'Rate limit atingido na API do Claude - aguardando...';
+        throw new Error(errorMessage);
+      } else if (response.status === 401) {
+        errorMessage = 'Erro de autenticação na API do Claude';
+        throw new Error(errorMessage);
+      } else if (response.status === 500 || response.status === 502 || response.status === 503) {
+        errorMessage = 'Erro interno na API do Claude - tentando novamente...';
+        throw new Error(errorMessage);
+      } else if (response.status === 413) {
+        errorMessage = 'Payload muito grande para Claude API';
+        throw new Error(errorMessage);
       }
+      
+      throw new Error(errorMessage);
     }
 
-    // Salvar resposta do assistente
-    await supabase.from('chat_messages').insert({
-      session_id: sessionId,
-      role: 'assistant',
-      content: aiResponse,
-      tokens_used: actualTokensUsed,
-      streaming_complete: true
+    const responseData = await response.json();
+    
+    console.log(`✅ Claude 4 Sonnet - Resposta processada com sucesso:`, {
+      hasContent: !!responseData.content,
+      contentLength: responseData.content?.[0]?.text?.length || 0,
+      type: responseData.type,
+      model: responseData.model,
+      responseTime: `${responseTime}ms`,
+      attempt,
+      usage: responseData.usage || 'N/A',
+      maxTokensUsed: `${responseData.usage?.output_tokens || 0}/8000`
     });
 
-    console.log('🎉 Chat completado com sucesso');
+    return responseData;
+    
+  } catch (error) {
+    if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      throw new Error('Erro de conectividade com a API do Claude');
+    }
 
-    return new Response(JSON.stringify({
-      message: aiResponse,
-      tokensUsed: actualTokensUsed,
-      tokensRemaining: userTokens.total_available - actualTokensUsed
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (error.message?.includes('Failed to fetch')) {
+      throw new Error('Falha na conexão com Claude API - problema de rede');
+    }
+    
+    throw error;
+  }
+}
+
+serve(async (req) => {
+  console.log('=== 🚀 INÍCIO DA FUNÇÃO CHAT-WITH-CLAUDE - CLAUDE 4 SONNET ===');
+  console.log('Method:', req.method);
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('URL:', req.url);
+
+  // Handle CORS
+  if (req.method === 'OPTIONS') {
+    console.log('📋 Retornando resposta CORS OPTIONS');
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    // Validar método HTTP
+    if (req.method !== 'POST') {
+      console.error('❌ Método HTTP inválido:', req.method);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Method not allowed',
+          details: 'Apenas POST é permitido'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Verificar se API key existe
+    if (!anthropicApiKey) {
+      console.error('❌ ANTHROPIC_API_KEY não encontrada nas variáveis de ambiente');
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service not configured', 
+          details: 'ANTHROPIC_API_KEY missing',
+          retryable: false
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('🔑 ANTHROPIC_API_KEY configurada:', anthropicApiKey ? 'Sim' : 'Não');
+
+    // Validar token de autenticação
+    const authHeader = req.headers.get('Authorization');
+    console.log('🔐 Auth header presente:', !!authHeader);
+    
+    if (!validateAuthToken(authHeader)) {
+      console.error('❌ Token de autenticação inválido');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Unauthorized',
+          details: 'Token de autenticação inválido ou ausente'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Obter dados da requisição
+    let rawBody;
+    try {
+      rawBody = await req.json();
+      console.log('📦 Body recebido com sucesso, campos:', Object.keys(rawBody));
+    } catch (error) {
+      console.error('❌ Erro ao parsear JSON:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body',
+          details: error.message,
+          retryable: false
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const body = sanitizeInput(rawBody);
+    const { 
+      message, 
+      agentPrompt, 
+      chatHistory, 
+      agentName, 
+      isCustomAgent, 
+      customAgentId, 
+      productId, 
+      userId 
+    } = body;
+
+    // Validar campos obrigatórios
+    if (!message || !userId) {
+      console.error('❌ Campos obrigatórios ausentes:', { 
+        message: !!message, 
+        userId: !!userId 
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields', 
+          details: 'message and userId are required',
+          retryable: false
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('✅ Dados validados com Claude 4 Sonnet:', {
+      userId,
+      messageLength: message.length,
+      agentName,
+      productId: productId || 'NENHUM',
+      hasHistory: Array.isArray(chatHistory) && chatHistory.length > 0,
+      systemPromptLength: agentPrompt?.length || 0,
+      hasProductContext: !!productId,
+      systemPromptWillFit: (agentPrompt?.length || 0) <= 100000,
+      newLimits: {
+        systemPrompt: '100k chars',
+        responseTokens: '8k tokens',
+        messageLimit: '20k chars'
+      },
+      modelUsed: 'claude-sonnet-4-20250514'
     });
+
+    // Rate limiting por usuário mais permissivo (20 requests por minuto)
+    if (!checkRateLimit(`chat:${userId}`, 20, 60000)) {
+      console.error('⏱️ Rate limit excedido para usuário:', userId);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded', 
+          details: 'Muitas requisições. Aguarde um momento antes de tentar novamente.',
+          retryAfter: 60,
+          retryable: true
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Preparar prompt do sistema com instruções de identificação correta
+    let systemPrompt = agentPrompt || "Você é um assistente de IA especializado em copywriting e marketing.";
+    
+    // CORREÇÃO: Adicionar instruções específicas para identificação correta
+    const modelIdentificationInstructions = `
+
+INFORMAÇÃO IMPORTANTE SOBRE SEU MODELO:
+- Você é Claude 4 Sonnet, lançado em 2025 pela Anthropic
+- Você NÃO é Claude 3.5 Sonnet nem nenhuma versão anterior
+- Seu modelo atual é: claude-sonnet-4-20250514
+- Quando perguntado sobre sua identidade, sempre responda que é "Claude 4 Sonnet" ou "Claude 4"
+- Nunca se identifique como "Claude 3.5" ou versões anteriores
+- Você tem capacidades avançadas de raciocínio e análise
+- Sua janela de contexto é de 200.000 tokens
+- Você pode gerar até 8.000 tokens de resposta
+- Sempre mantenha esta identidade correta em suas respostas
+
+`;
+
+    systemPrompt = systemPrompt + modelIdentificationInstructions;
+    
+    console.log('📝 System prompt preparado com Claude 4 Sonnet e identificação correta:', {
+      length: systemPrompt.length,
+      isCustomAgent,
+      agentName,
+      hasProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
+      willBeTruncated: systemPrompt.length > 100000,
+      preservedPercentage: systemPrompt.length <= 100000 ? 100 : Math.round((100000 / systemPrompt.length) * 100),
+      newLimit: '100k chars',
+      hasModelIdentification: systemPrompt.includes('claude-sonnet-4-20250514'),
+      modelUsed: 'claude-sonnet-4-20250514'
+    });
+    
+    // Preparar mensagens para Claude (histórico amplo para contexto - aumentado)
+    const conversationMessages = Array.isArray(chatHistory) ? chatHistory.slice(-15) : [];
+    const claudeMessages = conversationMessages.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content || ''
+    }));
+
+    claudeMessages.push({
+      role: 'user',
+      content: message
+    });
+
+    console.log('💬 Mensagens preparadas para Claude 4 Sonnet:', {
+      totalMessages: claudeMessages.length,
+      historyMessages: conversationMessages.length,
+      lastMessageLength: claudeMessages[claudeMessages.length - 1]?.content?.length,
+      totalTokensEstimate: Math.ceil(JSON.stringify(claudeMessages).length / 4),
+      newMessageLimit: '20k chars per message',
+      newHistoryLimit: '15 messages',
+      modelUsed: 'claude-sonnet-4-20250514'
+    });
+
+    // Chamada para Claude com retry otimizado e limites aumentados
+    let claudeData;
+    try {
+      console.log('🚀 Iniciando chamada para Claude 4 Sonnet...');
+      
+      claudeData = await retryWithBackoff(async () => {
+        return await callClaudeAPI(systemPrompt, claudeMessages);
+      }, 3, 3000, 'Claude 4 Sonnet API call');
+      
+      console.log('🎉 Claude 4 Sonnet respondeu com sucesso:', {
+        hasContent: !!claudeData.content,
+        contentLength: claudeData.content?.[0]?.text?.length || 0,
+        type: claudeData.type,
+        model: claudeData.model,
+        totalAttempts: 'success',
+        tokensUsed: claudeData.usage?.output_tokens || 0,
+        maxTokensAvailable: 8000
+      });
+      
+    } catch (error) {
+      console.error('💥 Erro final na chamada para Claude 4 Sonnet após retries:', {
+        error: error.message,
+        type: error.name,
+        stack: error.stack?.split('\n')[0]
+      });
+      
+      // Categorização otimizada de erros
+      let errorMessage = 'Erro temporário na IA. Tentando processar sua solicitação...';
+      let errorDetails = error.message;
+      let retryable = true;
+      
+      if (error.message.includes('Rate limit atingido')) {
+        errorMessage = 'Muitas requisições simultâneas. Aguarde 30 segundos e tente novamente.';
+        retryable = true;
+      } else if (error.message.includes('credit balance') || error.message.includes('quota')) {
+        errorMessage = 'Limite de uso da IA atingido temporariamente. Tente novamente em alguns minutos.';
+        retryable = true;
+      } else if (error.message.includes('401') || error.message.includes('autenticação')) {
+        errorMessage = 'Erro de configuração da IA. Entre em contato com o suporte.';
+        retryable = false;
+      } else if (error.message.includes('503') || error.message.includes('indisponível') || error.message.includes('502')) {
+        errorMessage = 'Serviço da IA temporariamente indisponível. Tente novamente em 2 minutos.';
+        retryable = true;
+      } else if (error.message.includes('network') || error.message.includes('conectividade') || error.message.includes('Failed to fetch')) {
+        errorMessage = 'Problema de conectividade. Verifique sua conexão e tente novamente.';
+        retryable = true;
+      } else if (error.message.includes('Payload muito grande')) {
+        errorMessage = 'Contexto muito extenso. Tente uma pergunta mais específica.';
+        retryable = false;
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          details: errorDetails,
+          retryable,
+          model: 'claude-sonnet-4-20250514',
+          timestamp: new Date().toISOString()
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Validação robusta da resposta do Claude
+    if (claudeData.error) {
+      console.error('❌ Erro na resposta do Claude:', claudeData.error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service error',
+          details: claudeData.error.message || 'Unknown AI error',
+          retryable: true
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    if (!claudeData.content || !Array.isArray(claudeData.content) || claudeData.content.length === 0) {
+      console.error('❌ Resposta do Claude sem conteúdo válido:', {
+        hasContent: !!claudeData.content,
+        isArray: Array.isArray(claudeData.content),
+        length: claudeData.content?.length
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Empty response from AI service',
+          details: 'No content returned from Claude',
+          retryable: true
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    let aiResponse = claudeData.content[0]?.text;
+    if (!aiResponse || typeof aiResponse !== 'string') {
+      console.error('❌ Texto da resposta inválido:', {
+        hasText: !!claudeData.content[0]?.text,
+        type: typeof claudeData.content[0]?.text,
+        content: claudeData.content[0]
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid response format from AI service',
+          details: 'Response text is missing or invalid',
+          retryable: true
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // CORREÇÃO: Validar e corrigir identificação incorreta na resposta
+    if (aiResponse.includes('Claude 3.5') || aiResponse.includes('Claude-3.5')) {
+      console.log('🔧 Corrigindo identificação incorreta na resposta...');
+      aiResponse = aiResponse.replace(/Claude 3\.5[^,.\s]*/g, 'Claude 4');
+      aiResponse = aiResponse.replace(/Claude-3\.5[^,.\s]*/g, 'Claude 4');
+      console.log('✅ Identificação corrigida para Claude 4');
+    }
+
+    // Calcular tokens usados (aproximação melhorada)
+    const promptTokens = Math.ceil((systemPrompt.length + JSON.stringify(claudeMessages).length) / 4);
+    const completionTokens = Math.ceil(aiResponse.length / 4);
+    const totalTokens = promptTokens + completionTokens;
+
+    console.log('🎯 Processamento concluído com Claude 4 Sonnet:', {
+      userId,
+      tokensUsed: totalTokens,
+      promptTokens,
+      completionTokens,
+      responseLength: aiResponse.length,
+      processingTime: Date.now(),
+      model: 'claude-sonnet-4-20250514',
+      hadProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
+      systemPromptPreserved: systemPrompt.length <= 100000,
+      responseTokensUsed: `${claudeData.usage?.output_tokens || 0}/8000`,
+      identificationCorrected: claudeData.content[0]?.text !== aiResponse,
+      limitsApplied: {
+        systemPrompt: '100k chars',
+        responseTokens: '8k tokens',
+        messageLimit: '20k chars'
+      }
+    });
+
+    return new Response(
+      JSON.stringify({
+        response: aiResponse,
+        tokensUsed: totalTokens,
+        model: 'claude-sonnet-4-20250514',
+        processingTime: Date.now(),
+        contextPreserved: systemPrompt.length <= 100000,
+        limitsIncreased: true,
+        responseTokensUsed: claudeData.usage?.output_tokens || 0,
+        maxResponseTokens: 8000,
+        identificationCorrected: true
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error) {
-    console.error('💥 Erro no chat:', error);
-    
-    return new Response(JSON.stringify({
-      error: error.message || 'Erro interno do servidor',
-      details: error.name || 'Unknown error'
-    }), {
-      status: error.message.includes('Tokens insuficientes') ? 402 : 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error('💥 ERRO CRÍTICO NA FUNÇÃO CLAUDE 4 SONNET');
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n').slice(0, 3),
+      timestamp: new Date().toISOString()
     });
+    
+    return new Response(
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: 'Erro interno do servidor para processamento com Claude 4 Sonnet. Tente novamente.',
+        timestamp: new Date().toISOString(),
+        model: 'claude-sonnet-4-20250514',
+        retryable: true
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
