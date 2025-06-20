@@ -84,7 +84,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                   {selectedProduct.niche} {selectedProduct.sub_niche && `• ${selectedProduct.sub_niche}`}
                 </CardDescription>
               </div>
-              <Badge variant={selectedProduct.status === 'published' ? 'default' : 'secondary'}>
+              <Badge variant={selectedProduct.status === 'active' ? 'default' : 'secondary'}>
                 {selectedProduct.status}
               </Badge>
             </div>

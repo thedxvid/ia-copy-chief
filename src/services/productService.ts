@@ -19,6 +19,14 @@ export interface ProductDetails extends Product {
   meta?: any;
 }
 
+// Helper function to ensure status is valid
+const normalizeStatus = (status: string | null): 'draft' | 'active' | 'paused' | 'archived' => {
+  if (status === 'active' || status === 'paused' || status === 'archived') {
+    return status;
+  }
+  return 'draft'; // Default fallback
+};
+
 class ProductService {
   private async validateAuth() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -44,10 +52,11 @@ class ProductService {
       throw new Error('Falha ao carregar produtos');
     }
 
-    // Garantir que sub_niche nunca seja null/undefined
+    // Garantir que sub_niche nunca seja null/undefined e normalizar status
     const productsWithSubNiche = (data || []).map(product => ({
       ...product,
-      sub_niche: product.sub_niche || ''
+      sub_niche: product.sub_niche || '',
+      status: normalizeStatus(product.status)
     }));
 
     console.log('✅ ProductService: Produtos carregados:', productsWithSubNiche.length);
@@ -89,6 +98,7 @@ class ProductService {
     const productDetails: ProductDetails = {
       ...product,
       sub_niche: product.sub_niche || '', // Garantir que não seja null
+      status: normalizeStatus(product.status), // Normalizar status
       strategy: strategyResult.data || undefined,
       copy: copyResult.data || undefined,
       offer: offerResult.data || undefined,
@@ -129,7 +139,8 @@ class ProductService {
     console.log('✅ ProductService: Produto criado:', data.id);
     return {
       ...data,
-      sub_niche: data.sub_niche || ''
+      sub_niche: data.sub_niche || '',
+      status: normalizeStatus(data.status)
     };
   }
 
@@ -157,7 +168,8 @@ class ProductService {
     console.log('✅ ProductService: Produto atualizado:', data.id);
     return {
       ...data,
-      sub_niche: data.sub_niche || ''
+      sub_niche: data.sub_niche || '',
+      status: normalizeStatus(data.status)
     };
   }
 
@@ -219,7 +231,8 @@ class ProductService {
     console.log('✅ ProductService: Produto duplicado:', data.id);
     return {
       ...data,
-      sub_niche: data.sub_niche || ''
+      sub_niche: data.sub_niche || '',
+      status: normalizeStatus(data.status)
     };
   }
 }
