@@ -124,29 +124,57 @@ const handler = async (req: Request): Promise<Response> => {
     const subscriptionExpiresAt = new Date();
     subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
 
-    console.log("Updating existing profile for user:", email);
-    const { error: updateError } = await supabase
+    console.log("Updating/creating profile for user:", email);
+    
+    // Primeiro, verificar se o perfil já existe
+    const { data: existingProfile, error: profileCheckError } = await supabase
       .from("profiles")
-      .upsert({
-        id: userId,
-        subscription_status: "active",
-        payment_approved_at: new Date().toISOString(),
-        subscription_expires_at: subscriptionExpiresAt.toISOString(),
-        checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
-        monthly_tokens: 25000, // Resetar tokens
-        extra_tokens: 0,
-        full_name: email.split('@')[0],
-        first_login: true // Marcar como primeiro login
-      }, {
-        onConflict: 'id'
-      });
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
 
-    if (updateError) {
-      console.error("Error updating profile:", updateError);
-      throw new Error(`Erro ao atualizar perfil: ${updateError.message}`);
+    if (profileCheckError) {
+      console.error("Error checking existing profile:", profileCheckError);
+      throw new Error(`Erro ao verificar perfil: ${profileCheckError.message}`);
     }
 
-    console.log("Profile updated successfully");
+    const profileData = {
+      id: userId,
+      subscription_status: "active",
+      payment_approved_at: new Date().toISOString(),
+      subscription_expires_at: subscriptionExpiresAt.toISOString(),
+      checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
+      monthly_tokens: 25000, // Resetar tokens
+      extra_tokens: 0,
+      full_name: email.split('@')[0],
+      first_login: true // Marcar como primeiro login
+    };
+
+    let profileError;
+
+    if (existingProfile) {
+      // Atualizar perfil existente
+      console.log("Updating existing profile");
+      const { error } = await supabase
+        .from("profiles")
+        .update(profileData)
+        .eq("id", userId);
+      profileError = error;
+    } else {
+      // Criar novo perfil
+      console.log("Creating new profile");
+      const { error } = await supabase
+        .from("profiles")
+        .insert([profileData]);
+      profileError = error;
+    }
+
+    if (profileError) {
+      console.error("Error updating/creating profile:", profileError);
+      throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
+    }
+
+    console.log("Profile updated/created successfully");
     console.log("=== SUBSCRIPTION ACTIVATED ===");
 
     // Enviar email com credenciais temporárias
