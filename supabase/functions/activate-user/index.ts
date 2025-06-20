@@ -43,10 +43,12 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
+    console.log("Environment check:");
+    console.log("- SUPABASE_URL:", !!supabaseUrl);
+    console.log("- SUPABASE_SERVICE_ROLE_KEY:", !!supabaseServiceKey);
+    
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Missing environment variables:");
-      console.error("SUPABASE_URL:", !!supabaseUrl);
-      console.error("SUPABASE_SERVICE_ROLE_KEY:", !!supabaseServiceKey);
+      console.error("Missing environment variables");
       
       return new Response(
         JSON.stringify({ 
@@ -64,6 +66,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { email }: ActivateUserRequest = await req.json();
 
+    console.log("Request validation:");
+    console.log("- Email provided:", !!email);
+    console.log("- Email value:", email);
+
     if (!email) {
       console.error("Email não fornecido");
       return new Response(
@@ -76,14 +82,14 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    console.log("Email to activate:", normalizedEmail);
+    console.log("Processing email:", normalizedEmail);
 
     // Gerar senha temporária
     const temporaryPassword = generateTemporaryPassword();
-    console.log("Generated temporary password:", temporaryPassword);
+    console.log("Generated temporary password");
 
     // Verificar se usuário já existe
-    console.log("Checking if user exists...");
+    console.log("=== CHECKING EXISTING USER ===");
     const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers();
     
     if (listError) {
@@ -100,12 +106,15 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    console.log("Users list retrieved, count:", existingUsers.users.length);
     const existingUser = existingUsers.users.find(u => u.email?.toLowerCase() === normalizedEmail);
+    
     let userId: string;
     let isNewUser = false;
 
     if (existingUser) {
-      console.log("User found, updating existing user:", normalizedEmail);
+      console.log("=== UPDATING EXISTING USER ===");
+      console.log("Existing user ID:", existingUser.id);
       userId = existingUser.id;
       
       // Atualizar senha do usuário existente
@@ -127,8 +136,9 @@ const handler = async (req: Request): Promise<Response> => {
           }
         );
       }
+      console.log("User password updated successfully");
     } else {
-      console.log("User not found, creating new user:", normalizedEmail);
+      console.log("=== CREATING NEW USER ===");
       isNewUser = true;
       
       // Criar novo usuário com senha temporária
@@ -174,21 +184,45 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("User created successfully with ID:", userId);
     }
 
-    console.log("=== ACTIVATING SUBSCRIPTION ===");
+    console.log("=== MANAGING PROFILE ===");
     console.log("User ID:", userId);
     console.log("Email:", normalizedEmail);
+    console.log("Is new user:", isNewUser);
 
-    // Ativar subscription do usuário por 30 dias
+    // Calcular data de expiração (30 dias)
     const subscriptionExpiresAt = new Date();
     subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
 
-    console.log("Managing profile for user:", normalizedEmail);
-    
+    // Dados do perfil com valores explícitos para todos os campos obrigatórios
+    const profileData = {
+      subscription_status: "active",
+      payment_approved_at: new Date().toISOString(),
+      subscription_expires_at: subscriptionExpiresAt.toISOString(),
+      checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
+      monthly_tokens: 25000,
+      extra_tokens: 0,
+      full_name: normalizedEmail.split('@')[0],
+      first_login: true,
+      is_admin: false,
+      tutorial_completed: false,
+      tutorial_skipped: false,
+      tutorial_step: 0,
+      total_tokens_used: 0,
+      tokens_reset_date: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+      notified_10: false,
+      notified_50: false,
+      notified_90: false,
+      updated_at: new Date().toISOString()
+    };
+
+    console.log("Profile data prepared:", Object.keys(profileData));
+
     try {
       // Verificar se o perfil já existe
+      console.log("Checking if profile exists...");
       const { data: existingProfile, error: checkError } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, subscription_status, monthly_tokens")
         .eq("id", userId)
         .single();
 
@@ -197,20 +231,10 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Erro ao verificar perfil existente: ${checkError.message}`);
       }
 
-      const profileData = {
-        subscription_status: "active",
-        payment_approved_at: new Date().toISOString(),
-        subscription_expires_at: subscriptionExpiresAt.toISOString(),
-        checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
-        monthly_tokens: 25000,
-        extra_tokens: 0,
-        full_name: normalizedEmail.split('@')[0],
-        first_login: true,
-        updated_at: new Date().toISOString()
-      };
-
       if (existingProfile) {
-        console.log("Updating existing profile");
+        console.log("Profile exists, updating...");
+        console.log("Current profile:", existingProfile);
+        
         const { error: updateError } = await supabase
           .from("profiles")
           .update(profileData)
@@ -222,12 +246,14 @@ const handler = async (req: Request): Promise<Response> => {
         }
         console.log("Profile updated successfully");
       } else {
-        console.log("Creating new profile");
+        console.log("Profile doesn't exist, creating new...");
+        
         const { error: insertError } = await supabase
           .from("profiles")
           .insert({
             id: userId,
-            ...profileData
+            ...profileData,
+            created_at: new Date().toISOString() // Adicionar created_at explicitamente
           });
 
         if (insertError) {
@@ -250,7 +276,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("=== SUBSCRIPTION ACTIVATED ===");
+    console.log("=== SUBSCRIPTION ACTIVATED SUCCESSFULLY ===");
 
     // Enviar email com credenciais temporárias (não crítico)
     console.log("=== SENDING CREDENTIALS EMAIL ===");
@@ -301,6 +327,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.error("=== CRITICAL ERROR IN ACTIVATE-USER ===");
     console.error("Error message:", error.message);
     console.error("Error stack:", error.stack);
+    console.error("Error details:", error);
     
     return new Response(
       JSON.stringify({ 

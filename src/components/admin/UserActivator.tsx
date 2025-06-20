@@ -59,15 +59,20 @@ export const UserActivator: React.FC = () => {
         console.error("Function invocation error:", error);
         
         let errorMessage = "Erro desconhecido na função";
-        let debugMessage = `Erro na invocação: ${JSON.stringify(error)}`;
+        let debugMessage = `❌ Erro na invocação da função:
+Status: ${error.status || 'unknown'}
+Message: ${error.message || 'unknown'}
+Context: ${error.context || 'none'}
+
+Detalhes completos:
+${JSON.stringify(error, null, 2)}`;
         
         if (error.message) {
-          errorMessage = error.message;
-        }
-        
-        if (error.message?.includes("Edge Function returned a non-2xx status code")) {
-          errorMessage = "Erro interno na função de ativação";
-          debugMessage = `Erro HTTP da função: ${error.message}`;
+          if (error.message.includes("Edge Function returned a non-2xx status code")) {
+            errorMessage = "Erro interno na função de ativação (status code não-2xx)";
+          } else {
+            errorMessage = error.message;
+          }
         }
         
         setDebugInfo(debugMessage);
@@ -78,7 +83,8 @@ export const UserActivator: React.FC = () => {
         console.error("Function returned error:", data.error);
         
         let errorMessage = data.error;
-        let debugMessage = `Erro retornado pela função: ${data.error}`;
+        let debugMessage = `❌ Erro retornado pela função:
+Erro: ${data.error}`;
         
         if (data.details) {
           debugMessage += `\nDetalhes: ${data.details}`;
@@ -107,14 +113,13 @@ export const UserActivator: React.FC = () => {
       setLastActivated(email.trim());
       setEmail('');
       
-      let debugSuccessInfo = `✅ Sucesso! ${data?.isNewUser ? 'Novo usuário criado' : 'Usuário existente ativado'}`;
-      if (data?.user_id) {
-        debugSuccessInfo += `\nUser ID: ${data.user_id}`;
-      }
-      debugSuccessInfo += `\nEmail: ${data?.emailSent ? 'Enviado' : 'Status desconhecido'}`;
-      if (data?.temporaryPassword) {
-        debugSuccessInfo += `\nSenha temporária: ${data.temporaryPassword}`;
-      }
+      let debugSuccessInfo = `✅ Ativação bem-sucedida!
+${data?.isNewUser ? '👤 Novo usuário criado' : '🔄 Usuário existente ativado'}
+📧 Email: ${normalizedEmail}
+🆔 User ID: ${data?.user_id || 'não informado'}
+📬 Email enviado: ${data?.emailSent ? 'Sim' : 'Não'}
+🔑 Senha temporária: ${data?.temporaryPassword || 'não informada'}
+⏰ Expira em: ${data?.subscription_expires_at ? new Date(data.subscription_expires_at).toLocaleDateString('pt-BR') : 'não informado'}`;
       
       setDebugInfo(debugSuccessInfo);
       
@@ -131,6 +136,15 @@ export const UserActivator: React.FC = () => {
         description: errorMessage,
         variant: "destructive",
       });
+
+      // Se não há debug info ainda, criar uma
+      if (!debugInfo) {
+        setDebugInfo(`❌ Erro capturado no frontend:
+${error.message || 'Erro desconhecido'}
+
+Stack trace:
+${error.stack || 'Não disponível'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -218,13 +232,13 @@ export const UserActivator: React.FC = () => {
           </Card>
 
           {debugInfo && (
-            <Card className="bg-[#2A2A2A] border-[#4B5563] max-w-md">
+            <Card className="bg-[#2A2A2A] border-[#4B5563] max-w-2xl">
               <CardContent className="pt-4">
                 <div className="flex items-start gap-2 text-xs">
                   <Bug className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div className="text-blue-300">
+                  <div className="text-blue-300 w-full">
                     <strong>Debug Info:</strong>
-                    <div className="mt-1 text-[#CCCCCC] font-mono break-all whitespace-pre-wrap">
+                    <div className="mt-1 text-[#CCCCCC] font-mono break-all whitespace-pre-wrap max-h-96 overflow-y-auto bg-[#1A1A1A] p-3 rounded border border-[#4B5563]">
                       {debugInfo}
                     </div>
                   </div>
