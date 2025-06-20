@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from './authService';
 
@@ -39,21 +38,16 @@ class SecurityService {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/security-logs`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const response = await supabase.functions.invoke('security-logs', {
+        body: {
           action,
           resource,
           metadata: metadata || {}
-        })
+        }
       });
 
-      if (!response.ok) {
-        console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', response.statusText);
+      if (response.error) {
+        console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', response.error);
       }
     } catch (error) {
       console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', error);

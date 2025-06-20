@@ -6,7 +6,7 @@ export interface Product {
   name: string;
   niche: string;
   sub_niche: string; // Tornar obrigatório para consistência
-  status: string;
+  status: 'draft' | 'active' | 'paused' | 'archived';
   user_id: string;
   created_at: string;
   updated_at: string;
