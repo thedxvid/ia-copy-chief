@@ -8,13 +8,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Agentes padrão (cópia dos dados estáticos)
+const defaultAgents = {
+  'copy-chief': {
+    name: 'Copy Chief',
+    prompt: 'Você é um Copy Chief especializado em copywriting e marketing digital. Seja útil, criativo e forneça respostas detalhadas e práticas.',
+    icon: '👑'
+  },
+  'ads-specialist': {
+    name: 'Especialista em Anúncios',
+    prompt: 'Você é um especialista em criação de anúncios pagos para Facebook, Google e outras plataformas. Foque em conversão e ROI.',
+    icon: '🎯'
+  },
+  'content-creator': {
+    name: 'Criador de Conteúdo',
+    prompt: 'Você é um criador de conteúdo especializado em posts para redes sociais, blogs e newsletters. Seja criativo e engajante.',
+    icon: '✨'
+  },
+  'email-expert': {
+    name: 'Expert em Email',
+    prompt: 'Você é um especialista em email marketing, criação de sequências de email e automações. Foque na personalização e conversão.',
+    icon: '📧'
+  },
+  'sales-pages': {
+    name: 'Páginas de Vendas',
+    prompt: 'Você é um especialista em criação de páginas de vendas de alta conversão, VSLs e funnels de vendas.',
+    icon: '💰'
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message, sessionId, userId, agentId } = await req.json();
+    const { message, sessionId, userId, agentId, productContext } = await req.json();
     
     if (!message || !sessionId || !userId || !agentId) {
       throw new Error('Dados obrigatórios não fornecidos');
@@ -71,18 +100,38 @@ serve(async (req) => {
 
     // Buscar dados do agente
     let agentData = null;
-    const { data: customAgent } = await supabase
-      .from('custom_agents')
-      .select('*')
-      .eq('id', agentId)
-      .single();
+    const isCustomAgent = agentId.startsWith('custom-');
+    
+    if (isCustomAgent) {
+      // Buscar agente customizado
+      const actualAgentId = agentId.replace('custom-', '');
+      const { data: customAgent } = await supabase
+        .from('custom_agents')
+        .select('*')
+        .eq('id', actualAgentId)
+        .single();
 
-    if (customAgent) {
-      agentData = customAgent;
-      console.log('🤖 Usando agente personalizado:', customAgent.name);
+      if (customAgent) {
+        agentData = {
+          name: customAgent.name,
+          prompt: customAgent.prompt
+        };
+        console.log('🤖 Usando agente personalizado:', customAgent.name);
+      }
     } else {
-      // Buscar agente padrão nos dados estáticos (você pode implementar esta lógica)
-      console.log('🤖 Usando agente padrão:', agentId);
+      // Buscar agente padrão
+      if (defaultAgents[agentId]) {
+        agentData = defaultAgents[agentId];
+        console.log('🤖 Usando agente padrão:', agentData.name);
+      }
+    }
+
+    if (!agentData) {
+      console.warn('⚠️ Agente não encontrado, usando padrão');
+      agentData = {
+        name: 'Assistente IA',
+        prompt: 'Você é um assistente especializado em copywriting e marketing digital. Seja útil, criativo e forneça respostas detalhadas e práticas.'
+      };
     }
 
     // Preparar mensagens para a API
@@ -90,6 +139,26 @@ serve(async (req) => {
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content
     })) || [];
+
+    // Preparar o prompt do sistema
+    let systemPrompt = agentData.prompt;
+    
+    if (productContext && productContext.trim()) {
+      systemPrompt = `${agentData.prompt}
+
+---
+CONTEXTO DO PRODUTO SELECIONADO:
+${productContext}
+
+---
+INSTRUÇÕES IMPORTANTES:
+- Use as informações do produto acima como contexto principal quando relevante
+- Se o usuário perguntar sobre criar conteúdo para "meu produto" ou "esse produto", refira-se ao produto do contexto
+- Não pergunte novamente sobre qual produto quando as informações já estão disponíveis no contexto
+- Mantenha consistência com a estratégia e posicionamento definidos no produto
+`;
+      console.log('🎯 Prompt aprimorado com contexto do produto');
+    }
 
     console.log('🚀 Chamando Claude API...');
 
@@ -105,7 +174,7 @@ serve(async (req) => {
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 8000,
         messages: apiMessages,
-        system: agentData?.prompt || "Você é um assistente especializado em copywriting e marketing digital. Seja útil, criativo e forneça respostas detalhadas e práticas."
+        system: systemPrompt
       })
     });
 
@@ -177,7 +246,7 @@ serve(async (req) => {
       session_id: sessionId,
       role: 'assistant',
       content: aiResponse,
-      tokens_used: actualTokensUsed,
+      tokens_use: actualTokensUsed,
       streaming_complete: true
     });
 

@@ -323,44 +323,21 @@ export const useChatAgent = (selectedProductId?: string) => {
         console.log('ℹ️ DEBUG - Nenhum produto selecionado');
       }
 
-      let enhancedPrompt = selectedAgent.prompt;
-      if (productContext && productContext.trim()) {
-        enhancedPrompt = `${selectedAgent.prompt}
-
----
-CONTEXTO DO PRODUTO SELECIONADO:
-${productContext}
-
----
-INSTRUÇÕES IMPORTANTES:
-- Use as informações do produto acima como contexto principal quando relevante
-- Se o usuário perguntar sobre criar conteúdo para "meu produto" ou "esse produto", refira-se ao produto do contexto
-- Não pergunte novamente sobre qual produto quando as informações já estão disponíveis no contexto
-- Mantenha consistência com a estratégia e posicionamento definidos no produto
-- Sempre que mencionar "seu produto", refira-se especificamente ao ${productDetails?.name}
-`;
-
-        console.log('🚀 DEBUG - Prompt aprimorado com contexto:', {
-          originalPromptLength: selectedAgent.prompt.length,
-          enhancedPromptLength: enhancedPrompt.length,
-          contextAdded: enhancedPrompt.length - selectedAgent.prompt.length,
-          hasProductContext: enhancedPrompt.includes('CONTEXTO DO PRODUTO'),
-          productName: productDetails?.name
-        });
-      } else {
-        console.log('ℹ️ DEBUG - Usando prompt original sem contexto do produto');
-      }
-
-      // Determinar se é agente customizado
-      const isCustomAgent = selectedAgent?.id.startsWith('custom-');
-
-      console.log('🚀 DEBUG - Preparando chamada para IA:', {
+      // Preparar dados para a Edge Function com os parâmetros corretos
+      const requestData = {
+        message: content,
+        sessionId: activeSession.id,
         userId: user?.id,
-        agentName: selectedAgent.name,
-        isCustomAgent,
-        hasProductContext: !!productContext,
-        productId: selectedProductId,
-        promptLength: enhancedPrompt.length
+        agentId: selectedAgent.id,
+        productContext: productContext || null
+      };
+
+      console.log('🚀 DEBUG - Chamando Edge Function com dados:', {
+        sessionId: requestData.sessionId,
+        userId: requestData.userId,
+        agentId: requestData.agentId,
+        hasProductContext: !!requestData.productContext,
+        messageLength: requestData.message.length
       });
 
       // Toast otimizado para processamento
@@ -369,19 +346,7 @@ INSTRUÇÕES IMPORTANTES:
       });
 
       const { data, error } = await supabase.functions.invoke('chat-with-claude', {
-        body: {
-          message: content,
-          agentPrompt: enhancedPrompt,
-          chatHistory: activeSession.messages.slice(-10).map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          agentName: selectedAgent.name,
-          isCustomAgent,
-          customAgentId: isCustomAgent ? selectedAgent.id.replace('custom-', '') : null,
-          productId: selectedProductId,
-          userId: user?.id
-        }
+        body: requestData
       });
 
       // Remover toast de loading
@@ -390,8 +355,7 @@ INSTRUÇÕES IMPORTANTES:
       console.log('📥 DEBUG - Resposta da função:', { 
         hasData: !!data, 
         hasError: !!error,
-        dataKeys: data ? Object.keys(data) : [],
-        contextPreserved: data?.contextPreserved
+        dataKeys: data ? Object.keys(data) : []
       });
 
       if (error) {
@@ -455,7 +419,7 @@ INSTRUÇÕES IMPORTANTES:
       }
 
       // Validar se a resposta contém o campo correto
-      const aiResponseText = data.response || data.generatedCopy || data.text;
+      const aiResponseText = data.message;
       if (!aiResponseText || typeof aiResponseText !== 'string') {
         console.error('❌ DEBUG - Resposta inválida:', data);
         toast.error('❌ Erro: Resposta inválida do servidor');
@@ -473,8 +437,7 @@ INSTRUÇÕES IMPORTANTES:
       console.log('📨 DEBUG - Resposta processada com sucesso:', {
         messageId: assistantMessageId,
         responseLength: aiResponseText.length,
-        hadProductContext: !!productContext,
-        contextPreserved: data.contextPreserved
+        hadProductContext: !!productContext
       });
 
       const finalSession = {
