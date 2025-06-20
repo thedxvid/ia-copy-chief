@@ -49,7 +49,6 @@ const handler = async (req: Request): Promise<Response> => {
     
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error("Missing environment variables");
-      
       return new Response(
         JSON.stringify({ 
           error: "Configuração do servidor incompleta",
@@ -62,9 +61,44 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Criar cliente Supabase
+    let supabase;
+    try {
+      supabase = createClient(supabaseUrl, supabaseServiceKey);
+      console.log("Supabase client created successfully");
+    } catch (clientError: any) {
+      console.error("Failed to create Supabase client:", clientError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Erro ao inicializar cliente Supabase",
+          details: clientError.message
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
-    const { email }: ActivateUserRequest = await req.json();
+    // Parse do request
+    let email: string;
+    try {
+      const body = await req.json();
+      email = body.email;
+      console.log("Request body parsed successfully");
+    } catch (parseError: any) {
+      console.error("Failed to parse request body:", parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Erro ao processar dados da requisição",
+          details: parseError.message
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     console.log("Request validation:");
     console.log("- Email provided:", !!email);
@@ -90,13 +124,31 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Verificar se usuário já existe
     console.log("=== CHECKING EXISTING USER ===");
-    const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers();
-    
-    if (listError) {
-      console.error("Error listing users:", listError);
+    let existingUsers;
+    try {
+      const { data, error } = await supabase.auth.admin.listUsers();
+      
+      if (error) {
+        console.error("Error listing users:", error);
+        return new Response(
+          JSON.stringify({ 
+            error: "Erro ao verificar usuários existentes",
+            details: error.message
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+      
+      existingUsers = data;
+      console.log("Users list retrieved successfully, count:", existingUsers.users.length);
+    } catch (listError: any) {
+      console.error("Exception while listing users:", listError);
       return new Response(
         JSON.stringify({ 
-          error: "Erro ao verificar usuários existentes",
+          error: "Exceção ao listar usuários",
           details: listError.message
         }),
         {
@@ -106,7 +158,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("Users list retrieved, count:", existingUsers.users.length);
     const existingUser = existingUsers.users.find(u => u.email?.toLowerCase() === normalizedEmail);
     
     let userId: string;
@@ -118,17 +169,32 @@ const handler = async (req: Request): Promise<Response> => {
       userId = existingUser.id;
       
       // Atualizar senha do usuário existente
-      const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
-        password: temporaryPassword,
-        email_confirm: true
-      });
+      try {
+        const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+          password: temporaryPassword,
+          email_confirm: true
+        });
 
-      if (updateError) {
-        console.error("Error updating user password:", updateError);
+        if (updateError) {
+          console.error("Error updating user password:", updateError);
+          return new Response(
+            JSON.stringify({ 
+              error: "Erro ao atualizar senha do usuário",
+              details: updateError.message
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
+        }
+        console.log("User password updated successfully");
+      } catch (updateException: any) {
+        console.error("Exception updating user:", updateException);
         return new Response(
           JSON.stringify({ 
-            error: "Erro ao atualizar senha do usuário",
-            details: updateError.message
+            error: "Exceção ao atualizar usuário",
+            details: updateException.message
           }),
           {
             status: 500,
@@ -136,28 +202,58 @@ const handler = async (req: Request): Promise<Response> => {
           }
         );
       }
-      console.log("User password updated successfully");
     } else {
       console.log("=== CREATING NEW USER ===");
       isNewUser = true;
       
       // Criar novo usuário com senha temporária
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-        email: normalizedEmail,
-        password: temporaryPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: normalizedEmail.split('@')[0],
-          first_login: true
+      try {
+        const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+          email: normalizedEmail,
+          password: temporaryPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: normalizedEmail.split('@')[0],
+            first_login: true
+          }
+        });
+
+        if (createError) {
+          console.error("Error creating user:", createError);
+          return new Response(
+            JSON.stringify({ 
+              error: "Erro ao criar usuário",
+              details: createError.message
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
-      });
 
-      if (createError) {
-        console.error("Error creating user:", createError);
+        if (!newUser.user) {
+          console.error("User creation failed - no user data returned");
+          return new Response(
+            JSON.stringify({ 
+              error: "Falha ao criar usuário",
+              details: "Dados do usuário não retornados"
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
+        }
+
+        userId = newUser.user.id;
+        console.log("User created successfully with ID:", userId);
+      } catch (createException: any) {
+        console.error("Exception creating user:", createException);
         return new Response(
           JSON.stringify({ 
-            error: "Erro ao criar usuário",
-            details: createError.message
+            error: "Exceção ao criar usuário",
+            details: createException.message
           }),
           {
             status: 500,
@@ -165,23 +261,6 @@ const handler = async (req: Request): Promise<Response> => {
           }
         );
       }
-
-      if (!newUser.user) {
-        console.error("User creation failed - no user data returned");
-        return new Response(
-          JSON.stringify({ 
-            error: "Falha ao criar usuário",
-            details: "Dados do usuário não retornados"
-          }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
-        );
-      }
-
-      userId = newUser.user.id;
-      console.log("User created successfully with ID:", userId);
     }
 
     console.log("=== MANAGING PROFILE ===");
@@ -193,56 +272,59 @@ const handler = async (req: Request): Promise<Response> => {
     const subscriptionExpiresAt = new Date();
     subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
 
-    // Dados do perfil com valores explícitos para todos os campos obrigatórios
-    const profileData = {
-      subscription_status: "active",
-      payment_approved_at: new Date().toISOString(),
-      subscription_expires_at: subscriptionExpiresAt.toISOString(),
-      checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
-      monthly_tokens: 25000,
-      extra_tokens: 0,
-      full_name: normalizedEmail.split('@')[0],
-      first_login: true,
-      is_admin: false,
-      tutorial_completed: false,
-      tutorial_skipped: false,
-      tutorial_step: 0,
-      total_tokens_used: 0,
-      tokens_reset_date: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
-      notified_10: false,
-      notified_50: false,
-      notified_90: false,
-      updated_at: new Date().toISOString()
-    };
-
-    console.log("Profile data prepared:", Object.keys(profileData));
-
     try {
       // Verificar se o perfil já existe
       console.log("Checking if profile exists...");
       const { data: existingProfile, error: checkError } = await supabase
         .from("profiles")
-        .select("id, subscription_status, monthly_tokens")
+        .select("id")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
+      if (checkError) {
         console.error("Error checking existing profile:", checkError);
-        throw new Error(`Erro ao verificar perfil existente: ${checkError.message}`);
+        return new Response(
+          JSON.stringify({ 
+            error: "Erro ao verificar perfil existente",
+            details: checkError.message
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
       }
+
+      const currentDate = new Date().toISOString();
+      const currentDateOnly = new Date().toISOString().split('T')[0];
 
       if (existingProfile) {
         console.log("Profile exists, updating...");
-        console.log("Current profile:", existingProfile);
         
         const { error: updateError } = await supabase
           .from("profiles")
-          .update(profileData)
+          .update({
+            subscription_status: "active",
+            payment_approved_at: currentDate,
+            subscription_expires_at: subscriptionExpiresAt.toISOString(),
+            monthly_tokens: 25000,
+            extra_tokens: 0,
+            updated_at: currentDate
+          })
           .eq("id", userId);
 
         if (updateError) {
           console.error("Error updating profile:", updateError);
-          throw new Error(`Erro ao atualizar perfil: ${updateError.message}`);
+          return new Response(
+            JSON.stringify({ 
+              error: "Erro ao atualizar perfil",
+              details: updateError.message
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
         console.log("Profile updated successfully");
       } else {
@@ -252,22 +334,48 @@ const handler = async (req: Request): Promise<Response> => {
           .from("profiles")
           .insert({
             id: userId,
-            ...profileData,
-            created_at: new Date().toISOString() // Adicionar created_at explicitamente
+            subscription_status: "active",
+            payment_approved_at: currentDate,
+            subscription_expires_at: subscriptionExpiresAt.toISOString(),
+            checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
+            monthly_tokens: 25000,
+            extra_tokens: 0,
+            full_name: normalizedEmail.split('@')[0],
+            first_login: true,
+            is_admin: false,
+            tutorial_completed: false,
+            tutorial_skipped: false,
+            tutorial_step: 0,
+            total_tokens_used: 0,
+            tokens_reset_date: currentDateOnly,
+            notified_10: false,
+            notified_50: false,
+            notified_90: false,
+            created_at: currentDate,
+            updated_at: currentDate
           });
 
         if (insertError) {
           console.error("Error creating profile:", insertError);
-          throw new Error(`Erro ao criar perfil: ${insertError.message}`);
+          return new Response(
+            JSON.stringify({ 
+              error: "Erro ao criar perfil",
+              details: insertError.message
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
         console.log("Profile created successfully");
       }
-    } catch (profileError: any) {
-      console.error("Profile operation failed:", profileError);
+    } catch (profileException: any) {
+      console.error("Exception in profile operations:", profileException);
       return new Response(
         JSON.stringify({ 
-          error: "Erro ao gerenciar perfil do usuário",
-          details: profileError.message
+          error: "Exceção ao gerenciar perfil",
+          details: profileException.message
         }),
         {
           status: 500,
@@ -278,8 +386,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("=== SUBSCRIPTION ACTIVATED SUCCESSFULLY ===");
 
-    // Enviar email com credenciais temporárias (não crítico)
-    console.log("=== SENDING CREDENTIALS EMAIL ===");
+    // Tentar enviar email (não crítico)
+    console.log("=== ATTEMPTING TO SEND EMAIL ===");
     let emailSent = false;
     try {
       const emailResponse = await supabase.functions.invoke('send-credentials-email', {
@@ -291,17 +399,15 @@ const handler = async (req: Request): Promise<Response> => {
         },
       });
 
-      console.log("Email function response:", emailResponse);
-
       if (emailResponse.error) {
-        console.error("Error sending credentials email:", emailResponse.error);
+        console.error("Email function returned error:", emailResponse.error);
       } else {
         console.log("Credentials email sent successfully");
         emailSent = true;
       }
     } catch (emailError: any) {
-      console.error("Email sending failed:", emailError.message);
-      // Não falhar a ativação por causa do email
+      console.error("Email sending failed (non-critical):", emailError.message);
+      // Continue sem falhar a ativação
     }
 
     console.log("=== ACTIVATION COMPLETED SUCCESSFULLY ===");
@@ -313,7 +419,7 @@ const handler = async (req: Request): Promise<Response> => {
         email: normalizedEmail,
         isNewUser,
         emailSent,
-        temporaryPassword: temporaryPassword, // Para debug do admin
+        temporaryPassword: temporaryPassword,
         subscription_expires_at: subscriptionExpiresAt.toISOString(),
         user_id: userId
       }),
@@ -323,17 +429,20 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-  } catch (error: any) {
-    console.error("=== CRITICAL ERROR IN ACTIVATE-USER ===");
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-    console.error("Error details:", error);
+  } catch (globalError: any) {
+    console.error("=== GLOBAL ERROR IN ACTIVATE-USER ===");
+    console.error("Error type:", typeof globalError);
+    console.error("Error name:", globalError?.name);
+    console.error("Error message:", globalError?.message);
+    console.error("Error stack:", globalError?.stack);
+    console.error("Full error object:", globalError);
     
     return new Response(
       JSON.stringify({ 
-        error: "Erro interno do servidor",
-        details: error.message,
-        stack: error.stack || "No stack trace available"
+        error: "Erro crítico no servidor",
+        details: globalError?.message || "Erro desconhecido",
+        errorType: globalError?.name || "UnknownError",
+        stack: globalError?.stack || "No stack trace available"
       }),
       {
         status: 500,
