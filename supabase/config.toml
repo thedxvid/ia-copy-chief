@@ -1,26 +1,83 @@
 
 project_id = "dcnjjhavlvotzpwburvw"
 
-[auth]
-enable_signup = true
-enable_confirmations = true
-enable_recovery = true
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
 
-[auth.email.template.confirmation]
-subject = "Confirme seu email - CopyMaster"
-content_path = ""
+[auth]
+enabled = true
+port = 54322
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://lovable.dev"]
+jwt_expiry = 3600
+refresh_token_rotation_enabled = true
+security_update_password_require_reauthentication = true
+
+[functions.kiwify-webhook]
+verify_jwt = false
+
+[functions.digital-guru-webhook]
+verify_jwt = false
+
+[functions.security-logs]
+verify_jwt = true
+
+[functions.activate-admin]
+verify_jwt = false
+
+[functions.activate-user]
+verify_jwt = false
+
+[functions.chat-with-claude]
+verify_jwt = true
+
+[functions.get-user-emails]
+verify_jwt = true
 
 [functions.handle-new-user]
 verify_jwt = false
 
+[functions.monthly-token-reset]
+verify_jwt = false
+
+[functions.n8n-integration]
+verify_jwt = true
+
+[functions.product-operations]
+verify_jwt = true
+
 [functions.send-checkout-email]
+verify_jwt = false
+
+[functions.send-confirmation-email]
+verify_jwt = false
+
+[functions.send-credentials-email]
 verify_jwt = false
 
 [functions.send-welcome-email]
 verify_jwt = false
 
-[functions.kiwify-webhook]
-verify_jwt = false
+[db]
+port = 54322
+major_version = 15
 
-[functions.send-credentials-email]
-verify_jwt = false
+[storage]
+enabled = true
+port = 54323
+image_transformation = true
+double_encode_urls = true
+
+[edge-runtime]
+enabled = true
+port = 54324
+
+[analytics]
+enabled = false
+port = 54327
+vector_port = 54328
+backend = "postgres"

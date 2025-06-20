@@ -192,6 +192,48 @@ export type Database = {
         }
         Relationships: []
       }
+      digital_guru_webhooks: {
+        Row: {
+          api_token: string | null
+          created_at: string | null
+          event_type: string
+          id: string
+          processed: boolean | null
+          raw_data: Json
+          subscriber_email: string
+          subscriber_id: string | null
+          subscription_id: string
+          subscription_status: string
+          webhook_type: string
+        }
+        Insert: {
+          api_token?: string | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          processed?: boolean | null
+          raw_data?: Json
+          subscriber_email: string
+          subscriber_id?: string | null
+          subscription_id: string
+          subscription_status: string
+          webhook_type: string
+        }
+        Update: {
+          api_token?: string | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          processed?: boolean | null
+          raw_data?: Json
+          subscriber_email?: string
+          subscriber_id?: string | null
+          subscription_id?: string
+          subscription_status?: string
+          webhook_type?: string
+        }
+        Relationships: []
+      }
       kiwify_webhooks: {
         Row: {
           created_at: string | null

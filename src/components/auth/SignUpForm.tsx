@@ -1,236 +1,172 @@
+import React from 'react';
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
 
-import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Check, X } from 'lucide-react';
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface SignUpFormProps {
-  onSwitchToLogin?: () => void;
-}
+const formSchema = z.object({
+  email: z.string().email({ message: "Por favor, insira um email válido." }),
+  password: z.string().min(8, {
+    message: "A senha deve ter pelo menos 8 caracteres.",
+  }),
+})
 
-export const SignUpForm: React.FC<SignUpFormProps> = ({ onSwitchToLogin }) => {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+interface SignUpFormProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+export const SignUpForm: React.FC<SignUpFormProps> = React.forwardRef<HTMLDivElement, SignUpFormProps>(({ className, ...props }, ref) => {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  const passwordRequirements = [
-    { test: (pwd: string) => pwd.length >= 8, text: 'Pelo menos 8 caracteres' },
-    { test: (pwd: string) => /[A-Z]/.test(pwd), text: 'Uma letra maiúscula' },
-    { test: (pwd: string) => /[a-z]/.test(pwd), text: 'Uma letra minúscula' },
-    { test: (pwd: string) => /\d/.test(pwd), text: 'Um número' },
-  ];
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  })
 
-  const isPasswordValid = passwordRequirements.every(req => req.test(formData.password));
-  const doPasswordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword !== '';
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!isPasswordValid) {
-      toast.error('A senha não atende aos requisitos mínimos');
-      return;
-    }
-
-    if (!doPasswordsMatch) {
-      toast.error('As senhas não coincidem');
-      return;
-    }
-
-    setLoading(true);
-
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
     try {
-      // Usar o sistema nativo do Supabase com redirect URL correto
-      const { error } = await signUp(
-        formData.email, 
-        formData.password, 
-        formData.fullName,
-        "https://pay.kiwify.com.br/nzX4lAh"
-      );
-      
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          toast.error('Este email já está cadastrado');
-        } else if (error.message.includes('Password should be at least 6 characters')) {
-          toast.error('A senha deve ter pelo menos 6 caracteres');
-        } else if (error.message.includes('rate limit')) {
-          toast.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
-        } else {
-          toast.error(error.message || 'Erro ao criar conta');
-        }
-      } else {
-        toast.success('Conta criada! Verifique seu email para confirmar o cadastro.');
-        navigate(`/email-confirmation?email=${encodeURIComponent(formData.email)}`);
-      }
-    } catch (error) {
-      toast.error('Erro inesperado. Tente novamente.');
-      console.error('Signup error:', error);
+      await signUp(values.email, values.password);
+      toast.success("Conta criada com sucesso!");
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast.error("Erro ao criar conta.", {
+        description: error.message || "Por favor, tente novamente.",
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="fullName" className="text-white">Nome completo</Label>
-        <Input
-          id="fullName"
-          name="fullName"
-          type="text"
-          value={formData.fullName}
-          onChange={handleChange}
-          placeholder="Seu nome completo"
-          required
-          className="bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-primary"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="email" className="text-white">Email</Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleChange}
-          placeholder="seu@email.com"
-          required
-          className="bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-primary"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="password" className="text-white">Senha</Label>
-        <div className="relative">
-          <Input
-            id="password"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="••••••••"
-            required
-            className="bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-primary pr-10"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-white"
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </Button>
-        </div>
-        
-        {formData.password && (
-          <div className="space-y-1 mt-2">
-            {passwordRequirements.map((req, index) => (
-              <div key={index} className="flex items-center gap-2 text-xs">
-                {req.test(formData.password) ? (
-                  <Check size={12} className="text-green-500" />
-                ) : (
-                  <X size={12} className="text-red-500" />
-                )}
-                <span className={req.test(formData.password) ? 'text-green-400' : 'text-gray-400'}>
-                  {req.text}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="confirmPassword" className="text-white">Confirmar senha</Label>
-        <div className="relative">
-          <Input
-            id="confirmPassword"
-            name="confirmPassword"
-            type={showConfirmPassword ? 'text' : 'password'}
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            placeholder="••••••••"
-            required
-            className="bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-primary pr-10"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-white"
-          >
-            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </Button>
-        </div>
-        
-        {formData.confirmPassword && (
-          <div className="flex items-center gap-2 text-xs mt-1">
-            {doPasswordsMatch ? (
-              <>
-                <Check size={12} className="text-green-500" />
-                <span className="text-green-400">Senhas coincidem</span>
-              </>
-            ) : (
-              <>
-                <X size={12} className="text-red-500" />
-                <span className="text-red-400">Senhas não coincidem</span>
-              </>
+    <div className={cn("grid gap-6", className)} {...props} ref={ref}>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input placeholder="seu-email@exemplo.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-          </div>
-        )}
-      </div>
-
-      <Button
-        type="submit"
-        disabled={loading || !formData.fullName || !formData.email || !isPasswordValid || !doPasswordsMatch}
-        className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-      >
-        {loading ? (
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            Criando conta...
-          </div>
-        ) : (
-          'Criar conta'
-        )}
-      </Button>
-
-      {onSwitchToLogin && (
-        <div className="text-center">
-          <p className="text-gray-400">
-            Já tem uma conta?{' '}
-            <Button
-              type="button"
-              variant="link"
-              onClick={onSwitchToLogin}
-              className="text-[#3B82F6] hover:text-[#2563EB] p-0"
-            >
-              Fazer login
-            </Button>
-          </p>
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Senha</FormLabel>
+                <FormControl>
+                  <Input type="password" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button disabled={isLoading}>
+            {isLoading && (
+              <svg
+                className="mr-2 h-4 w-4 animate-spin"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            )}
+            Criar conta
+          </Button>
+        </form>
+      </Form>
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
         </div>
-      )}
-    </form>
-  );
-};
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            Ou
+          </span>
+        </div>
+      </div>
+      <Button variant="outline" type="button" disabled>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="mr-2 h-4 w-4"
+        >
+          <path d="M9 19c-1.38 0-2.74-.5-3.88-1.4C3.16 15.17 1 12.28 1 9c0-3.87 3.13-7 7-7 3.36 0 6.24 2.27 6.84 5.48L13 13l-4 6z" />
+          <path d="M22.14 18.56l-5.14-4.5L14 19l5 5 .14-3.44z" />
+          <circle cx="18" cy="7" r="3" />
+        </svg>
+        Continuar com Google (Em breve)
+      </Button>
+      <div className="text-sm text-muted-foreground">
+        Ao continuar, você concorda com nossos{" "}
+        <Link to="/terms" className="underline underline-offset-4">
+          Termos de Serviço
+        </Link>{" "}
+        e{" "}
+        <Link to="/privacy" className="underline underline-offset-4">
+          Política de Privacidade
+        </Link>.
+      </div>
+      <div className="text-sm text-muted-foreground">
+        Já tem uma conta?{" "}
+        <Link to="/auth" className="text-[#3B82F6] hover:text-[#2563EB] underline font-medium">
+          Entrar
+        </Link>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        Ou, para ter acesso imediato:{" "}
+              <Link 
+                href="https://clkdmg.site/subscribe/iacopychief-assinatura-mensal"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#3B82F6] hover:text-[#2563EB] underline font-medium"
+              >
+                Clique aqui para assinar
+              </Link>
+      </div>
+    </div>
+  )
+})
+SignUpForm.displayName = "SignUpForm"

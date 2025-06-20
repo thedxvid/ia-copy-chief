@@ -1,232 +1,87 @@
-
-import React, { useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Clock, CreditCard, CheckCircle, XCircle, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
+import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 import { useSubscription } from '@/hooks/useSubscription';
-import { useNavigate } from 'react-router-dom';
-import { FadeInSection } from '@/components/ui/fade-in-section';
+import { paymentService } from '@/services/paymentService';
 
-export const SubscriptionStatus: React.FC = () => {
-  const { subscription, loading, isSubscriptionActive, isSubscriptionExpired } = useSubscription();
-  const navigate = useNavigate();
+export const SubscriptionStatus = () => {
+  const { user } = useAuth();
+  const { subscription, loading } = useSubscription();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Redirecionar automaticamente para dashboard se subscription estiver ativa
-  useEffect(() => {
-    if (isSubscriptionActive && !loading) {
-      console.log('Subscription active, redirecting to dashboard...');
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
-    }
-  }, [isSubscriptionActive, loading, navigate]);
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#121212] via-[#1A1A1A] to-[#121212] bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite] flex items-center justify-center">
-        <Card className="bg-white/95 backdrop-blur-md border-none shadow-2xl max-w-lg w-full mx-4">
-          <CardContent className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-[#121212]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3B82F6]"></div>
       </div>
     );
   }
 
-  if (!subscription) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-500 via-red-600 to-red-500 bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite] flex items-center justify-center">
-        <Card className="bg-white/95 backdrop-blur-md border-none shadow-2xl max-w-lg w-full mx-4">
-          <CardHeader className="text-center">
-            <CardTitle className="text-gray-800 flex items-center justify-center gap-2">
-              <XCircle className="w-6 h-6 text-red-500" />
-              Erro ao carregar subscription
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
-  const getStatusInfo = () => {
-    switch (subscription.subscription_status) {
-      case 'pending':
-        return {
-          icon: <Clock className="w-12 h-12 text-amber-500" />,
-          title: 'Finalize sua Assinatura',
-          description: 'Sua conta foi criada com sucesso! Clique no botão abaixo para fazer o pagamento e desbloquear o acesso completo à plataforma.',
-          color: 'amber',
-          buttonText: 'Finalizar Pagamento',
-          buttonAction: () => window.open('https://pay.kiwify.com.br/nzX4lAh', '_blank'),
-          showCheckingStatus: true,
-        };
-      case 'active':
-        if (isSubscriptionExpired) {
-          return {
-            icon: <AlertTriangle className="w-12 h-12 text-orange-500" />,
-            title: 'Subscription Expirada',
-            description: 'Seu acesso expirou. Renove sua subscription para continuar usando a plataforma.',
-            color: 'orange',
-            buttonText: 'Renovar Acesso',
-            buttonAction: () => window.open('https://pay.kiwify.com.br/nzX4lAh', '_blank'),
-            showCheckingStatus: false,
-          };
-        }
-        return {
-          icon: <CheckCircle className="w-12 h-12 text-green-500" />,
-          title: '🎉 Pagamento Confirmado!',
-          description: 'Parabéns! Seu pagamento foi processado com sucesso. Você será redirecionado para o dashboard em instantes.',
-          color: 'green',
-          buttonText: 'Ir para Dashboard',
-          buttonAction: () => navigate('/dashboard'),
-          showCheckingStatus: false,
-        };
-      case 'expired':
-        return {
-          icon: <XCircle className="w-12 h-12 text-red-500" />,
-          title: 'Acesso Expirado',
-          description: 'Sua subscription expirou. Renove para continuar usando a plataforma.',
-          color: 'red',
-          buttonText: 'Renovar Acesso',
-          buttonAction: () => window.open('https://pay.kiwify.com.br/nzX4lAh', '_blank'),
-          showCheckingStatus: false,
-        };
-      case 'cancelled':
-        return {
-          icon: <XCircle className="w-12 h-12 text-red-500" />,
-          title: 'Subscription Cancelada',
-          description: 'Sua subscription foi cancelada. Entre em contato conosco se precisar de ajuda.',
-          color: 'red',
-          buttonText: 'Entrar em Contato',
-          buttonAction: () => window.open('mailto:suporte@copymaster.app', '_blank'),
-          showCheckingStatus: false,
-        };
-      default:
-        return {
-          icon: <AlertTriangle className="w-12 h-12 text-gray-500" />,
-          title: 'Status Desconhecido',
-          description: 'Entre em contato com o suporte.',
-          color: 'gray',
-          buttonText: 'Contatar Suporte',
-          buttonAction: () => window.open('mailto:suporte@copymaster.app', '_blank'),
-          showCheckingStatus: false,
-        };
-    }
+  const handleUpgrade = () => {
+    setIsRedirecting(true);
+    // Usar novo link do Digital Guru Manager
+    window.open('https://clkdmg.site/subscribe/iacopychief-assinatura-mensal', '_blank');
+    setTimeout(() => setIsRedirecting(false), 3000);
   };
 
-  const statusInfo = getStatusInfo();
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#121212] via-[#1A1A1A] to-[#121212] bg-[length:400%_400%] animate-[gradientShift_15s_ease_infinite] flex items-center justify-center px-4">
-      <FadeInSection>
-        <Card className="bg-white/95 backdrop-blur-md border-none shadow-2xl max-w-lg w-full animate-[slideUp_0.8s_ease-out]">
-          <CardHeader className="text-center pb-6">
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center animate-[pulse_2s_infinite] shadow-lg">
-                {statusInfo.icon}
-              </div>
-            </div>
-            <CardTitle className="text-gray-800 text-3xl font-bold mb-3">
-              {statusInfo.title}
-            </CardTitle>
-            <p className="text-gray-600 text-lg leading-relaxed">
-              {statusInfo.description}
+    <div className="min-h-screen flex items-center justify-center bg-[#121212]">
+      <div className="bg-[#1E1E1E] p-8 rounded-lg shadow-md text-center">
+        <h2 className="text-2xl font-semibold text-white mb-4">
+          Status da Assinatura
+        </h2>
+        {subscription?.subscription_status === 'active' ? (
+          <>
+            <p className="text-green-500 text-lg mb-4">
+              Sua assinatura está ativa! 🎉
             </p>
-          </CardHeader>
-          
-          <CardContent className="space-y-6">
-            {subscription.subscription_status === 'pending' && (
-              <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                  <p className="text-amber-800 font-semibold text-sm">Oferta Especial</p>
-                </div>
-                <p className="text-amber-700 text-sm">
-                  Apenas <strong>R$ 97/mês</strong> (valor normal R$ 1.132). 
-                  Esta promoção é válida apenas para novos usuários.
-                </p>
-              </div>
-            )}
-
-            {subscription.subscription_status === 'active' && !isSubscriptionExpired && (
-              <div className="bg-green-50 border-l-4 border-green-400 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <p className="text-green-800 font-semibold text-sm">Acesso Liberado</p>
-                </div>
-                <p className="text-green-700 text-sm">
-                  Seu acesso está ativo até {subscription.subscription_expires_at ? new Date(subscription.subscription_expires_at).toLocaleDateString('pt-BR') : 'indefinido'}.
-                </p>
-              </div>
-            )}
-
-            {statusInfo.showCheckingStatus && (
-              <div className="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="w-4 h-4 text-blue-600 animate-spin" />
-                  <p className="text-blue-800 font-semibold text-sm">Verificando Status</p>
-                </div>
-                <p className="text-blue-700 text-sm">
-                  Aguardando confirmação do pagamento. Esta página será atualizada automaticamente.
-                </p>
-              </div>
-            )}
-
-            <div className="text-center space-y-4">
-              <Button
-                onClick={statusInfo.buttonAction}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <CreditCard className="w-5 h-5" />
-                  {statusInfo.buttonText}
-                  <ArrowRight className="w-5 h-5" />
-                </div>
-              </Button>
-              
-              {subscription.subscription_status === 'pending' && (
-                <p className="text-gray-500 text-sm">
-                  Após o pagamento, você será redirecionado automaticamente
-                </p>
-              )}
-            </div>
-
-            <div className="text-center pt-4 border-t border-gray-200">
-              <p className="text-gray-500 text-sm">
-                Precisa de ajuda?{' '}
-                <a 
-                  href="mailto:suporte@copymaster.app" 
-                  className="text-blue-600 hover:underline font-medium"
-                >
-                  Entre em contato
-                </a>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </FadeInSection>
-
-      <style>{`
-        @keyframes gradientShift {
-          0%, 100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
-        
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+            <p className="text-gray-400 mb-4">
+              Aproveite todos os recursos do IA Copy Chief.
+            </p>
+          </>
+        ) : subscription?.subscription_status === 'pending' ? (
+          <>
+            <p className="text-yellow-500 text-lg mb-4">
+              Aguardando Pagamento... ⏳
+            </p>
+            <p className="text-gray-400 mb-4">
+              Estamos aguardando a confirmação do seu pagamento.
+              Isso pode levar alguns minutos.
+            </p>
+            <Button disabled={isRedirecting} onClick={handleUpgrade} className="bg-[#3B82F6] text-white rounded-full hover:bg-[#2563EB] transition-colors">
+              {isRedirecting ? (
+                <>
+                  Redirecionando...
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                </>
+              ) : 'Gerenciar Assinatura'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-red-500 text-lg mb-4">
+              Sua assinatura está inativa. 😞
+            </p>
+            <p className="text-gray-400 mb-4">
+              Para continuar aproveitando todos os recursos, renove sua assinatura.
+            </p>
+            <Button disabled={isRedirecting} onClick={handleUpgrade} className="bg-[#3B82F6] text-white rounded-full hover:bg-[#2563EB] transition-colors">
+              {isRedirecting ? (
+                <>
+                  Redirecionando...
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                </>
+              ) : 'Assinar Agora'}
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 };
