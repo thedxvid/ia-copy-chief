@@ -9,8 +9,12 @@ import { AIInsights } from '@/components/dashboard/AIInsights';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { GoalsProgress } from '@/components/dashboard/GoalsProgress';
+import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
+import { useTokens } from '@/hooks/useTokens';
 
 const Dashboard = () => {
+  const { tokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
+
   return (
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
@@ -34,6 +38,14 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de upgrade de tokens */}
+      <TokenUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        tokensRemaining={tokens?.total_available || 0}
+        isOutOfTokens={tokens?.total_available === 0}
+      />
     </DashboardLayout>
   );
 };

@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ModernButton } from '@/components/ui/modern-button';
-import { TokenWidgetOptimized } from '@/components/tokens/TokenWidgetOptimized';
 import { Menu, X, User, LogOut, Bot, Settings, Shield } from 'lucide-react';
 import {
   DropdownMenu,
@@ -95,9 +94,6 @@ export const Header = () => {
                 <div className="w-6 sm:w-8 h-6 sm:h-8 animate-spin rounded-full border-b-2 border-[#3B82F6]"></div>
               ) : user ? (
                 <div className="flex items-center space-x-2">
-                  {/* Token Widget - mostrar para usuários logados */}
-                  <TokenWidgetOptimized />
-                  
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="flex items-center space-x-2 hover:bg-[#1E1E1E] rounded-xl p-1 sm:p-2 transition-colors">
