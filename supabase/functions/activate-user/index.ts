@@ -124,81 +124,88 @@ const handler = async (req: Request): Promise<Response> => {
     const subscriptionExpiresAt = new Date();
     subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
 
-    console.log("Updating/creating profile for user:", email);
+    console.log("Managing profile for user:", email);
     
-    // Primeiro, verificar se o perfil já existe
-    const { data: existingProfile, error: profileCheckError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (profileCheckError) {
-      console.error("Error checking existing profile:", profileCheckError);
-      throw new Error(`Erro ao verificar perfil: ${profileCheckError.message}`);
-    }
-
-    const profileData = {
-      id: userId,
-      subscription_status: "active",
-      payment_approved_at: new Date().toISOString(),
-      subscription_expires_at: subscriptionExpiresAt.toISOString(),
-      checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
-      monthly_tokens: 25000, // Resetar tokens
-      extra_tokens: 0,
-      full_name: email.split('@')[0],
-      first_login: true // Marcar como primeiro login
-    };
-
-    let profileError;
-
-    if (existingProfile) {
-      // Atualizar perfil existente
-      console.log("Updating existing profile");
-      const { error } = await supabase
+    try {
+      // Primeiro tentar atualizar (caso o perfil já exista)
+      const { data: updateData, error: updateError } = await supabase
         .from("profiles")
-        .update(profileData)
-        .eq("id", userId);
-      profileError = error;
-    } else {
-      // Criar novo perfil
-      console.log("Creating new profile");
-      const { error } = await supabase
-        .from("profiles")
-        .insert([profileData]);
-      profileError = error;
+        .update({
+          subscription_status: "active",
+          payment_approved_at: new Date().toISOString(),
+          subscription_expires_at: subscriptionExpiresAt.toISOString(),
+          checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
+          monthly_tokens: 25000,
+          extra_tokens: 0,
+          full_name: email.split('@')[0],
+          first_login: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", userId)
+        .select();
+
+      if (updateError) {
+        console.log("Update failed, trying insert:", updateError.message);
+        
+        // Se o update falhou, tentar insert (perfil não existe)
+        const { data: insertData, error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: userId,
+            subscription_status: "active",
+            payment_approved_at: new Date().toISOString(),
+            subscription_expires_at: subscriptionExpiresAt.toISOString(),
+            checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
+            monthly_tokens: 25000,
+            extra_tokens: 0,
+            full_name: email.split('@')[0],
+            first_login: true
+          })
+          .select();
+
+        if (insertError) {
+          console.error("Insert also failed:", insertError);
+          throw new Error(`Erro ao criar/atualizar perfil: ${insertError.message}`);
+        }
+
+        console.log("Profile created successfully via insert");
+      } else {
+        console.log("Profile updated successfully");
+      }
+    } catch (profileError: any) {
+      console.error("Profile operation failed:", profileError);
+      throw new Error(`Erro ao gerenciar perfil: ${profileError.message}`);
     }
 
-    if (profileError) {
-      console.error("Error updating/creating profile:", profileError);
-      throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
-    }
-
-    console.log("Profile updated/created successfully");
     console.log("=== SUBSCRIPTION ACTIVATED ===");
 
     // Enviar email com credenciais temporárias
     console.log("=== SENDING CREDENTIALS EMAIL ===");
     console.log("Sending credentials email to:", email);
 
-    const emailResponse = await supabase.functions.invoke('send-credentials-email', {
-      body: { 
-        email: email.toLowerCase(), 
-        name: email.split('@')[0],
-        temporaryPassword: temporaryPassword,
-        isNewUser: isNewUser
-      },
-    });
-
-    console.log("Email function response data:", emailResponse.data);
-    console.log("Email function response error:", emailResponse.error);
-
     let emailSent = false;
-    if (emailResponse.error) {
-      console.error("Error sending credentials email:", emailResponse.error);
-    } else {
-      console.log("Credentials email sent successfully to:", email);
-      emailSent = true;
+    try {
+      const emailResponse = await supabase.functions.invoke('send-credentials-email', {
+        body: { 
+          email: email.toLowerCase(), 
+          name: email.split('@')[0],
+          temporaryPassword: temporaryPassword,
+          isNewUser: isNewUser
+        },
+      });
+
+      console.log("Email function response data:", emailResponse.data);
+      console.log("Email function response error:", emailResponse.error);
+
+      if (emailResponse.error) {
+        console.error("Error sending credentials email:", emailResponse.error);
+      } else {
+        console.log("Credentials email sent successfully to:", email);
+        emailSent = true;
+      }
+    } catch (emailError: any) {
+      console.error("Email sending failed:", emailError);
+      // Não falhar a ativação por causa do email
     }
 
     console.log("=== ACTIVATION COMPLETED ===");
@@ -222,7 +229,10 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in activate-user:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack || "No stack trace available"
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
