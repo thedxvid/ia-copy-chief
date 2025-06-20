@@ -16,7 +16,7 @@ interface NotificationFlags {
   notified_10: boolean;
 }
 
-const MONTHLY_TOKENS_LIMIT = 25000; // Corrigido para 25k tokens
+const MONTHLY_TOKENS_LIMIT = 100000; // Atualizado para 100k tokens
 const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
 
 export const useTokens = () => {
@@ -91,21 +91,21 @@ export const useTokens = () => {
     
     // Notificação 90% usado (crítico)
     if (usagePercentage >= 90 && !flags.notified_90) {
-      toast.error('⚠️ Tokens Críticos!', {
+      toast.warning('⚠️ Tokens Críticos!', {
         description: `Você usou 90% dos seus tokens mensais. Restam apenas ${tokenData.total_available.toLocaleString()} tokens.`,
         duration: 8000,
       });
     }
     // Notificação 50% usado (atenção)
     else if (usagePercentage >= 50 && !flags.notified_50) {
-      toast.warning('📊 Meio Caminho', {
+      toast.info('📊 Meio Caminho', {
         description: `Você já usou metade dos seus tokens mensais. Restam ${tokenData.total_available.toLocaleString()} tokens.`,
         duration: 6000,
       });
     }
     // Notificação 10% restantes (primeiro aviso)
-    else if (usagePercentage >= 90 && !flags.notified_10) {
-      toast.info('💡 Primeiros 10% Usados', {
+    else if (usagePercentage >= 10 && !flags.notified_10) {
+      toast.success('💡 Primeiros 10% Usados', {
         description: `Você começou a usar seus tokens mensais. Restam ${tokenData.total_available.toLocaleString()} tokens.`,
         duration: 4000,
       });
@@ -233,81 +233,6 @@ export const useTokens = () => {
     return Math.min(100, Math.max(0, (usedTokens / MONTHLY_TOKENS_LIMIT) * 100));
   }, [tokens]);
 
-  useEffect(() => {
-    fetchTokens();
-  }, [fetchTokens]);
-
-  useEffect(() => {
-    if (tokens && lastResetDate) {
-      checkResetNeeded();
-    }
-  }, [tokens, lastResetDate, checkResetNeeded]);
-
-  const refreshTokens = useCallback(() => {
-    console.log('🔄 Manual refresh tokens...');
-    fetchTokens(true);
-  }, [fetchTokens]);
-
-  const getUsagePercentage = useCallback(() => {
-    if (!tokens) return 0;
-    const totalTokens = tokens.monthly_tokens + tokens.extra_tokens;
-    if (totalTokens === 0) return 100;
-    return Math.round((tokens.total_available / totalTokens) * 100);
-  }, [tokens]);
-
-  const getStatusColor = useCallback(() => {
-    const percentage = getUsagePercentage();
-    if (percentage > 50) return 'text-green-500';
-    if (percentage > 20) return 'text-yellow-500';
-    return 'text-red-500';
-  }, [getUsagePercentage]);
-
-  const getStatusMessage = useCallback(() => {
-    if (!tokens) return 'Carregando...';
-    
-    const percentage = getUsagePercentage();
-    const usagePercentage = 100 - percentage;
-    
-    if (usagePercentage < 10) return 'Excelente';
-    if (usagePercentage < 50) return 'Bom';
-    if (usagePercentage < 90) return 'Atenção';
-    if (percentage > 0) return 'Crítico';
-    return 'Esgotado';
-  }, [tokens, getUsagePercentage]);
-
-  const shouldShowLowTokenWarning = useCallback(() => {
-    if (!tokens) return false;
-    const percentage = getUsagePercentage();
-    return percentage < 20;
-  }, [tokens, getUsagePercentage]);
-
-  const getRemainingDaysEstimate = useCallback(() => {
-    if (!tokens) return null;
-    
-    const totalUsed = MONTHLY_TOKENS_LIMIT - tokens.total_available;
-    const daysInMonth = new Date().getDate();
-    const avgDailyUsage = daysInMonth > 0 ? totalUsed / daysInMonth : 1000;
-    
-    if (avgDailyUsage <= 0) return 30;
-    
-    const remainingDays = Math.floor(tokens.total_available / avgDailyUsage);
-    return Math.max(0, remainingDays);
-  }, [tokens]);
-
-  const getTokensForFeature = useCallback((feature: 'chat' | 'copy' | 'complex_copy') => {
-    const estimates = {
-      chat: 300,
-      copy: 1500,
-      complex_copy: 3000
-    };
-    return estimates[feature];
-  }, []);
-
-  const canAffordFeature = useCallback((feature: 'chat' | 'copy' | 'complex_copy') => {
-    if (!tokens) return false;
-    return tokens.total_available >= getTokensForFeature(feature);
-  }, [tokens, getTokensForFeature]);
-
   const getMonthlyLimit = useCallback(() => MONTHLY_TOKENS_LIMIT, []);
 
   return {
@@ -318,16 +243,84 @@ export const useTokens = () => {
     lastResetDate,
     lastUpdate,
     isRefreshing,
-    refreshTokens,
-    getUsagePercentage,
-    getStatusColor,
-    getStatusMessage,
-    shouldShowLowTokenWarning,
-    getRemainingDaysEstimate,
-    getTokensForFeature,
-    canAffordFeature,
+    refreshTokens: fetchTokens,
+    getUsagePercentage: useCallback(() => {
+      if (!tokens) return 0;
+      const totalTokens = tokens.monthly_tokens + tokens.extra_tokens;
+      if (totalTokens === 0) return 100;
+      return Math.round((tokens.total_available / totalTokens) * 100);
+    }, [tokens]),
+    getStatusColor: useCallback(() => {
+      if (!tokens) return 'text-gray-500';
+      const percentage = Math.round((tokens.total_available / (tokens.monthly_tokens + tokens.extra_tokens)) * 100);
+      if (percentage > 50) return 'text-green-500';
+      if (percentage > 20) return 'text-yellow-500';
+      return 'text-red-500';
+    }, [tokens]),
+    getStatusMessage: useCallback(() => {
+      if (!tokens) return 'Carregando...';
+      
+      const percentage = Math.round((tokens.total_available / (tokens.monthly_tokens + tokens.extra_tokens)) * 100);
+      const usagePercentage = 100 - percentage;
+      
+      if (usagePercentage < 10) return 'Excelente';
+      if (usagePercentage < 50) return 'Bom';
+      if (usagePercentage < 90) return 'Atenção';
+      if (percentage > 0) return 'Crítico';
+      return 'Esgotado';
+    }, [tokens]),
+    shouldShowLowTokenWarning: useCallback(() => {
+      if (!tokens) return false;
+      const percentage = Math.round((tokens.total_available / (tokens.monthly_tokens + tokens.extra_tokens)) * 100);
+      return percentage < 20;
+    }, [tokens]),
+    getRemainingDaysEstimate: useCallback(() => {
+      if (!tokens) return null;
+      
+      const totalUsed = MONTHLY_TOKENS_LIMIT - tokens.total_available;
+      const daysInMonth = new Date().getDate();
+      const avgDailyUsage = daysInMonth > 0 ? totalUsed / daysInMonth : 1000;
+      
+      if (avgDailyUsage <= 0) return 30;
+      
+      const remainingDays = Math.floor(tokens.total_available / avgDailyUsage);
+      return Math.max(0, remainingDays);
+    }, [tokens]),
+    getTokensForFeature: useCallback((feature: 'chat' | 'copy' | 'complex_copy') => {
+      const estimates = {
+        chat: 300,
+        copy: 1500,
+        complex_copy: 3000
+      };
+      return estimates[feature];
+    }, []),
+    canAffordFeature: useCallback((feature: 'chat' | 'copy' | 'complex_copy') => {
+      if (!tokens) return false;
+      const estimates = {
+        chat: 300,
+        copy: 1500,
+        complex_copy: 3000
+      };
+      return tokens.total_available >= estimates[feature];
+    }, [tokens]),
     getMonthlyLimit,
-    getDaysUntilReset,
-    getMonthlyUsageProgress,
+    getDaysUntilReset: useCallback(() => {
+      if (!lastResetDate) return null;
+      
+      const resetDate = new Date(lastResetDate);
+      const nextReset = new Date(resetDate);
+      nextReset.setMonth(nextReset.getMonth() + 1);
+      
+      const today = new Date();
+      const daysUntilReset = Math.ceil((nextReset.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      return Math.max(0, daysUntilReset);
+    }, [lastResetDate]),
+    getMonthlyUsageProgress: useCallback(() => {
+      if (!tokens) return 0;
+      
+      const usedTokens = MONTHLY_TOKENS_LIMIT - tokens.total_available;
+      return Math.min(100, Math.max(0, (usedTokens / MONTHLY_TOKENS_LIMIT) * 100));
+    }, [tokens]),
   };
 };

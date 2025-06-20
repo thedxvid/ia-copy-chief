@@ -815,6 +815,86 @@ export type Database = {
           },
         ]
       }
+      token_package_purchases: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          digital_guru_order_id: string | null
+          id: string
+          package_id: string
+          payment_status: string
+          processed_at: string | null
+          tokens_purchased: number
+          user_id: string
+        }
+        Insert: {
+          amount_paid: number
+          created_at?: string
+          digital_guru_order_id?: string | null
+          id?: string
+          package_id: string
+          payment_status?: string
+          processed_at?: string | null
+          tokens_purchased: number
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          digital_guru_order_id?: string | null
+          id?: string
+          package_id?: string
+          payment_status?: string
+          processed_at?: string | null
+          tokens_purchased?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_package_purchases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "token_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      token_packages: {
+        Row: {
+          checkout_url: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          price_brl: number
+          tokens_amount: number
+          updated_at: string
+        }
+        Insert: {
+          checkout_url: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price_brl: number
+          tokens_amount: number
+          updated_at?: string
+        }
+        Update: {
+          checkout_url?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_brl?: number
+          tokens_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       token_purchases: {
         Row: {
           amount_paid: number | null

@@ -1,10 +1,10 @@
-
 import React, { useEffect, useState } from 'react';
 import { useTokens } from '@/hooks/useTokens';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TokenAnalyticsModal } from './TokenAnalyticsModal';
+import { TokenPurchaseModal } from './TokenPurchaseModal';
 import { 
   Coins, 
   RefreshCw, 
@@ -13,7 +13,8 @@ import {
   TrendingUp, 
   DollarSign, 
   BarChart3,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react';
 
 export const TokenWidget = () => {
@@ -27,6 +28,7 @@ export const TokenWidget = () => {
   } = useTokens();
   
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showPurchase, setShowPurchase] = useState(false);
   const [pulseAnimation, setPulseAnimation] = useState(false);
 
   // Animação de pulse quando há atualização
@@ -80,7 +82,7 @@ export const TokenWidget = () => {
     return num.toLocaleString();
   };
 
-  const monthlyLimit = 25000;
+  const monthlyLimit = 100000; // Atualizado para 100k
   const usagePercentage = ((monthlyLimit - tokens.total_available) / monthlyLimit) * 100;
   const remainingPercentage = 100 - usagePercentage;
   const isLowTokens = remainingPercentage < 20;
@@ -141,7 +143,13 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 
-                {getStatusIcon()}
+                {isCritical ? (
+                  <AlertTriangle className="h-3 w-3 text-red-500 animate-pulse" />
+                ) : isLowTokens ? (
+                  <TrendingDown className="h-3 w-3 text-yellow-500" />
+                ) : (
+                  <TrendingUp className="h-3 w-3 text-green-500" />
+                )}
                 
                 <span className={`text-xs font-medium transition-colors ${
                   isCritical ? 'text-red-400' : isLowTokens ? 'text-yellow-400' : 'text-white'
@@ -152,7 +160,11 @@ export const TokenWidget = () => {
                 {/* Barra de progresso */}
                 <div className="w-16 h-2 rounded-full bg-[#2A2A2A] overflow-hidden relative">
                   <div 
-                    className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${getProgressBarColor()}`}
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      remainingPercentage > 50 ? 'bg-gradient-to-r from-green-500 to-green-400' :
+                      remainingPercentage > 20 ? 'bg-gradient-to-r from-yellow-500 to-yellow-400' :
+                      'bg-gradient-to-r from-red-500 to-red-400'
+                    }`}
                     style={{ width: `${remainingPercentage}%` }}
                   />
                   {pulseAnimation && (
@@ -174,12 +186,6 @@ export const TokenWidget = () => {
                   <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </Button>
                 
-                {/* Indicador de última atualização */}
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <Clock className="h-3 w-3" />
-                  <span>{getLastUpdateText()}</span>
-                </div>
-                
                 <BarChart3 className="h-3 w-3 text-gray-400 group-hover:text-[#3B82F6] transition-colors" />
               </div>
             </TooltipTrigger>
@@ -192,26 +198,34 @@ export const TokenWidget = () => {
                     isLowTokens ? 'text-yellow-400' : 
                     'text-green-400'
                   }>
-                    {getStatusMessage()}
+                    {isCritical ? 'Crítico' : isLowTokens ? 'Atenção' : 'Normal'}
                   </span>
                 </div>
                 <div className="space-y-1 text-xs">
                   <p><strong>Disponível:</strong> {tokens.total_available.toLocaleString()} créditos</p>
                   <p><strong>Usado:</strong> {(monthlyLimit - tokens.total_available).toLocaleString()} créditos ({usagePercentage.toFixed(1)}%)</p>
                   <p><strong>Limite mensal:</strong> {monthlyLimit.toLocaleString()} créditos</p>
-                  <p className="text-green-400">
-                    <strong>Última atualização:</strong> {getLastUpdateText()}
-                  </p>
                   {isCritical && (
-                    <p className="text-red-400 font-medium">⚠️ Créditos críticos! Considere economizar.</p>
+                    <p className="text-red-400 font-medium">⚠️ Créditos críticos! Considere comprar mais tokens.</p>
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-600">
-                  💡 Clique para ver analytics detalhados • Auto-atualização a cada 30s
+                  💡 Clique para ver analytics detalhados
                 </p>
               </div>
             </TooltipContent>
           </Tooltip>
+
+          {/* Botão de Compra */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowPurchase(true)}
+            className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs border-[#2A2A2A] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            Comprar
+          </Button>
 
           {/* Mobile Version */}
           <Tooltip>
@@ -224,16 +238,9 @@ export const TokenWidget = () => {
                 }`}
                 onClick={() => setShowAnalytics(true)}
               >
-                <div className="relative">
-                  <Coins className={`h-3.5 w-3.5 ${
-                    isCritical ? 'text-red-500' : isLowTokens ? 'text-yellow-500' : 'text-[#3B82F6]'
-                  }`} />
-                  {pulseAnimation && (
-                    <div className="absolute inset-0 rounded-full bg-[#3B82F6] animate-ping opacity-20" />
-                  )}
-                </div>
-                
-                {getStatusIcon()}
+                <Coins className={`h-3.5 w-3.5 ${
+                  isCritical ? 'text-red-500' : isLowTokens ? 'text-yellow-500' : 'text-[#3B82F6]'
+                }`} />
                 
                 <span className={`text-xs font-medium ${
                   isCritical ? 'text-red-400' : isLowTokens ? 'text-yellow-400' : 'text-white'
@@ -257,44 +264,25 @@ export const TokenWidget = () => {
             </TooltipTrigger>
             <TooltipContent>
               <div className="text-sm space-y-1">
-                <div className="flex items-center gap-2">
-                  <strong>{getStatusMessage()}</strong>
-                </div>
                 <p>{formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)} créditos</p>
                 <p>Usado: {usagePercentage.toFixed(1)}%</p>
                 {isCritical && <p className="text-red-400">⚠️ Créditos críticos!</p>}
-                <p className="text-green-400 text-xs">
-                  Atualizado: {getLastUpdateText()}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Toque para analytics • Auto-refresh ativo</p>
+                <p className="text-xs text-gray-400 mt-1">Toque para analytics</p>
               </div>
             </TooltipContent>
           </Tooltip>
-
-          {/* Botão de Compra - Preparado para futuro */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs border-[#2A2A2A] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white transition-colors"
-            disabled
-          >
-            <DollarSign className="h-3 w-3" />
-            Comprar
-          </Button>
-
-          {/* Alerta móvel para tokens críticos */}
-          {isCritical && (
-            <div className="md:hidden">
-              <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
-            </div>
-          )}
         </div>
       </TooltipProvider>
 
-      {/* Modal de Analytics */}
+      {/* Modais */}
       <TokenAnalyticsModal 
         isOpen={showAnalytics} 
         onClose={() => setShowAnalytics(false)} 
+      />
+      
+      <TokenPurchaseModal 
+        isOpen={showPurchase} 
+        onClose={() => setShowPurchase(false)} 
       />
     </>
   );

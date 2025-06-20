@@ -50,7 +50,7 @@ serve(async (req) => {
     }
 
     const totalUsers = stats?.length || 0;
-    const totalTokensReset = totalUsers * 25000; // Corrigido para 25k tokens per user
+    const totalTokensReset = totalUsers * 100000; // Atualizado para 100k tokens per user
 
     console.log(`Reset concluído para ${totalUsers} usuários`);
     console.log(`Total de tokens resetados: ${totalTokensReset.toLocaleString()}`);
