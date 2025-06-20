@@ -40,15 +40,16 @@ export const UserActivator: React.FC = () => {
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
     setDebugInfo(null);
     
     try {
       console.log("=== ADMIN: Starting user activation ===");
-      console.log("Email:", email.trim());
+      console.log("Email:", normalizedEmail);
       
       const { data, error } = await supabase.functions.invoke('activate-user', {
-        body: { email: email.trim().toLowerCase() },
+        body: { email: normalizedEmail },
       });
 
       console.log("=== ADMIN: Function response ===");
@@ -101,16 +102,16 @@ Erro: ${data.error}`;
       // Sucesso
       const successMessage = data?.isNewUser 
         ? `✅ Usuário criado e ativado! ${data?.emailSent ? 'Email enviado com sucesso' : 'Atenção: Email pode não ter sido enviado'}`
-        : `✅ Usuário ativado! ${email.trim()} foi ativado por 30 dias com 25.000 tokens`;
+        : `✅ Usuário ativado! ${normalizedEmail} foi ativado por 30 dias com 25.000 tokens`;
 
       toast({
         title: data?.isNewUser ? "🎉 Novo Usuário Criado!" : "✅ Usuário Ativado!",
         description: data?.isNewUser 
-          ? `${email.trim()} foi criado e ativado com sucesso. ${data?.emailSent ? 'Email de boas-vindas enviado!' : 'Verifique os logs para o status do email.'}`
-          : `${email.trim()} foi ativado por 30 dias com 25.000 tokens`,
+          ? `${normalizedEmail} foi criado e ativado com sucesso. ${data?.emailSent ? 'Email de boas-vindas enviado!' : 'Verifique os logs para o status do email.'}`
+          : `${normalizedEmail} foi ativado por 30 dias com 25.000 tokens`,
       });
 
-      setLastActivated(email.trim());
+      setLastActivated(normalizedEmail);
       setEmail('');
       
       let debugSuccessInfo = `✅ Ativação bem-sucedida!
