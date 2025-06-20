@@ -10,10 +10,10 @@ import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { GoalsProgress } from '@/components/dashboard/GoalsProgress';
 import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
-import { useTokens } from '@/hooks/useTokens';
+import { useTokensOptimized } from '@/hooks/useTokensOptimized';
 
 const Dashboard = () => {
-  const { tokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
+  const { tokens, showUpgradeModal, setShowUpgradeModal } = useTokensOptimized();
 
   return (
     <DashboardLayout>
