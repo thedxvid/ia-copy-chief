@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
@@ -26,13 +27,13 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending checkout email to:", email, "with URL:", checkoutUrl);
 
     const emailResponse = await resend.emails.send({
-      from: "CopyMaster <noreply@iacopychief.com>",
+      from: "CopyChief <noreply@iacopychief.com>",
       to: [email],
-      subject: "🚀 Complete seu acesso ao CopyMaster",
+      subject: "🚀 Complete seu acesso ao CopyChief",
       html: `
         <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #3B82F6; font-size: 32px; margin: 0; font-weight: 700;">CopyMaster</h1>
+            <h1 style="color: #3B82F6; font-size: 32px; margin: 0; font-weight: 700;">CopyChief</h1>
             <p style="color: #6B7280; font-size: 16px; margin: 8px 0 0 0;">Sua plataforma de copywriting com IA</p>
           </div>
           
@@ -97,7 +98,7 @@ const handler = async (req: Request): Promise<Response> => {
           <div style="text-align: center; padding: 24px 0; border-top: 1px solid #E5E7EB; margin-top: 30px;">
             <p style="color: #6B7280; font-size: 14px; margin: 0; line-height: 1.6;">
               Precisa de ajuda? Responda este email ou acesse nosso suporte.<br>
-              © 2025 CopyMaster. Todos os direitos reservados.
+              © 2025 CopyChief. Todos os direitos reservados.
             </p>
           </div>
         </div>
@@ -126,3 +127,4 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 serve(handler);
+
