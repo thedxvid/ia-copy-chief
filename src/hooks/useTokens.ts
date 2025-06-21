@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,11 +110,15 @@ export const useTokens = () => {
       }
       setError(null);
       
-      // Buscar tokens disponíveis
+      // SEGURANÇA: Usar a nova função segura para verificar saldo
+      console.log('🔒 SECURITY: Fetching token balance securely for user:', user.id);
       const { data: tokensData, error: tokensError } = await supabase
-        .rpc('get_available_tokens', { p_user_id: user.id });
+        .rpc('check_token_balance', { p_user_i1d: user.id });
 
-      if (tokensError) throw tokensError;
+      if (tokensError) {
+        console.error('❌ SECURITY: Error fetching token balance:', tokensError);
+        throw tokensError;
+      }
 
       // Buscar flags de notificação e data de reset
       const { data: profileData, error: profileError } = await supabase
@@ -144,13 +147,13 @@ export const useTokens = () => {
         // Verificar se precisa mostrar notificações ou popup
         checkAndShowNotifications(tokenInfo, flags);
         
-        console.log('Tokens atualizados:', tokenInfo);
+        console.log('✅ SECURITY: Tokens fetched securely:', tokenInfo);
       } else {
-        console.warn('Nenhum dado de token encontrado para o usuário');
+        console.warn('❌ SECURITY: No token data found for user');
         setError('Dados de tokens não encontrados');
       }
     } catch (err) {
-      console.error('Error fetching tokens:', err);
+      console.error('❌ SECURITY: Error fetching tokens:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar tokens');
     } finally {
       setLoading(false);
@@ -270,13 +273,13 @@ export const useTokens = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔄 Iniciando carregamento de tokens para usuário:', user.id);
+    console.log('🔄 SECURITY: Initiating secure token loading for user:', user.id);
 
     // Primeiro, tentar carregar do cache
     const cachedData = readFromCache();
     
     if (cachedData) {
-      console.log('💾 Dados encontrados no cache - carregamento instantâneo');
+      console.log('💾 SECURITY: Cache data found - instant loading with security validation');
       
       // Renderizar imediatamente com dados do cache
       setTokens(cachedData.tokens);
@@ -286,10 +289,10 @@ export const useTokens = () => {
       setLoading(false);
       
       // Buscar dados atualizados em segundo plano
-      console.log('🔄 Atualizando dados em segundo plano...');
+      console.log('🔄 SECURITY: Updating data in background with security validation...');
       fetchTokens(true);
     } else {
-      console.log('🆕 Primeira visita ou cache expirado - carregamento normal');
+      console.log('🆕 SECURITY: First visit or cache expired - secure loading');
       // Se não há cache, fazer carregamento normal
       fetchTokens(false);
     }

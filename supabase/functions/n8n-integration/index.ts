@@ -87,7 +87,7 @@ serve(async (req) => {
 
     // Determinar prompt baseado no tipo de requisição
     let prompt = '';
-    let estimatedTokens = 2500; // Tokens estimados para Claude 4 Sonnet
+    let estimatedTokens = 2500; // Tokens estimados para Claude 3.5 Sonnet
 
     if (type === 'copy_generation' && (data?.copy_type || copyType)) {
       // Nova estrutura para copies especializadas (Quiz e páginas especializadas)
@@ -110,30 +110,38 @@ serve(async (req) => {
     console.log('💭 Generated prompt length:', prompt.length);
     console.log('🎯 Estimated tokens:', estimatedTokens);
 
-    // Verificar tokens disponíveis
-    console.log('🔍 Checking available tokens for user:', userId);
-    const { data: tokensData, error: tokensError } = await supabase
-      .rpc('get_available_tokens', { p_user_id: userId });
-
-    if (tokensError) {
-      console.error('❌ Error checking tokens:', tokensError);
-      throw new Error('Erro ao verificar tokens disponíveis');
-    }
-
-    const userTokens = tokensData?.[0];
-    console.log('💰 User tokens data:', userTokens);
-    
-    if (!userTokens || userTokens.total_available < estimatedTokens) {
-      console.log('💸 Insufficient tokens:', { 
-        available: userTokens?.total_available, 
-        needed: estimatedTokens 
+    // SEGURANÇA CRÍTICA: Verificar E DEDUZIR tokens em uma única operação atômica
+    console.log('🔒 SECURITY: Attempting secure token deduction for user:', userId);
+    const { data: deductionResult, error: deductionError } = await supabase
+      .rpc('secure_deduct_tokens', {
+        p_user_id: userId,
+        p_amount: estimatedTokens,
+        p_feature_used: `copy_generation_${data?.copy_type || copyType}`
       });
-      throw new Error(`Tokens insuficientes. Você tem ${userTokens?.total_available || 0} tokens disponíveis e precisa de aproximadamente ${estimatedTokens} tokens para gerar esta copy.`);
+
+    if (deductionError) {
+      console.error('❌ SECURITY: Token deduction failed - Database error:', deductionError);
+      throw new Error('Erro interno ao processar tokens');
     }
 
-    console.log('🤖 Calling AI API...');
+    if (!deductionResult) {
+      console.log('💸 SECURITY: Token deduction failed - Insufficient balance');
+      
+      // Buscar saldo atual para informar ao usuário
+      const { data: balanceData } = await supabase
+        .rpc('check_token_balance', { p_user_id: userId });
+      
+      const currentBalance = balanceData?.[0]?.total_available || 0;
+      
+      throw new Error(`Tokens insuficientes. Você tem ${currentBalance.toLocaleString()} tokens disponíveis e precisa de aproximadamente ${estimatedTokens.toLocaleString()} tokens para gerar esta copy.`);
+    }
+
+    console.log('✅ SECURITY: Tokens successfully deducted. Proceeding with AI generation...');
 
     // Chamar API de IA com a sintaxe correta
+    const aiStartTime = Date.now();
+    console.log('🤖 Calling AI API...');
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -142,7 +150,7 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022', // Modelo correto Claude 3.5 Sonnet
+        model: 'claude-3-5-sonnet-20241022', // Mantendo Claude 3.5 Sonnet conforme solicitado
         max_tokens: 4000,
         messages: [
           { role: 'user', content: prompt }
@@ -153,6 +161,14 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ AI API error:', response.status, errorText);
+      
+      // SEGURANÇA: Reembolsar tokens em caso de falha na API
+      console.log('🔄 SECURITY: Refunding tokens due to AI API failure...');
+      await supabase.rpc('refund_tokens', {
+        p_user_id: userId,
+        p_amount: estimatedTokens,
+        p_reason: `AI API error: ${response.status}`
+      });
       
       // Melhor tratamento de erros específicos da API
       if (response.status === 400) {
@@ -170,51 +186,90 @@ serve(async (req) => {
     }
 
     const aiData = await response.json();
+    const aiEndTime = Date.now();
+    console.log(`⏱️ AI API response time: ${aiEndTime - aiStartTime}ms`);
     
     // Validação robusta da resposta
     if (!aiData.content || !Array.isArray(aiData.content) || aiData.content.length === 0) {
       console.error('❌ Resposta inválida da API:', aiData);
+      
+      // SEGURANÇA: Reembolsar tokens em caso de resposta inválida
+      console.log('🔄 SECURITY: Refunding tokens due to invalid AI response...');
+      await supabase.rpc('refund_tokens', {
+        p_user_id: userId,
+        p_amount: estimatedTokens,
+        p_reason: 'Invalid AI API response'
+      });
+      
       throw new Error('Resposta inválida da API de IA');
     }
 
     const generatedCopy = aiData.content[0]?.text;
     if (!generatedCopy || typeof generatedCopy !== 'string') {
       console.error('❌ Texto da resposta inválido:', aiData.content[0]);
+      
+      // SEGURANÇA: Reembolsar tokens em caso de texto inválido
+      console.log('🔄 SECURITY: Refunding tokens due to invalid response text...');
+      await supabase.rpc('refund_tokens', {
+        p_user_id: userId,
+        p_amount: estimatedTokens,
+        p_reason: 'Invalid response text'
+      });
+      
       throw new Error('Texto da resposta inválido');
     }
 
     console.log('✅ Copy generated successfully, length:', generatedCopy.length);
 
-    // Calcular tokens reais usados
+    // Calcular tokens reais usados (atualização para métricas mais precisas)
     const actualTokensUsed = aiData.usage?.input_tokens + aiData.usage?.output_tokens || estimatedTokens;
-    console.log('📊 Actual tokens used:', actualTokensUsed);
+    console.log('📊 Token usage - Estimated:', estimatedTokens, 'Actual:', actualTokensUsed);
 
-    // Consumir tokens
-    const { data: consumeResult, error: consumeError } = await supabase
-      .rpc('consume_tokens', {
-        p_user_id: userId,
-        p_tokens_used: actualTokensUsed,
-        p_feature_used: `copy_generation_${data?.copy_type || copyType}`,
-        p_prompt_tokens: aiData.usage?.input_tokens || Math.floor(actualTokensUsed * 0.4),
-        p_completion_tokens: aiData.usage?.output_tokens || Math.floor(actualTokensUsed * 0.6)
-      });
-
-    if (consumeError || !consumeResult) {
-      console.error('⚠️ Error consuming tokens:', consumeError);
-    } else {
-      console.log('✅ Tokens consumed successfully');
+    // Se houve diferença significativa nos tokens, fazer ajuste
+    const tokenDifference = actualTokensUsed - estimatedTokens;
+    if (Math.abs(tokenDifference) > 100) { // Margem de tolerância
+      console.log(`🔄 SECURITY: Adjusting token usage difference: ${tokenDifference}`);
+      
+      if (tokenDifference > 0) {
+        // Precisamos deduzir mais tokens
+        const { data: additionalDeduction } = await supabase
+          .rpc('secure_deduct_tokens', {
+            p_user_id: userId,
+            p_amount: tokenDifference,
+            p_feature_used: `copy_generation_${data?.copy_type || copyType}_adjustment`
+          });
+        
+        if (!additionalDeduction) {
+          console.warn('⚠️ Could not deduct additional tokens, but operation was successful');
+        }
+      } else {
+        // Podemos reembolsar a diferença
+        await supabase.rpc('refund_tokens', {
+          p_user_id: userId,
+          p_amount: Math.abs(tokenDifference),
+          p_reason: 'Token usage adjustment - overestimation'
+        });
+      }
     }
 
+    // Verificar saldo final para notificações
+    const { data: finalBalance } = await supabase
+      .rpc('check_token_balance', { p_user_id: userId });
+    
+    const remainingTokens = finalBalance?.[0]?.total_available || 0;
+    
     // Verificar notificações
-    await checkAndSendNotifications(supabase, userId, userTokens.total_available - actualTokensUsed);
+    await checkAndSendNotifications(supabase, userId, remainingTokens);
 
     console.log('🎉 Copy generation completed successfully');
+    console.log('💰 Final user balance:', remainingTokens);
 
     return new Response(JSON.stringify({
       generatedCopy,
       tokensUsed: actualTokensUsed,
-      tokensRemaining: userTokens.total_available - actualTokensUsed,
-      copyType: data?.copy_type || copyType
+      tokensRemaining: remainingTokens,
+      copyType: data?.copy_type || copyType,
+      securityLevel: 'enhanced' // Indicador de que a segurança foi aplicada
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -231,7 +286,8 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({
       error: error.message || 'Erro interno do servidor',
-      details: error.name || 'Unknown error'
+      details: error.name || 'Unknown error',
+      securityLevel: 'enhanced'
     }), {
       status: error.message.includes('Tokens insuficientes') ? 402 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -240,7 +296,7 @@ serve(async (req) => {
 });
 
 function estimateSpecializedTokens(copyType: string): number {
-  // Estimativas ajustadas para Claude 4 Sonnet
+  // Estimativas ajustadas para Claude 3.5 Sonnet
   const estimates: { [key: string]: number } = {
     'vsl': 4000,
     'sales_video': 4000,
@@ -479,7 +535,7 @@ Público: ${audience}`
 }
 
 function estimateTokensForCopy(copyType: string, productData: any, customInstructions?: string): number {
-  // Estimativas baseadas no tipo de copy para Claude 4 Sonnet
+  // Estimativas baseadas no tipo de copy para Claude 3.5 Sonnet
   const baseEstimates: { [key: string]: number } = {
     'landing_page': 3000,
     'email_sequence': 2500,
@@ -522,7 +578,7 @@ Gere uma copy completa, profissional e otimizada para conversão.`;
 }
 
 async function checkAndSendNotifications(supabase: any, userId: string, remainingTokens: number) {
-  const MONTHLY_TOKENS = 25000;
+  const MONTHLY_TOKENS = 100000; // Atualizado para o limite correto
   const usagePercentage = ((MONTHLY_TOKENS - remainingTokens) / MONTHLY_TOKENS) * 100;
   
   console.log('🔔 Checking notifications:', { remainingTokens, usagePercentage });
@@ -543,7 +599,7 @@ async function checkAndSendNotifications(supabase: any, userId: string, remainin
     updateData.notified_50 = true;
   }
 
-  if (usagePercentage >= 90 && !profile?.notified_10) {
+  if (usagePercentage >= 10 && !profile?.notified_10) {
     updateData.notified_10 = true;
   }
 

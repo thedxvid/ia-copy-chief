@@ -1014,6 +1014,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_token_balance: {
+        Args: { p_user_id: string }
+        Returns: {
+          monthly_tokens: number
+          extra_tokens: number
+          total_available: number
+          total_used: number
+        }[]
+      }
       consume_tokens: {
         Args: {
           p_user_id: string
@@ -1048,9 +1057,17 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      refund_tokens: {
+        Args: { p_user_id: string; p_amount: number; p_reason?: string }
+        Returns: boolean
+      }
       reset_monthly_tokens: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      secure_deduct_tokens: {
+        Args: { p_user_id: string; p_amount: number; p_feature_used?: string }
+        Returns: boolean
       }
     }
     Enums: {
