@@ -266,10 +266,11 @@ serve(async (req) => {
     }
 
     // Creditar tokens extras ao usuário
+    const newTotalTokens = (user.extra_tokens || 0) + tokensToAdd;
     const { error: creditError } = await supabase
       .from('profiles')
       .update({
-        extra_tokens: (user.extra_tokens || 0) + tokensToAdd,
+        extra_tokens: newTotalTokens,
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id);
@@ -285,7 +286,7 @@ serve(async (req) => {
     console.log('🎉 TOKENS CREDITADOS COM SUCESSO:', {
       userId: user.id,
       tokensAdded: tokensToAdd,
-      newExtraTokens: (user.extra_tokens || 0) + tokensToAdd,
+      newExtraTokens: newTotalTokens,
       orderId: extractedData.order_id
     });
 
@@ -297,9 +298,35 @@ serve(async (req) => {
         admin_user_id: user.id, // Auto-credit via webhook
         action_type: 'add_extra',
         old_value: user.extra_tokens || 0,
-        new_value: (user.extra_tokens || 0) + tokensToAdd,
+        new_value: newTotalTokens,
         reason: `Compra de tokens processada via webhook - Order ID: ${extractedData.order_id} - Produto: ${extractedData.product_name}`
       });
+
+    // NOVO: Enviar email de confirmação
+    try {
+      console.log('📧 Enviando email de confirmação de compra...');
+      
+      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-token-purchase-email', {
+        body: {
+          email: extractedData.customer_email,
+          name: extractedData.customer_name || user.full_name || 'Cliente',
+          tokensAdded: tokensToAdd,
+          amountPaid: orderTotal || 0,
+          newTotalTokens: newTotalTokens,
+          orderId: extractedData.order_id
+        }
+      });
+
+      if (emailError) {
+        console.error('⚠️ Erro ao enviar email (não crítico):', emailError);
+        // Não retornar erro aqui, pois os tokens já foram creditados com sucesso
+      } else {
+        console.log('✅ Email de confirmação enviado com sucesso');
+      }
+    } catch (emailError) {
+      console.error('⚠️ Erro ao enviar email de confirmação (não crítico):', emailError);
+      // Continuar normalmente, pois o importante é que os tokens foram creditados
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -307,7 +334,9 @@ serve(async (req) => {
       data: {
         userId: user.id,
         tokensAdded: tokensToAdd,
+        newTotalTokens: newTotalTokens,
         orderId: extractedData.order_id,
+        emailSent: true,
         extractedData: extractedData
       }
     }), {

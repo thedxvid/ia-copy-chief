@@ -65,6 +65,9 @@ verify_jwt = false
 [functions.send-welcome-email]
 verify_jwt = false
 
+[functions.send-token-purchase-email]
+verify_jwt = false
+
 [db]
 port = 54322
 major_version = 15
