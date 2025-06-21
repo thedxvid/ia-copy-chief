@@ -5,15 +5,16 @@ import { TokenMonitoringDashboard } from '@/components/tokens/TokenMonitoringDas
 import { UserActivator } from '@/components/admin/UserActivator';
 import { AdminUserTable } from '@/components/admin/AdminUserTable';
 import { QuizTemplatesManager } from '@/components/admin/QuizTemplatesManager';
+import { UserTokenManagement } from '@/components/admin/UserTokenManagement';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, Users, HelpCircle, BarChart3, UserCheck } from 'lucide-react';
+import { Settings, Users, HelpCircle, BarChart3, UserCheck, Coins } from 'lucide-react';
 
 const Admin = () => {
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState<'overview' | 'tokens' | 'users' | 'user-table' | 'quiz'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'tokens' | 'users' | 'user-table' | 'quiz' | 'token-management'>('overview');
 
   // Lista de emails de administradores definitivos
   const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
@@ -40,6 +41,12 @@ const Admin = () => {
       icon: Settings
     },
     {
+      id: 'token-management' as const,
+      title: 'Gerenciar Tokens',
+      description: 'Edite tokens de usuários manualmente',
+      icon: Coins
+    },
+    {
       id: 'user-table' as const,
       title: 'Tabela de Usuários',
       description: 'Visualize todos os usuários e seus dados',
@@ -63,6 +70,8 @@ const Admin = () => {
     switch (activeSection) {
       case 'tokens':
         return <TokenMonitoringDashboard />;
+      case 'token-management':
+        return <UserTokenManagement />;
       case 'user-table':
         return <AdminUserTable />;
       case 'users':
@@ -111,7 +120,7 @@ const Admin = () => {
   };
 
   return (
-    <DashboardLayout>
+    <D Layout>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in w-full max-w-full overflow-x-hidden">
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-2 bg-[#1E1E1E] border border-[#4B5563] rounded-lg p-2">

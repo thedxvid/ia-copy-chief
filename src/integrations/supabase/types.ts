@@ -815,6 +815,39 @@ export type Database = {
           },
         ]
       }
+      token_audit_logs: {
+        Row: {
+          action_type: string
+          admin_user_id: string
+          created_at: string
+          id: string
+          new_value: number
+          old_value: number
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          new_value: number
+          old_value: number
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          new_value?: number
+          old_value?: number
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       token_package_purchases: {
         Row: {
           amount_paid: number
@@ -963,6 +996,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_update_user_tokens: {
+        Args: {
+          p_target_user_id: string
+          p_action_type: string
+          p_value: number
+          p_reason?: string
+        }
+        Returns: boolean
+      }
       check_rate_limit: {
         Args: {
           user_id: string
