@@ -97,11 +97,6 @@ export const useTokens = () => {
     }
   }, [getExhaustedModalDismissalKey]);
 
-  // Função para obter a chave do cache específica do usuário
-  const getCacheKey = useCallback(() => {
-    return user?.id ? `tokenDataCache_${user.id}` : 'tokenDataCache_anonymous';
-  }, [user?.id]);
-
   // Função para ler dados do cache
   const readFromCache = useCallback((): CacheData | null => {
     if (!user?.id) return null;
@@ -441,7 +436,7 @@ export const useTokens = () => {
       .on(
         'postgres_changes',
         {
-          event: '*', // Escutar todos os eventos (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'profiles',
           filter: `id=eq.${user.id}`,
@@ -454,9 +449,7 @@ export const useTokens = () => {
             timestamp: new Date().toLocaleTimeString()
           });
           
-          // FORÇAR atualização INSTANTÂNEA quando há mudança
-          console.log('💰 FORÇANDO atualização INSTANTÂNEA de tokens devido a mudança em tempo real');
-          setTimeout(() => fetchTokens(true, true), 50); // Reduzido para 50ms para máxima velocidade
+          setTimeout(() => fetchTokens(true, true), 50);
         }
       )
       .on(
@@ -474,9 +467,7 @@ export const useTokens = () => {
             timestamp: new Date().toLocaleTimeString()
           });
           
-          // FORÇAR atualização INSTANTÂNEA quando tokens são usados
-          console.log('🔄 FORÇANDO atualização INSTANTÂNEA devido a novo uso de token');
-          setTimeout(() => fetchTokens(true, true), 50); // Reduzido para 50ms para máxima velocidade
+          setTimeout(() => fetchTokens(true, true), 50);
         }
       )
       .subscribe((status) => {
