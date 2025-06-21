@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,9 +17,17 @@ interface NotificationFlags {
   notified_10: boolean;
 }
 
+interface CacheData {
+  tokens: TokenData;
+  notificationFlags: NotificationFlags;
+  lastResetDate: string | null;
+  timestamp: number;
+}
+
 const MONTHLY_TOKENS_LIMIT = 100000; // 100k tokens
 const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
 const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
+const CACHE_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutos em ms
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
@@ -31,6 +40,62 @@ export const useTokens = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [lastNotificationTime, setLastNotificationTime] = useState<{ [key: string]: number }>({});
   const { user } = useAuth();
+
+  // Função para obter a chave do cache específica do usuário
+  const getCacheKey = useCallback(() => {
+    return user?.id ? `tokenDataCache_${user.id}` : 'tokenDataCache_anonymous';
+  }, [user?.id]);
+
+  // Função para ler dados do cache
+  const readFromCache = useCallback((): CacheData | null => {
+    if (!user?.id) return null;
+    
+    try {
+      const cacheKey = getCacheKey();
+      const cachedDataString = localStorage.getItem(cacheKey);
+      
+      if (!cachedDataString) return null;
+      
+      const cachedData: CacheData = JSON.parse(cachedDataString);
+      const now = Date.now();
+      
+      // Verificar se o cache não expirou
+      if (now - cachedData.timestamp > CACHE_EXPIRY_TIME) {
+        localStorage.removeItem(cacheKey);
+        return null;
+      }
+      
+      return cachedData;
+    } catch (error) {
+      console.warn('Erro ao ler cache de tokens:', error);
+      // Remove cache corrompido
+      try {
+        localStorage.removeItem(getCacheKey());
+      } catch (e) {
+        console.warn('Erro ao remover cache corrompido:', e);
+      }
+      return null;
+    }
+  }, [user?.id, getCacheKey]);
+
+  // Função para salvar dados no cache
+  const saveToCache = useCallback((tokenData: TokenData, flags: NotificationFlags | null, resetDate: string | null) => {
+    if (!user?.id) return;
+    
+    try {
+      const cacheKey = getCacheKey();
+      const cacheData: CacheData = {
+        tokens: tokenData,
+        notificationFlags: flags || { notified_90: false, notified_50: false, notified_10: false },
+        lastResetDate: resetDate,
+        timestamp: Date.now()
+      };
+      
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+      console.warn('Erro ao salvar cache de tokens:', error);
+    }
+  }, [user?.id, getCacheKey]);
 
   const fetchTokens = useCallback(async (showRefreshing = false) => {
     if (!user?.id) {
@@ -65,13 +130,19 @@ export const useTokens = () => {
 
       if (tokensData && tokensData.length > 0) {
         const tokenInfo = tokensData[0];
+        const flags = profileData || { notified_90: false, notified_50: false, notified_10: false };
+        const resetDate = profileData?.tokens_reset_date || null;
+        
         setTokens(tokenInfo);
-        setNotificationFlags(profileData || { notified_90: false, notified_50: false, notified_10: false });
-        setLastResetDate(profileData?.tokens_reset_date || null);
+        setNotificationFlags(flags);
+        setLastResetDate(resetDate);
         setLastUpdate(new Date());
         
+        // Salvar no cache após buscar dados do servidor
+        saveToCache(tokenInfo, flags, resetDate);
+        
         // Verificar se precisa mostrar notificações ou popup
-        checkAndShowNotifications(tokenInfo, profileData);
+        checkAndShowNotifications(tokenInfo, flags);
         
         console.log('Tokens atualizados:', tokenInfo);
       } else {
@@ -85,7 +156,7 @@ export const useTokens = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, saveToCache]);
 
   const checkAndShowNotifications = useCallback((tokenData: TokenData, flags: NotificationFlags | null) => {
     if (!tokenData || !flags) return;
@@ -194,6 +265,38 @@ export const useTokens = () => {
       }
     }
   }, [user?.id, lastResetDate, fetchTokens]);
+
+  // Effect principal - implementação do cache inteligente
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔄 Iniciando carregamento de tokens para usuário:', user.id);
+
+    // Primeiro, tentar carregar do cache
+    const cachedData = readFromCache();
+    
+    if (cachedData) {
+      console.log('💾 Dados encontrados no cache - carregamento instantâneo');
+      
+      // Renderizar imediatamente com dados do cache
+      setTokens(cachedData.tokens);
+      setNotificationFlags(cachedData.notificationFlags);
+      setLastResetDate(cachedData.lastResetDate);
+      setLastUpdate(new Date(cachedData.timestamp));
+      setLoading(false);
+      
+      // Buscar dados atualizados em segundo plano
+      console.log('🔄 Atualizando dados em segundo plano...');
+      fetchTokens(true);
+    } else {
+      console.log('🆕 Primeira visita ou cache expirado - carregamento normal');
+      // Se não há cache, fazer carregamento normal
+      fetchTokens(false);
+    }
+
+    // Verificar se reset é necessário
+    checkResetNeeded();
+  }, [user?.id, readFromCache, fetchTokens, checkResetNeeded]);
 
   // Configurar subscription em tempo real
   useEffect(() => {
