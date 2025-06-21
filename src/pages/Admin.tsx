@@ -6,7 +6,8 @@ import { UserActivator } from '@/components/admin/UserActivator';
 import { UserTable } from '@/components/admin/UserTable';
 import { QuizTemplatesManager } from '@/components/admin/QuizTemplatesManager';
 import { SecurityAuditDashboard } from '@/components/admin/SecurityAuditDashboard';
-import { Shield, Users, UserPlus, MessageSquare, Activity } from 'lucide-react';
+import { TokenMonitoringDashboard } from '@/components/tokens/TokenMonitoringDashboard';
+import { Shield, Users, UserPlus, MessageSquare, Activity, BarChart3 } from 'lucide-react';
 
 const Admin = () => {
   return (
@@ -18,10 +19,14 @@ const Admin = () => {
         </div>
         
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4 bg-[#2A2A2A] border-[#4B5563]">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-5 bg-[#2A2A2A] border-[#4B5563]">
             <TabsTrigger value="users" className="flex items-center space-x-2 text-white data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
               <Users className="h-4 w-4" />
               <span>Usuários</span>
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="flex items-center space-x-2 text-white data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
+              <BarChart3 className="h-4 w-4" />
+              <span>Monitoramento</span>
             </TabsTrigger>
             <TabsTrigger value="activation" className="flex items-center space-x-2 text-white data-[state=active]:bg-[#3B82F6] data-[state=active]:text-white">
               <UserPlus className="h-4 w-4" />
@@ -39,6 +44,10 @@ const Admin = () => {
 
           <TabsContent value="users">
             <UserTable />
+          </TabsContent>
+
+          <TabsContent value="monitoring">
+            <TokenMonitoringDashboard />
           </TabsContent>
 
           <TabsContent value="activation">
