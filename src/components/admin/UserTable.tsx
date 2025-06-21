@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useTokenMonitoring } from '@/hooks/useTokenMonitoring';
-import { Search, Users, UserCheck, AlertTriangle, Download, RefreshCw } from 'lucide-react';
+import { TokenEditor } from '@/components/admin/TokenEditor';
+import { TokenAuditHistory } from '@/components/admin/TokenAuditHistory';
+import { Search, Users, UserCheck, AlertTriangle, Download, RefreshCw, Settings } from 'lucide-react';
 
 export const UserTable: React.FC = () => {
   const { userDetails, stats, loading, refreshData, exportTokenReport } = useTokenMonitoring();
@@ -126,6 +128,7 @@ export const UserTable: React.FC = () => {
               Lista de Usuários ({filteredUsers.length})
             </span>
             <div className="flex gap-2">
+              <TokenAuditHistory />
               <Button
                 onClick={refreshData}
                 variant="outline"
@@ -194,6 +197,7 @@ export const UserTable: React.FC = () => {
                   <TableHead className="text-[#CCCCCC]">Uso</TableHead>
                   <TableHead className="text-[#CCCCCC]">Data Reset</TableHead>
                   <TableHead className="text-[#CCCCCC]">Total Usado</TableHead>
+                  <TableHead className="text-[#CCCCCC]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -245,6 +249,24 @@ export const UserTable: React.FC = () => {
                       <p className="text-white font-mono">
                         {user.total_tokens_used.toLocaleString()}
                       </p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <TokenEditor
+                          user={{
+                            id: user.id,
+                            full_name: user.full_name,
+                            monthly_tokens: user.monthly_tokens,
+                            extra_tokens: user.extra_tokens,
+                            total_available: user.total_available
+                          }}
+                          onTokensUpdated={refreshData}
+                        />
+                        <TokenAuditHistory
+                          userId={user.id}
+                          userName={user.full_name || 'Usuário'}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
