@@ -159,6 +159,68 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // NOVA VERIFICAÇÃO: Status da assinatura ANTES de qualquer operação
+    console.log('🔒 Verificando status da assinatura para usuário:', userId);
+    
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('subscription_status, monthly_tokens, extra_tokens, total_tokens_used')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      console.error('❌ Erro ao verificar perfil do usuário:', profileError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'User profile verification failed',
+          details: 'Erro ao verificar dados do usuário',
+          retryable: true
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    if (!profile) {
+      console.error('❌ Perfil do usuário não encontrado:', userId);
+      return new Response(
+        JSON.stringify({ 
+          error: 'User profile not found',
+          details: 'Perfil do usuário não encontrado',
+          retryable: false
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Verificar se a assinatura está ativa
+    if (profile.subscription_status !== 'active') {
+      console.error('🚫 Assinatura não ativa para usuário:', {
+        userId,
+        currentStatus: profile.subscription_status
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Subscription not active',
+          details: 'A sua assinatura não está ativa. Por favor, regularize seu pagamento para continuar usando o serviço.',
+          subscriptionStatus: profile.subscription_status,
+          retryable: false
+        }),
+        { 
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('✅ Assinatura ativa confirmada para usuário:', userId);
+
     // NOVA VALIDAÇÃO: Verificar se o usuário tem saldo mínimo ANTES de chamar a IA
     console.log('💰 Verificando saldo mínimo para usuário:', userId);
     

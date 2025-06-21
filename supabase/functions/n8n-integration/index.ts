@@ -85,6 +85,39 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // NOVA VERIFICAÇÃO: Status da assinatura ANTES de qualquer operação
+    console.log('🔒 Verificando status da assinatura para usuário:', userId);
+    
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('subscription_status, monthly_tokens, extra_tokens, total_tokens_used')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      console.error('❌ Erro ao verificar perfil do usuário:', profileError);
+      throw new Error('Erro ao verificar dados do usuário');
+    }
+
+    if (!profile) {
+      console.error('❌ Perfil do usuário não encontrado:', userId);
+      throw new Error('Perfil do usuário não encontrado');
+    }
+
+    // Verificar se a assinatura está ativa
+    if (profile.subscription_status !== 'active') {
+      console.error('🚫 Assinatura não ativa para usuário:', {
+        userId,
+        currentStatus: profile.subscription_status
+      });
+      
+      const error = new Error('A sua assinatura não está ativa. Por favor, regularize seu pagamento para continuar usando o serviço.');
+      error.name = 'SubscriptionNotActive';
+      throw error;
+    }
+
+    console.log('✅ Assinatura ativa confirmada para usuário:', userId);
+
     // NOVA VALIDAÇÃO: Verificar se o usuário tem saldo mínimo ANTES de chamar a IA
     console.log('💰 Verificando saldo mínimo para usuário:', userId);
     
@@ -280,12 +313,16 @@ serve(async (req) => {
       stack: error.stack
     });
     
+    // Tratamento especial para erro de assinatura
+    const status = error.name === 'SubscriptionNotActive' ? 403 : 
+                   error.message.includes('Créditos insuficientes') ? 402 : 500;
+    
     return new Response(JSON.stringify({
       error: error.message || 'Erro interno do servidor',
       details: error.name || 'Unknown error',
       chargingModel: 'output_tokens_only'
     }), {
-      status: error.message.includes('Créditos insuficientes') ? 402 : 500,
+      status: status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
