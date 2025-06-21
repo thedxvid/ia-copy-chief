@@ -39,7 +39,63 @@ export const useTokens = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showExhaustedModal, setShowExhaustedModal] = useState(false);
   const [lastNotificationTime, setLastNotificationTime] = useState<{ [key: string]: number }>({});
+  const [exhaustedModalDismissed, setExhaustedModalDismissed] = useState(false);
   const { user } = useAuth();
+
+  // Função para obter a chave do cache específica do usuário
+  const getCacheKey = useCallback(() => {
+    return user?.id ? `tokenDataCache_${user.id}` : 'tokenDataCache_anonymous';
+  }, [user?.id]);
+
+  // Função para obter a chave do dismissal do modal
+  const getExhaustedModalDismissalKey = useCallback(() => {
+    return user?.id ? `exhaustedModalDismissed_${user.id}` : 'exhaustedModalDismissed_anonymous';
+  }, [user?.id]);
+
+  // Função para verificar se o modal foi dispensado
+  const isExhaustedModalDismissed = useCallback(() => {
+    try {
+      const dismissalKey = getExhaustedModalDismissalKey();
+      const dismissedUntil = localStorage.getItem(dismissalKey);
+      
+      if (!dismissedUntil) return false;
+      
+      const dismissedTimestamp = parseInt(dismissedUntil);
+      const now = Date.now();
+      
+      // Verificar se ainda está no período de dismissal (até próxima renovação ou 30 dias)
+      return now < dismissedTimestamp;
+    } catch (error) {
+      console.warn('Erro ao verificar dismissal do modal:', error);
+      return false;
+    }
+  }, [getExhaustedModalDismissalKey]);
+
+  // Função para marcar o modal como dispensado
+  const dismissExhaustedModal = useCallback(() => {
+    try {
+      const dismissalKey = getExhaustedModalDismissalKey();
+      // Dispensar por 30 dias ou até próxima renovação
+      const dismissUntil = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 dias
+      localStorage.setItem(dismissalKey, dismissUntil.toString());
+      setExhaustedModalDismissed(true);
+      console.log('🔕 Modal de tokens esgotados dispensado até:', new Date(dismissUntil).toLocaleString());
+    } catch (error) {
+      console.warn('Erro ao dispensar modal:', error);
+    }
+  }, [getExhaustedModalDismissalKey]);
+
+  // Função para limpar o dismissal (quando tokens são renovados)
+  const clearExhaustedModalDismissal = useCallback(() => {
+    try {
+      const dismissalKey = getExhaustedModalDismissalKey();
+      localStorage.removeItem(dismissalKey);
+      setExhaustedModalDismissed(false);
+      console.log('🔔 Dismissal do modal de tokens esgotados limpo');
+    } catch (error) {
+      console.warn('Erro ao limpar dismissal do modal:', error);
+    }
+  }, [getExhaustedModalDismissalKey]);
 
   // Função para obter a chave do cache específica do usuário
   const getCacheKey = useCallback(() => {
@@ -196,6 +252,11 @@ export const useTokens = () => {
           timestamp: new Date().toLocaleTimeString()
         });
         
+        // Se tokens foram renovados (não são mais zero), limpar dismissal
+        if (tokensData.total_available > 0 && exhaustedModalDismissed) {
+          clearExhaustedModalDismissal();
+        }
+        
         setTokens(tokensData);
         setNotificationFlags(flags);
         setLastResetDate(resetDate);
@@ -217,7 +278,7 @@ export const useTokens = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [user?.id, saveToCache]);
+  }, [user?.id, saveToCache, exhaustedModalDismissed, clearExhaustedModalDismissal]);
 
   const checkAndShowNotifications = useCallback((tokenData: TokenData, flags: NotificationFlags | null) => {
     if (!tokenData || !flags) return;
@@ -227,6 +288,12 @@ export const useTokens = () => {
     
     // Verificar se tokens acabaram - mostrar modal específico para tokens zerados
     if (tokenData.total_available === 0) {
+      // Verificar se o modal foi dispensado
+      if (isExhaustedModalDismissed()) {
+        console.log('🔕 Modal de tokens esgotados dispensado - não mostrando');
+        return;
+      }
+      
       const lastZeroNotification = lastNotificationTime['zero'] || 0;
       if (now - lastZeroNotification > NOTIFICATION_COOLDOWN) {
         setShowExhaustedModal(true);
@@ -296,7 +363,7 @@ export const useTokens = () => {
           .eq('id', user?.id);
       }
     }
-  }, [lastNotificationTime, user?.id]);
+  }, [lastNotificationTime, user?.id, isExhaustedModalDismissed]);
 
   const checkResetNeeded = useCallback(async () => {
     if (!user?.id || !lastResetDate) return;
@@ -333,6 +400,9 @@ export const useTokens = () => {
 
     console.log('🔄 INICIANDO carregamento de tokens para usuário:', user.id);
 
+    // Verificar se modal foi dispensado
+    setExhaustedModalDismissed(isExhaustedModalDismissed());
+
     // Primeiro, tentar carregar do cache
     const cachedData = readFromCache();
     
@@ -357,7 +427,7 @@ export const useTokens = () => {
 
     // Verificar se reset é necessário
     checkResetNeeded();
-  }, [user?.id, readFromCache, fetchTokens, checkResetNeeded]);
+  }, [user?.id, readFromCache, fetchTokens, checkResetNeeded, isExhaustedModalDismissed]);
 
   // MELHORADA: Configurar subscription mais robusta para atualizações em tempo real
   useEffect(() => {
@@ -493,6 +563,12 @@ export const useTokens = () => {
     setShowUpgradeModal(true);
   }, []);
 
+  // Função para fechar o modal de tokens esgotados e dispensá-lo
+  const handleCloseExhaustedModal = useCallback(() => {
+    setShowExhaustedModal(false);
+    dismissExhaustedModal();
+  }, [dismissExhaustedModal]);
+
   return {
     tokens,
     loading,
@@ -506,6 +582,7 @@ export const useTokens = () => {
     showExhaustedModal,
     setShowExhaustedModal,
     handleUpgrade,
+    handleCloseExhaustedModal,
     refreshTokens: (showRefreshing = false) => fetchTokens(showRefreshing, true),
     getUsagePercentage: useCallback(() => {
       if (!tokens) return 0;

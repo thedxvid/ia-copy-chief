@@ -20,7 +20,8 @@ const Dashboard = () => {
     setShowUpgradeModal,
     showExhaustedModal,
     setShowExhaustedModal,
-    handleUpgrade
+    handleUpgrade,
+    handleCloseExhaustedModal
   } = useTokens();
 
   return (
@@ -50,7 +51,7 @@ const Dashboard = () => {
       {/* Modal para tokens esgotados */}
       <TokenExhaustedModal
         isOpen={showExhaustedModal}
-        onClose={() => setShowExhaustedModal(false)}
+        onClose={handleCloseExhaustedModal}
         onUpgrade={handleUpgrade}
       />
 
