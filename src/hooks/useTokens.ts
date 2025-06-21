@@ -20,6 +20,14 @@ const MONTHLY_TOKENS_LIMIT = 100000; // 100k tokens
 const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
 const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
 
+// ... existing code ...
+const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
+const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
+const TOKEN_CACHE_KEY = 'tokenDataCache';
+
+export const useTokens = () => {
+// ... existing code ...
+
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,60 +40,20 @@ export const useTokens = () => {
   const [lastNotificationTime, setLastNotificationTime] = useState<{ [key: string]: number }>({});
   const { user } = useAuth();
 
+  // ... (código anterior)
+
   const fetchTokens = useCallback(async (showRefreshing = false) => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      if (showRefreshing) {
-        setIsRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
-      
-      // Executar chamadas em paralelo
-      const [tokensResponse, profileResponse] = await Promise.all([
-        supabase.rpc('get_available_tokens', { p_user_id: user.id }),
-        supabase
-          .from('profiles')
-          .select('notified_90, notified_50, notified_10, tokens_reset_date')
-          .eq('id', user.id)
-          .single()
-      ]);
-
-      const { data: tokensData, error: tokensError } = tokensResponse;
-      const { data: profileData, error: profileError } = profileResponse;
-
-      if (profileError) {
-        console.warn('Erro ao buscar flags de notificação:', profileError);
-      }
-
-      if (tokensData && tokensData.length > 0) {
-        const tokenInfo = tokensData[0];
-        setTokens(tokenInfo);
-        setNotificationFlags(profileData || { notified_90: false, notified_50: false, notified_10: false });
-        setLastResetDate(profileData?.tokens_reset_date || null);
-        setLastUpdate(new Date());
-        
-        // Verificar se precisa mostrar notificações ou popup
-        checkAndShowNotifications(tokenInfo, profileData);
-        
-        console.log('Tokens atualizados:', tokenInfo);
-      } else {
-        console.warn('Nenhum dado de token encontrado para o usuário');
-        setError('Dados de tokens não encontrados');
-      }
-    } catch (err) {
-      console.error('Error fetching tokens:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao carregar tokens');
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
+    //
+    //  SELECIONE TUDO AQUI DENTRO...
+    //
+    //  ...ATÉ ESTA LINHA ABAIXO
   }, [user?.id]);
+
+
+  // NÃO SELECIONE DAQUI PARA BAIXO
+  const checkAndShowNotifications = useCallback((tokenData: TokenData, flags: NotificationFlags | null) => {
+    if (!tokenData || !flags) return;
+    // ... resto do código
 
   const checkAndShowNotifications = useCallback((tokenData: TokenData, flags: NotificationFlags | null) => {
     if (!tokenData || !flags) return;
