@@ -85,12 +85,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // NOVA VERIFICAÇÃO: Status da assinatura ANTES de qualquer operação
+    // VERIFICAÇÃO MELHORADA: Status da assinatura com bypass para admin
     console.log('🔒 Verificando status da assinatura para usuário:', userId);
     
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('subscription_status, monthly_tokens, extra_tokens, total_tokens_used')
+      .select('subscription_status, monthly_tokens, extra_tokens, total_tokens_used, is_admin')
       .eq('id', userId)
       .single();
 
@@ -104,21 +104,37 @@ serve(async (req) => {
       throw new Error('Perfil do usuário não encontrado');
     }
 
-    // Verificar se a assinatura está ativa
-    if (profile.subscription_status !== 'active') {
-      console.error('🚫 Assinatura não ativa para usuário:', {
+    // NOVA LÓGICA: Verificar se é admin primeiro
+    const isAdmin = profile.is_admin || false;
+    
+    if (isAdmin) {
+      console.log('👑 ADMIN detectado - Pulando verificação de assinatura:', {
         userId,
-        currentStatus: profile.subscription_status
+        subscriptionStatus: profile.subscription_status,
+        adminBypass: true
       });
-      
-      const error = new Error('A sua assinatura não está ativa. Por favor, regularize seu pagamento para continuar usando o serviço.');
-      error.name = 'SubscriptionNotActive';
-      throw error;
+    } else {
+      // Verificar se a assinatura está ativa apenas para não-admins
+      if (profile.subscription_status !== 'active') {
+        console.error('🚫 Assinatura não ativa para usuário não-admin:', {
+          userId,
+          currentStatus: profile.subscription_status
+        });
+        
+        const error = new Error('A sua assinatura não está ativa. Por favor, regularize seu pagamento para continuar usando o serviço.');
+        error.name = 'SubscriptionNotActive';
+        throw error;
+      }
     }
 
-    console.log('✅ Assinatura ativa confirmada para usuário:', userId);
+    console.log('✅ Verificação de acesso aprovada:', {
+      userId,
+      isAdmin,
+      subscriptionStatus: profile.subscription_status,
+      accessGranted: true
+    });
 
-    // NOVA VALIDAÇÃO: Verificar se o usuário tem saldo mínimo ANTES de chamar a IA
+    // VERIFICAÇÃO DE SALDO: Mais permissiva para admins
     console.log('💰 Verificando saldo mínimo para usuário:', userId);
     
     const { data: tokenData, error: tokenError } = await supabase
@@ -129,20 +145,30 @@ serve(async (req) => {
       throw new Error('Erro ao verificar saldo de tokens');
     }
 
-    if (!tokenData || tokenData.length === 0 || tokenData[0].total_available <= 0) {
-      console.error('❌ Saldo insuficiente para iniciar operação:', {
+    if (!tokenData || tokenData.length === 0) {
+      console.error('❌ Dados de token não encontrados:', { userId, tokenData });
+      throw new Error('Erro ao carregar dados de tokens');
+    }
+
+    const userTokens = tokenData[0];
+    console.log('💰 Tokens do usuário:', {
+      totalAvailable: userTokens.total_available,
+      monthlyTokens: userTokens.monthly_tokens,
+      extraTokens: userTokens.extra_tokens,
+      totalUsed: userTokens.total_used,
+      isAdmin
+    });
+
+    // Verificação mais permissiva de saldo para admins
+    if (!isAdmin && userTokens.total_available <= 0) {
+      console.error('❌ Saldo insuficiente para usuário não-admin:', {
         userId,
-        tokenData: tokenData?.[0]
+        totalAvailable: userTokens.total_available
       });
       throw new Error('Créditos insuficientes para iniciar esta operação. Recarregue seu saldo.');
     }
 
-    const userTokens = tokenData[0];
-    console.log('✅ Saldo positivo confirmado:', {
-      totalAvailable: userTokens.total_available,
-      monthlyTokens: userTokens.monthly_tokens,
-      extraTokens: userTokens.extra_tokens
-    });
+    console.log('✅ Saldo positivo confirmado. Prosseguindo com chamada à IA...');
 
     // Determinar prompt baseado no tipo de requisição
     let prompt = '';
@@ -247,9 +273,9 @@ serve(async (req) => {
       onlyChargingFor: 'output_tokens'
     });
 
-    // NOVA LÓGICA: Deduzir apenas os tokens de saída usando a função segura
+    // NOVA LÓGICA: Deduzir apenas os tokens de saída usando a função segura (apenas para não-admins)
     let deductionSuccess = true;
-    if (outputTokens > 0) {
+    if (outputTokens > 0 && !isAdmin) {
       console.log('💳 Deduzindo tokens de saída:', outputTokens);
       
       const { data: deductionResult, error: deductionError } = await supabase
@@ -267,24 +293,27 @@ serve(async (req) => {
           deductionResult
         });
         deductionSuccess = false;
-        
-        // Não bloquear a resposta, mas registrar o problema
-        // A copy foi gerada e deve ser retornada ao usuário
       } else {
         console.log('✅ Tokens de saída deduzidos com sucesso:', outputTokens);
       }
+    } else if (isAdmin) {
+      console.log('👑 Admin bypass - Tokens não deduzidos');
+      deductionSuccess = true;
     } else {
       console.log('ℹ️ Resposta não gerou tokens de saída para deduzir');
     }
 
-    // Verificar saldo final para notificações
-    const { data: finalBalance } = await supabase
-      .rpc('get_available_tokens', { p_user_id: userId });
-    
-    const remainingTokens = finalBalance?.[0]?.total_available || 0;
-    
-    // Verificar notificações
-    await checkAndSendNotifications(supabase, userId, remainingTokens);
+    // Verificar saldo final para notificações (apenas para não-admins)
+    let remainingTokens = userTokens.total_available;
+    if (!isAdmin) {
+      const { data: finalBalance } = await supabase
+        .rpc('get_available_tokens', { p_user_id: userId });
+      
+      remainingTokens = finalBalance?.[0]?.total_available || 0;
+      
+      // Verificar notificações
+      await checkAndSendNotifications(supabase, userId, remainingTokens);
+    }
 
     console.log('🎉 Copy generation completed successfully');
     console.log('💰 Final user balance:', remainingTokens);
@@ -292,13 +321,14 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       generatedCopy,
-      tokensUsed: outputTokens, // Apenas tokens de saída
-      inputTokens: inputTokens, // Para informação
-      outputTokens: outputTokens, // Para informação
+      tokensUsed: isAdmin ? 0 : outputTokens, // Admins não consomem tokens
+      inputTokens: inputTokens,
+      outputTokens: outputTokens,
       tokensRemaining: remainingTokens,
       copyType: data?.copy_type || copyType,
       chargingModel: 'output_tokens_only',
-      deductionSuccess: deductionSuccess
+      deductionSuccess: deductionSuccess,
+      adminBypass: isAdmin
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
