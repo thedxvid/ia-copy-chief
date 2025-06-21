@@ -29,11 +29,12 @@ serve(async (req) => {
     if (!validateRequest(req)) {
       return new Response(
         JSON.stringify({ 
-          error: 'Method not allowed',
-          details: 'Apenas POST é permitido'
+          error: 'Método não permitido',
+          details: 'Apenas requisições POST são aceitas',
+          code: 'METHOD_NOT_ALLOWED'
         }),
         { 
-          status: 200,
+          status: 405,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -43,12 +44,13 @@ serve(async (req) => {
     if (!validateApiKey()) {
       return new Response(
         JSON.stringify({ 
-          error: 'AI service not configured', 
-          details: 'ANTHROPIC_API_KEY missing',
-          retryable: false
+          error: 'Serviço de IA indisponível', 
+          details: 'A integração com a IA está temporariamente indisponível. Tente novamente mais tarde.',
+          code: 'AI_SERVICE_UNAVAILABLE',
+          retryable: true
         }),
         { 
-          status: 200,
+          status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -62,11 +64,12 @@ serve(async (req) => {
       console.error('❌ Token de autenticação inválido');
       return new Response(
         JSON.stringify({ 
-          error: 'Unauthorized',
-          details: 'Token de autenticação inválido ou ausente'
+          error: 'Acesso não autorizado',
+          details: 'Você precisa estar logado para usar o chat. Faça login e tente novamente.',
+          code: 'UNAUTHORIZED'
         }),
         { 
-          status: 200,
+          status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -81,12 +84,13 @@ serve(async (req) => {
       console.error('❌ Erro ao parsear JSON:', error);
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid JSON in request body',
-          details: error.message,
+          error: 'Dados inválidos',
+          details: 'Os dados enviados estão em formato inválido. Verifique e tente novamente.',
+          code: 'INVALID_JSON',
           retryable: false
         }),
         { 
-          status: 200,
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -98,12 +102,13 @@ serve(async (req) => {
     if (!validation.isValid) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required fields', 
-          details: validation.error,
+          error: 'Dados obrigatórios ausentes', 
+          details: validation.error || 'Alguns campos obrigatórios não foram fornecidos',
+          code: 'MISSING_REQUIRED_FIELDS',
           retryable: false
         }),
         { 
-          status: 200,
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -145,13 +150,14 @@ serve(async (req) => {
       console.error('⏱️ Rate limit excedido para usuário:', userId);
       return new Response(
         JSON.stringify({ 
-          error: 'Rate limit exceeded', 
-          details: 'Muitas requisições. Aguarde um momento antes de tentar novamente.',
+          error: 'Muitas requisições', 
+          details: 'Você está fazendo muitas requisições seguidas. Aguarde um momento antes de tentar novamente.',
           retryAfter: 60,
+          code: 'RATE_LIMIT_EXCEEDED',
           retryable: true
         }),
         { 
-          status: 200,
+          status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -172,12 +178,13 @@ serve(async (req) => {
       console.error('❌ Erro ao verificar perfil do usuário:', profileError);
       return new Response(
         JSON.stringify({ 
-          error: 'User profile verification failed',
-          details: 'Erro ao verificar dados do usuário',
+          error: 'Erro interno do sistema',
+          details: 'Não foi possível verificar seus dados. Tente novamente em alguns minutos.',
+          code: 'PROFILE_VERIFICATION_FAILED',
           retryable: true
         }),
         { 
-          status: 200,
+          status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -187,12 +194,13 @@ serve(async (req) => {
       console.error('❌ Perfil do usuário não encontrado:', userId);
       return new Response(
         JSON.stringify({ 
-          error: 'User profile not found',
-          details: 'Perfil do usuário não encontrado',
+          error: 'Usuário não encontrado',
+          details: 'Seu perfil não foi encontrado. Tente fazer logout e login novamente.',
+          code: 'USER_PROFILE_NOT_FOUND',
           retryable: false
         }),
         { 
-          status: 200,
+          status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -205,11 +213,33 @@ serve(async (req) => {
         currentStatus: profile.subscription_status
       });
       
+      // Mensagens específicas baseadas no status
+      let errorMessage = 'Acesso bloqueado';
+      let errorDetails = 'Sua assinatura não está ativa.';
+      
+      switch (profile.subscription_status) {
+        case 'pending':
+          errorDetails = 'Sua assinatura está pendente de ativação. Aguarde a confirmação do pagamento ou entre em contato com o suporte.';
+          break;
+        case 'canceled':
+          errorDetails = 'Sua assinatura foi cancelada. Para continuar usando o serviço, reative sua assinatura.';
+          break;
+        case 'past_due':
+          errorDetails = 'Sua assinatura está em atraso. Regularize seu pagamento para continuar usando o serviço.';
+          break;
+        case 'inactive':
+          errorDetails = 'Sua assinatura está inativa. Entre em contato com o suporte ou reative sua assinatura.';
+          break;
+        default:
+          errorDetails = `Status da assinatura: ${profile.subscription_status}. Entre em contato com o suporte.`;
+      }
+      
       return new Response(
         JSON.stringify({ 
-          error: 'Subscription not active',
-          details: 'A sua assinatura não está ativa. Por favor, regularize seu pagamento para continuar usando o serviço.',
+          error: errorMessage,
+          details: errorDetails,
           subscriptionStatus: profile.subscription_status,
+          code: 'SUBSCRIPTION_NOT_ACTIVE',
           retryable: false
         }),
         { 
@@ -231,12 +261,13 @@ serve(async (req) => {
       console.error('❌ Erro ao verificar tokens:', tokenError);
       return new Response(
         JSON.stringify({ 
-          error: 'Token verification failed',
-          details: 'Erro ao verificar saldo de tokens',
+          error: 'Erro ao verificar créditos',
+          details: 'Não foi possível verificar seu saldo de créditos. Tente novamente em alguns minutos.',
+          code: 'TOKEN_VERIFICATION_FAILED',
           retryable: true
         }),
         { 
-          status: 200,
+          status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -246,12 +277,13 @@ serve(async (req) => {
       console.error('❌ Nenhum dado de token encontrado para usuário:', userId);
       return new Response(
         JSON.stringify({ 
-          error: 'User tokens not found',
-          details: 'Dados de tokens não encontrados para o usuário',
+          error: 'Dados de créditos não encontrados',
+          details: 'Não foi possível encontrar informações sobre seus créditos. Entre em contato com o suporte.',
+          code: 'USER_TOKENS_NOT_FOUND',
           retryable: false
         }),
         { 
-          status: 200,
+          status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -273,9 +305,10 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ 
-          error: 'Insufficient tokens',
-          details: 'Créditos insuficientes para iniciar uma nova conversa. Recarregue seu saldo.',
+          error: 'Créditos insuficientes',
+          details: 'Você não possui créditos suficientes para iniciar uma nova conversa. Recarregue seu saldo para continuar.',
           tokensAvailable: userTokens.total_available,
+          code: 'INSUFFICIENT_TOKENS',
           retryable: false
         }),
         { 
@@ -346,14 +379,15 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ 
-          error: errorInfo.message,
-          details: errorInfo.details,
+          error: 'Falha na IA',
+          details: 'O serviço de IA está temporariamente indisponível. Tente novamente em alguns minutos.',
+          code: 'AI_SERVICE_ERROR',
           retryable: errorInfo.retryable,
           model: 'claude-sonnet-4-20250514',
           timestamp: new Date().toISOString()
         }),
         { 
-          status: 200,
+          status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -364,12 +398,13 @@ serve(async (req) => {
       console.error('❌ Erro na resposta do Claude:', claudeData.error);
       return new Response(
         JSON.stringify({ 
-          error: 'AI service error',
-          details: claudeData.error.message || 'Unknown AI error',
+          error: 'Erro no serviço de IA',
+          details: 'A IA retornou um erro. Tente reformular sua pergunta ou tente novamente mais tarde.',
+          code: 'AI_RESPONSE_ERROR',
           retryable: true
         }),
         { 
-          status: 200,
+          status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -383,12 +418,13 @@ serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ 
-          error: 'Empty response from AI service',
-          details: 'No content returned from Claude',
+          error: 'Resposta vazia da IA',
+          details: 'A IA não conseguiu gerar uma resposta. Tente reformular sua pergunta.',
+          code: 'EMPTY_AI_RESPONSE',
           retryable: true
         }),
         { 
-          status: 200,
+          status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -400,12 +436,13 @@ serve(async (req) => {
       console.error('❌ Texto da resposta inválido.');
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid response format from AI service',
-          details: 'Response text is missing or invalid',
+          error: 'Resposta inválida da IA',
+          details: 'A resposta da IA está em formato inválido. Tente novamente.',
+          code: 'INVALID_AI_RESPONSE',
           retryable: true
         }),
         { 
-          status: 200,
+          status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -426,12 +463,13 @@ serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid token cost from AI service',
-          details: 'Erro ao processar o custo da resposta',
+          error: 'Erro no processamento de créditos',
+          details: 'Não foi possível processar o custo da resposta. Tente novamente.',
+          code: 'TOKEN_COST_ERROR',
           retryable: false
         }),
         { 
-          status: 200,
+          status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -545,14 +583,15 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: 'Internal server error',
-        details: 'Erro interno do servidor para processamento com Claude 4 Sonnet. Tente novamente.',
+        error: 'Erro interno do servidor',
+        details: 'Ocorreu um erro inesperado. Nossa equipe foi notificada. Tente novamente em alguns minutos.',
         timestamp: new Date().toISOString(),
         model: 'claude-sonnet-4-20250514',
+        code: 'INTERNAL_SERVER_ERROR',
         retryable: true
       }),
       { 
-        status: 200,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
