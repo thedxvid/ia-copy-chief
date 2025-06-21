@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Coins, CreditCard, RefreshCw, User, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,8 +41,14 @@ export const TokenPurchaseProcessor: React.FC = () => {
       const { data, error } = await supabase
         .from('token_package_purchases')
         .select(`
-          *,
-          profiles:user_id (
+          id,
+          user_id,
+          digital_guru_order_id,
+          tokens_purchased,
+          amount_paid,
+          payment_status,
+          created_at,
+          profiles!inner (
             full_name,
             extra_tokens
           )
@@ -52,7 +57,17 @@ export const TokenPurchaseProcessor: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPendingPurchases(data || []);
+      
+      // Filtrar apenas resultados válidos e transformar para o tipo esperado
+      const validPurchases: PendingPurchase[] = (data || []).map(purchase => ({
+        ...purchase,
+        profiles: purchase.profiles ? {
+          full_name: purchase.profiles.full_name,
+          extra_tokens: purchase.profiles.extra_tokens
+        } : null
+      }));
+      
+      setPendingPurchases(validPurchases);
     } catch (error) {
       console.error('Erro ao buscar compras pendentes:', error);
       toast.error('Erro ao carregar compras pendentes');
