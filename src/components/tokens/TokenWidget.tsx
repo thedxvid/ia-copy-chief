@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useTokens } from '@/hooks/useTokens';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,7 +14,8 @@ import {
   TrendingDown, 
   TrendingUp, 
   BarChart3,
-  Plus
+  Plus,
+  Star
 } from 'lucide-react';
 
 export const TokenWidget = () => {
@@ -30,7 +32,7 @@ export const TokenWidget = () => {
   } = useTokens();
   
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [showPurch, setShowPurchase] = useState(false);
+  const [showPurchase, setShowPurchase] = useState(false);
   const [pulseAnimation, setPulseAnimation] = useState(false);
   
   // Ref para armazenar o valor anterior dos tokens
@@ -100,11 +102,28 @@ export const TokenWidget = () => {
     return num.toLocaleString();
   };
 
-  const monthlyLimit = 100000; // Atualizado para 100k
-  const usagePercentage = ((monthlyLimit - tokens.total_available) / monthlyLimit) * 100;
+  // Lógica atualizada para mostrar tokens mensais + extras
+  const monthlyTokens = tokens.monthly_tokens || 0;
+  const extraTokens = tokens.extra_tokens || 0;
+  const totalLimit = monthlyTokens + extraTokens;
+  const usedTokens = tokens.total_tokens_used || 0;
+  const availableTokens = tokens.total_available || 0;
+  
+  const usagePercentage = totalLimit > 0 ? ((usedTokens / totalLimit) * 100) : 0;
   const remainingPercentage = 100 - usagePercentage;
   const isLowTokens = remainingPercentage < 20;
   const isCritical = remainingPercentage < 10;
+
+  // Debug log
+  console.log('🎯 TOKEN WIDGET DEBUG:', {
+    monthlyTokens,
+    extraTokens,
+    totalLimit,
+    usedTokens,
+    availableTokens,
+    usagePercentage,
+    hasExtraTokens: extraTokens > 0
+  });
 
   return (
     <>
@@ -141,6 +160,11 @@ export const TokenWidget = () => {
                   )}
                 </div>
                 
+                {/* Indicador de tokens extras */}
+                {extraTokens > 0 && (
+                  <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                )}
+                
                 {isCritical ? (
                   <AlertTriangle className="h-3 w-3 text-red-500 animate-pulse" />
                 ) : isLowTokens ? (
@@ -152,7 +176,7 @@ export const TokenWidget = () => {
                 <span className={`text-xs font-medium transition-colors ${
                   isCritical ? 'text-red-400' : isLowTokens ? 'text-yellow-400' : 'text-white'
                 }`}>
-                  {formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)}
+                  {formatNumber(availableTokens)} / {formatNumber(totalLimit)}
                 </span>
                 
                 {/* Barra de progresso */}
@@ -163,7 +187,7 @@ export const TokenWidget = () => {
                       remainingPercentage > 20 ? 'bg-gradient-to-r from-yellow-500 to-yellow-400' :
                       'bg-gradient-to-r from-red-500 to-red-400'
                     }`}
-                    style={{ width: `${remainingPercentage}%` }}
+                    style={{ width: `${Math.max(0, remainingPercentage)}%` }}
                   />
                   {pulseAnimation && (
                     <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
@@ -197,11 +221,20 @@ export const TokenWidget = () => {
                   </span>
                 </div>
                 <div className="space-y-1 text-xs">
-                  <p><strong>Disponível:</strong> {tokens.total_available.toLocaleString()} créditos</p>
-                  <p><strong>Usado:</strong> {(monthlyLimit - tokens.total_available).toLocaleString()} créditos ({usagePercentage.toFixed(1)}%)</p>
-                  <p><strong>Limite mensal:</strong> {monthlyLimit.toLocaleString()} créditos</p>
+                  <p><strong>Disponível:</strong> {availableTokens.toLocaleString()} créditos</p>
+                  <p><strong>Mensais:</strong> {monthlyTokens.toLocaleString()} créditos</p>
+                  {extraTokens > 0 && (
+                    <p className="text-yellow-400">
+                      <strong>⭐ Extras:</strong> {extraTokens.toLocaleString()} créditos
+                    </p>
+                  )}
+                  <p><strong>Usado:</strong> {usedTokens.toLocaleString()} créditos ({usagePercentage.toFixed(1)}%)</p>
+                  <p><strong>Limite total:</strong> {totalLimit.toLocaleString()} créditos</p>
                   {isCritical && (
                     <p className="text-red-400 font-medium">⚠️ Créditos críticos! Considere comprar mais tokens.</p>
+                  )}
+                  {extraTokens > 0 && (
+                    <p className="text-yellow-400 font-medium">⭐ Você tem tokens extras!</p>
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-600">
@@ -237,10 +270,14 @@ export const TokenWidget = () => {
                   isCritical ? 'text-red-500' : isLowTokens ? 'text-yellow-500' : 'text-[#3B82F6]'
                 }`} />
                 
+                {extraTokens > 0 && (
+                  <Star className="h-2.5 w-2.5 text-yellow-500 fill-yellow-500" />
+                )}
+                
                 <span className={`text-xs font-medium ${
                   isCritical ? 'text-red-400' : isLowTokens ? 'text-yellow-400' : 'text-white'
                 }`}>
-                  {formatNumber(tokens.total_available)}
+                  {formatNumber(availableTokens)}
                 </span>
 
                 <Button
@@ -256,7 +293,9 @@ export const TokenWidget = () => {
             </TooltipTrigger>
             <TooltipContent>
               <div className="text-sm space-y-1">
-                <p>{formatNumber(tokens.total_available)} / {formatNumber(monthlyLimit)} créditos</p>
+                <p>{formatNumber(availableTokens)} / {formatNumber(totalLimit)} créditos</p>
+                <p>Mensais: {formatNumber(monthlyTokens)}</p>
+                {extraTokens > 0 && <p className="text-yellow-400">⭐ Extras: {formatNumber(extraTokens)}</p>}
                 <p>Usado: {usagePercentage.toFixed(1)}%</p>
                 {isCritical && <p className="text-red-400">⚠️ Créditos críticos!</p>}
                 <p className="text-xs text-gray-400 mt-1">Toque para analytics</p>
@@ -273,7 +312,7 @@ export const TokenWidget = () => {
       />
       
       <TokenPurchaseModal 
-        isOpen={showPurch} 
+        isOpen={showPurchase} 
         onClose={() => setShowPurchase(false)} 
       />
     </>

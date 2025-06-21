@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +11,7 @@ interface TokenData {
 }
 
 const CACHE_KEY = 'tokens_cache';
-const CACHE_DURATION = 60000; // Increased to 60 seconds for less aggressive refreshing
+const CACHE_DURATION = 30000; // Reduzido para 30 segundos para debug
 
 // Global state to prevent multiple subscriptions
 let globalChannel: any = null;
@@ -56,8 +57,11 @@ export const useTokens = () => {
         data,
         timestamp: Date.now()
       }));
-      console.log('✅ Cache salvo com sucesso:', {
+      console.log('✅ Cache de tokens atualizado:', {
+        monthlyTokens: data.monthly_tokens,
+        extraTokens: data.extra_tokens,
         totalAvailable: data.total_available,
+        totalUsed: data.total_tokens_used,
         timestamp: new Date().toLocaleTimeString()
       });
     } catch (error) {
@@ -69,27 +73,29 @@ export const useTokens = () => {
     if (!user) return null;
 
     try {
-      console.log('🔄 Iniciando busca de tokens para usuário:', user.id);
-      console.log('🔒 Tentando usar função RPC check_token_balance corrigida...');
+      console.log('🔄 BUSCANDO tokens para usuário:', user.id);
+      console.log('🔒 Usando função RPC check_token_balance...');
       
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('check_token_balance', { p_user_id: user.id });
 
       if (rpcError) {
-        console.warn('⚠️ RPC check_token_balance falhou:', rpcError);
+        console.error('❌ RPC check_token_balance erro:', rpcError);
         throw rpcError;
       }
 
       if (!rpcData || rpcData.length === 0) {
+        console.warn('⚠️ RPC não retornou dados');
         throw new Error('RPC não retornou dados');
       }
 
       const tokenData = rpcData[0];
-      console.log('✅ RPC check_token_balance (CORRIGIDA) funcionou:', {
+      console.log('✅ TOKENS ENCONTRADOS:', {
         monthly_tokens: tokenData.monthly_tokens,
         extra_tokens: tokenData.extra_tokens,
         total_available: tokenData.total_available,
-        total_used: tokenData.total_used
+        total_used: tokenData.total_used,
+        calculation: `${tokenData.monthly_tokens} + ${tokenData.extra_tokens} - ${tokenData.total_used} = ${tokenData.total_available}`
       });
 
       const result: TokenData = {
@@ -99,15 +105,15 @@ export const useTokens = () => {
         total_tokens_used: tokenData.total_used
       };
 
-      console.log('📊 Tokens atualizados (VALORES CORRETOS):', {
-        totalAvailable: result.total_available,
-        monthlyTokens: result.monthly_tokens,
-        extraTokens: result.extra_tokens,
-        totalUsed: result.total_tokens_used,
-        calculation: `${result.monthly_tokens} + ${result.extra_tokens} - ${result.total_tokens_used} = ${result.total_available}`,
-        method: 'RPC_CORRIGIDA',
-        timestamp: new Date().toLocaleTimeString()
-      });
+      // Verificação especial para debug de tokens extras
+      if (tokenData.extra_tokens > 0) {
+        console.log('🎯 TOKENS EXTRAS DETECTADOS:', {
+          extraTokens: tokenData.extra_tokens,
+          monthlyTokens: tokenData.monthly_tokens,
+          totalCalculated: tokenData.monthly_tokens + tokenData.extra_tokens - tokenData.total_used,
+          totalReturned: tokenData.total_available
+        });
+      }
 
       setCachedTokens(result);
       return result;
@@ -120,9 +126,9 @@ export const useTokens = () => {
   const refreshTokens = useCallback(async (force = false) => {
     if (!user || (isRefreshing && !force)) return;
 
-    // Prevent excessive refreshing - minimum 5 seconds between refreshes
+    // Prevent excessive refreshing - minimum 3 seconds between refreshes (reduzido para debug)
     const now = Date.now();
-    if (!force && now - lastRefreshRef.current < 5000) {
+    if (!force && now - lastRefreshRef.current < 3000) {
       console.log('⏳ Refresh bloqueado - muito frequente');
       return;
     }
@@ -132,10 +138,20 @@ export const useTokens = () => {
     lastRefreshRef.current = now;
 
     try {
+      console.log('🔄 INICIANDO refresh de tokens...');
       const data = await fetchTokens();
       if (data) {
         setTokens(data);
         setLastUpdate(new Date());
+        
+        // Log especial para debug de tokens extras
+        if (data.extra_tokens > 0) {
+          console.log('🎯 REFRESH DETECTOU TOKENS EXTRAS:', {
+            extraTokens: data.extra_tokens,
+            totalAvailable: data.total_available,
+            state: 'updated'
+          });
+        }
         
         // Se estava processando e agora temos tokens, marcar como sucesso
         if (processingStatus === 'processing') {
@@ -150,7 +166,7 @@ export const useTokens = () => {
         }
       }
     } catch (err) {
-      console.error('Erro ao atualizar tokens:', err);
+      console.error('❌ Erro ao atualizar tokens:', err);
       setError('Erro ao carregar tokens');
       
       if (processingStatus === 'processing') {
@@ -164,9 +180,16 @@ export const useTokens = () => {
 
   // Função para indicar que uma compra está sendo processada
   const setTokenProcessing = useCallback((message?: string) => {
+    console.log('🔄 COMPRA EM PROCESSAMENTO:', message);
     setProcessingStatus('processing');
     setProcessingMessage(message || 'Processando compra de tokens...');
-  }, []);
+    
+    // Forçar refresh após 2 segundos
+    setTimeout(() => {
+      console.log('🔄 Auto-refresh após compra...');
+      refreshTokens(true);
+    }, 2000);
+  }, [refreshTokens]);
 
   // Função para limpar status de processamento
   const clearProcessingStatus = useCallback(() => {
@@ -228,11 +251,19 @@ export const useTokens = () => {
       setLoading(false);
       setLastUpdate(new Date());
       
-      // Update in background only if cache is getting stale (30+ seconds)
+      // Log especial para debug de tokens extras no cache
+      if (cachedData.extra_tokens > 0) {
+        console.log('🎯 CACHE CONTÉM TOKENS EXTRAS:', {
+          extraTokens: cachedData.extra_tokens,
+          totalAvailable: cachedData.total_available
+        });
+      }
+      
+      // Update in background only if cache is getting stale (15+ seconds para debug)
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const { timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp > 30000) {
+        if (Date.now() - timestamp > 15000) {
           console.log('🔄 Cache antigo - atualizando em segundo plano...');
           refreshTokens();
         }
@@ -282,13 +313,18 @@ export const useTokens = () => {
             (payload) => {
               console.log('🔄 Profile token update received:', {
                 userId: payload.new?.id?.slice(0, 8),
-                oldTokens: payload.old?.total_tokens_used,
-                newTokens: payload.new?.total_tokens_used
+                oldExtraTokens: payload.old?.extra_tokens,
+                newExtraTokens: payload.new?.extra_tokens,
+                oldMonthlyTokens: payload.old?.monthly_tokens,
+                newMonthlyTokens: payload.new?.monthly_tokens
               });
               
-              // Only refresh if there's a significant change
-              if (payload.old?.total_tokens_used !== payload.new?.total_tokens_used) {
-                refreshTokens();
+              // Refresh se houve mudança nos tokens
+              if (payload.old?.extra_tokens !== payload.new?.extra_tokens ||
+                  payload.old?.monthly_tokens !== payload.new?.monthly_tokens ||
+                  payload.old?.total_tokens_used !== payload.new?.total_tokens_used) {
+                console.log('🔄 Tokens alterados - fazendo refresh...');
+                refreshTokens(true);
               }
             }
           )
@@ -302,7 +338,23 @@ export const useTokens = () => {
             },
             (payload) => {
               console.log('🔄 Token usage update received:', payload);
-              refreshTokens();
+              refreshTokens(true);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'token_package_purchases',
+              filter: `user_id=eq.${user.id}`,
+            },
+            (payload) => {
+              console.log('🔄 Token purchase update received:', payload);
+              if (payload.eventType === 'UPDATE' && payload.new?.payment_status === 'completed') {
+                console.log('🎯 COMPRA DE TOKENS COMPLETADA - forçando refresh...');
+                setTimeout(() => refreshTokens(true), 1000);
+              }
             }
           )
           .subscribe((status) => {
