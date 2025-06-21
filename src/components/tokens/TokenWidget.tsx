@@ -121,7 +121,7 @@ export const TokenWidget = () => {
           </Tooltip>
 
           {/* Botão de Compra */}
-          <Button variant="outline" size="sm" onClick={() => setShowPurchase(true)} className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs border-orange-600 text-white hover:border-orange-700 transition-colors bg-green-500 hover:bg-green-400">
+          <Button variant="outline" size="sm" onClick={() => setShowPurchase(true)} className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs  text-white hover:border-orange-700 transition-colors bg-green-500 hover:bg-green-400">
             <Plus className="h-3 w-3" />
             Comprar
           </Button>
