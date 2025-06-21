@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useTokens } from '@/hooks/useTokens';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -28,15 +28,26 @@ export const TokenWidget = () => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showPurchase, setShowPurchase] = useState(false);
   const [pulseAnimation, setPulseAnimation] = useState(false);
+  
+  // Ref para armazenar o valor anterior dos tokens
+  const previousTokensRef = useRef<number | null>(null);
 
-  // Animação de pulse quando há atualização
+  // Animação de pulse apenas quando há mudança real nos valores
   useEffect(() => {
-    if (lastUpdate) {
-      setPulseAnimation(true);
-      const timer = setTimeout(() => setPulseAnimation(false), 1000);
-      return () => clearTimeout(timer);
+    if (tokens && previousTokensRef.current !== null) {
+      // Só anima se houve mudança real nos tokens disponíveis
+      if (previousTokensRef.current !== tokens.total_available) {
+        setPulseAnimation(true);
+        const timer = setTimeout(() => setPulseAnimation(false), 1000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [lastUpdate]);
+    
+    // Atualiza a referência do valor anterior
+    if (tokens) {
+      previousTokensRef.current = tokens.total_available;
+    }
+  }, [tokens?.total_available]);
 
   const handleRefreshClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();

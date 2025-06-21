@@ -11,7 +11,7 @@ interface TokenData {
 }
 
 const CACHE_KEY = 'tokens_cache';
-const CACHE_DURATION = 30000; // 30 segundos
+const CACHE_DURATION = 60000; // Increased to 60 seconds for less aggressive refreshing
 
 // Global state to prevent multiple subscriptions
 let globalChannel: any = null;
@@ -30,6 +30,8 @@ export const useTokens = () => {
   
   // Local ref to track if this instance should manage cleanup
   const isManagerRef = useRef(false);
+  // Ref to prevent excessive refreshing
+  const lastRefreshRef = useRef<number>(0);
 
   // Cache functions
   const getCachedTokens = useCallback(() => {
@@ -117,8 +119,16 @@ export const useTokens = () => {
   const refreshTokens = useCallback(async (force = false) => {
     if (!user || (isRefreshing && !force)) return;
 
+    // Prevent excessive refreshing - minimum 5 seconds between refreshes
+    const now = Date.now();
+    if (!force && now - lastRefreshRef.current < 5000) {
+      console.log('⏳ Refresh bloqueado - muito frequente');
+      return;
+    }
+
     setIsRefreshing(true);
     setError(null);
+    lastRefreshRef.current = now;
 
     try {
       const data = await fetchTokens();
@@ -188,9 +198,15 @@ export const useTokens = () => {
       setLoading(false);
       setLastUpdate(new Date());
       
-      // Update in background
-      console.log('🔄 Atualizando dados em segundo plano...');
-      refreshTokens();
+      // Update in background only if cache is getting stale (30+ seconds)
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp > 30000) {
+          console.log('🔄 Cache antigo - atualizando em segundo plano...');
+          refreshTokens();
+        }
+      }
     } else {
       // No cache, load fresh data
       refreshTokens().finally(() => setLoading(false));
@@ -240,8 +256,10 @@ export const useTokens = () => {
                 newTokens: payload.new?.total_tokens_used
               });
               
-              // Refresh tokens for all instances
-              refreshTokens();
+              // Only refresh if there's a significant change
+              if (payload.old?.total_tokens_used !== payload.new?.total_tokens_used) {
+                refreshTokens();
+              }
             }
           )
           .on(
