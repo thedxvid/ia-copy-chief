@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -542,7 +541,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6] mr-3" />
-              <span className="text-white">Gerando sua copy personalizada com Claude AI...</span>
+              <span className="text-white">Gerando sua copy personalizada com CopyChief...</span>
             </div>
           )}
           
@@ -592,7 +591,7 @@ export const QuizFlow: React.FC<QuizFlowProps> = ({
 
       {/* Help text */}
       <div className="text-center text-[#888888] text-sm">
-        💡 Responda com o máximo de detalhes possível para obter copies mais precisas via Claude AI
+        💡 Responda com o máximo de detalhes possível para obter copies mais precisas via CopyChief
         {productDetails && prefilledCount > 0 && (
           <div className="mt-2 text-[#3B82F6]">
             🎯 {prefilledCount} campos foram pré-preenchidos baseados no produto "{productDetails.name}" - você pode editá-los conforme necessário
