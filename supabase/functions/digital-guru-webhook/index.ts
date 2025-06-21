@@ -254,7 +254,7 @@ serve(async (req) => {
       const targetUser = users.users.find(u => u.email === subscriberEmail);
 
       if (targetUser) {
-        // FLUXO EXISTENTE: Usuário já existe, apenas ativar assinatura
+        // FLUXO EXISTENTE: Usuário já existe, ativar assinatura
         console.log('👤 Usuário existente encontrado:', targetUser.id);
         console.log('📝 Ativando assinatura para usuário existente...');
         
@@ -281,7 +281,7 @@ serve(async (req) => {
         console.log('✅ Assinatura ativada para usuário existente:', subscriberEmail);
         
       } else {
-        // NOVO FLUXO: Usuário não existe, criar conta e enviar credenciais
+        // NOVO FLUXO: Usuário não existe, criar conta e ativar assinatura
         console.log('🆕 Novo usuário detectado, iniciando criação de conta...');
         
         const temporaryPassword = generateTemporaryPassword();
@@ -317,8 +317,8 @@ serve(async (req) => {
 
           console.log('✅ Usuário criado com sucesso:', newUser.user?.id);
 
-          // Atualizar perfil do novo usuário
-          console.log('📝 Atualizando perfil do novo usuário...');
+          // Atualizar perfil do novo usuário COM ASSINATURA ATIVA
+          console.log('📝 Atualizando perfil do novo usuário com assinatura ativa...');
           const { error: newProfileError } = await supabase
             .from('profiles')
             .update({
@@ -333,7 +333,7 @@ serve(async (req) => {
             console.error('❌ Erro ao atualizar perfil do novo usuário:', newProfileError);
             // Continuar mesmo com erro, o importante é que o usuário foi criado
           } else {
-            console.log('✅ Perfil do novo usuário atualizado com sucesso');
+            console.log('✅ Perfil do novo usuário atualizado com assinatura ATIVA');
           }
 
           // Enviar email com credenciais
@@ -382,7 +382,7 @@ serve(async (req) => {
       console.log('  - Email:', subscriberEmail);
       console.log('  - Subscription ID:', subscriptionId);
       console.log('  - Usuário:', targetUser ? 'Existente' : 'Novo');
-      console.log('  - Status:', 'Assinatura Ativada');
+      console.log('  - Status:', 'Assinatura Ativada (active)');
 
     } else {
       console.log('ℹ️ Evento ignorado:');
