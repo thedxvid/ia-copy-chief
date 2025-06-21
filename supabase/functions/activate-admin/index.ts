@@ -18,18 +18,50 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // VERIFICAÇÃO DE ADMINISTRADOR - ADICIONADA PARA SEGURANÇA
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Token de autorização necessário' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Obter usuário atual
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verificar se o usuário é administrador
+    const { data: isAdmin, error: isAdminError } = await supabase
+      .rpc('is_admin', { p_user_id: user.id });
+
+    if (isAdminError || !isAdmin) {
+      console.log('Acesso negado para usuário:', user.email, 'Admin status:', isAdmin);
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado. Recurso restrito a administradores.' }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log('Admin verificado:', user.email, 'procedendo com auto-ativação');
+
     // Email do admin para ativar automaticamente
     const adminEmail = "davicastrowp@gmail.com";
 
     console.log("Auto-activating admin user:", adminEmail);
 
     // Buscar o usuário pelo email
-    const { data: users, error: userError } = await supabase.auth.admin.listUsers();
+    const { data: users, error: userError2 } = await supabase.auth.admin.listUsers();
     
-    if (userError) {
-      console.error("Error listing users:", userError);
+    if (userError2) {
+      console.error("Error listing users:", userError2);
       return new Response(
-        JSON.stringify({ error: userError.message }),
+        JSON.stringify({ error: userError2.message }),
         {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -37,8 +69,8 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const user = users.users.find(u => u.email === adminEmail);
-    if (!user) {
+    const targetUser = users.users.find(u => u.email === adminEmail);
+    if (!targetUser) {
       return new Response(
         JSON.stringify({ error: "Admin user not found" }),
         {
@@ -60,7 +92,7 @@ const handler = async (req: Request): Promise<Response> => {
         subscription_expires_at: subscriptionExpiresAt.toISOString(),
         checkout_url: "https://pay.kiwify.com.br/nzX4lAh",
       })
-      .eq("id", user.id);
+      .eq("id", targetUser.id);
 
     if (updateError) {
       console.error("Error updating profile:", updateError);

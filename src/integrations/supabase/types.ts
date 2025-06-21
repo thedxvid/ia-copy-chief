@@ -1050,11 +1050,15 @@ export type Database = {
         }[]
       }
       is_admin: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { p_user_id: string }
         Returns: boolean
       }
       is_user_admin: {
         Args: { user_id: string }
+        Returns: boolean
+      }
+      is_user_admin_by_profile: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       refund_tokens: {

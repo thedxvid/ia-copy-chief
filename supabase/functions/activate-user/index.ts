@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -32,7 +33,40 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: "Configuração do servidor incompleta" }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // VERIFICAÇÃO DE ADMINISTRADOR - ADICIONADA PARA SEGURANÇA
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Token de autorização necessário' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Obter usuário atual
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verificar se o usuário é administrador
+    const { data: isAdmin, error: isAdminError } = await supabaseAdmin
+      .rpc('is_admin', { p_user_id: user.id });
+
+    if (isAdminError || !isAdmin) {
+      console.log('Acesso negado para usuário:', user.email, 'Admin status:', isAdmin);
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado. Recurso restrito a administradores.' }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log('Admin verificado:', user.email, 'procedendo com ativação de usuário');
+
     const { email } = await req.json();
 
     if (!email) {
@@ -42,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
     const normalizedEmail = email.toLowerCase().trim();
     const temporaryPassword = generateTemporaryPassword();
 
-    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
+    const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     if (listError) throw listError;
 
     const existingUser = usersData.users.find(u => u.email?.toLowerCase() === normalizedEmail);
@@ -52,14 +86,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (existingUser) {
       userId = existingUser.id;
-      const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
         password: temporaryPassword,
         email_confirm: true
       });
       if (updateError) throw updateError;
     } else {
       isNewUser = true;
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
         password: temporaryPassword,
         email_confirm: true,
@@ -74,9 +108,7 @@ const handler = async (req: Request): Promise<Response> => {
     subscriptionExpiresAt.setDate(subscriptionExpiresAt.getDate() + 30);
     const currentDate = new Date().toISOString();
     
-    // O gatilho handle_new_user cria um perfil básico. Nós vamos fazer um "upsert" aqui:
-    // atualizar o perfil existente ou criar um completo se o gatilho falhar.
-    const { error: profileError } = await supabase
+    const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert({
           id: userId,
@@ -97,7 +129,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     let emailSent = false;
     try {
-      await supabase.functions.invoke('send-credentials-email', {
+      await supabaseAdmin.functions.invoke('send-credentials-email', {
         body: { email: normalizedEmail, name: normalizedEmail.split('@')[0], temporaryPassword, isNewUser },
       });
       emailSent = true;
@@ -108,7 +140,10 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({
       success: true,
       message: isNewUser ? "Usuário criado e ativado com sucesso" : "Usuário ativado com sucesso",
-      user_id: userId
+      user_id: userId,
+      emailSent,
+      temporaryPassword,
+      subscription_expires_at: subscriptionExpiresAt.toISOString()
     }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
 
   } catch (error: any) {

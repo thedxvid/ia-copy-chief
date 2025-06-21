@@ -18,6 +18,38 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // VERIFICAÇÃO DE ADMINISTRADOR - ADICIONADA PARA SEGURANÇA
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Token de autorização necessário' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Obter usuário atual
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verificar se o usuário é administrador
+    const { data: isAdmin, error: isAdminError } = await supabaseAdmin
+      .rpc('is_admin', { p_user_id: user.id });
+
+    if (isAdminError || !isAdmin) {
+      console.log('Acesso negado para usuário:', user.email, 'Admin status:', isAdmin);
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado. Recurso restrito a administradores.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Admin verificado:', user.email, 'procedendo com busca de emails');
+
     const { user_ids } = await req.json()
 
     if (!user_ids || !Array.isArray(user_ids)) {
