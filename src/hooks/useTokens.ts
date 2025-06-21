@@ -13,6 +13,11 @@ interface TokenData {
 const CACHE_KEY = 'tokens_cache';
 const CACHE_DURATION = 30000; // 30 segundos
 
+// Global state to prevent multiple subscriptions
+let globalChannel: any = null;
+let globalUserId: string | null = null;
+let subscriptionCount = 0;
+
 export const useTokens = () => {
   const { user } = useAuth();
   const [tokens, setTokens] = useState<TokenData | null>(null);
@@ -23,9 +28,8 @@ export const useTokens = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showExhaustedModal, setShowExhaustedModal] = useState(false);
   
-  // Use refs to track subscriptions and prevent duplicates
-  const channelRef = useRef<any>(null);
-  const subscriptionActiveRef = useRef(false);
+  // Local ref to track if this instance should manage cleanup
+  const isManagerRef = useRef(false);
 
   // Cache functions
   const getCachedTokens = useCallback(() => {
@@ -193,70 +197,87 @@ export const useTokens = () => {
     }
   }, [user?.id, getCachedTokens, refreshTokens]);
 
-  // Setup real-time subscription - ONLY ONCE
+  // Setup real-time subscription with global state management
   useEffect(() => {
-    if (!user || subscriptionActiveRef.current) return;
+    if (!user) return;
 
-    console.log('🔄 Configurando subscriptions ULTRA-ROBUSTAS de tokens para usuário:', user.id);
+    subscriptionCount++;
+    const instanceId = subscriptionCount;
+    
+    console.log(`🔄 Hook instance ${instanceId} for user:`, user.id);
 
-    // Cleanup any existing subscription
-    if (channelRef.current) {
-      console.log('🧹 Limpando subscription anterior');
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
+    // Check if we need to create a new global subscription
+    if (!globalChannel || globalUserId !== user.id) {
+      console.log(`🔄 Configurando subscription GLOBAL de tokens (instance ${instanceId})`);
+      
+      // Cleanup existing subscription if user changed
+      if (globalChannel && globalUserId !== user.id) {
+        console.log('🧹 Limpando subscription anterior (usuário diferente)');
+        supabase.removeChannel(globalChannel);
+        globalChannel = null;
+      }
+
+      if (!globalChannel) {
+        isManagerRef.current = true;
+        globalUserId = user.id;
+        
+        const channelName = `tokens_global_${user.id}`;
+        
+        globalChannel = supabase
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'profiles',
+              filter: `id=eq.${user.id}`,
+            },
+            (payload) => {
+              console.log('🔄 Profile token update received:', {
+                userId: payload.new?.id?.slice(0, 8),
+                oldTokens: payload.old?.total_tokens_used,
+                newTokens: payload.new?.total_tokens_used
+              });
+              
+              // Refresh tokens for all instances
+              refreshTokens();
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'token_usage',
+              filter: `user_id=eq.${user.id}`,
+            },
+            (payload) => {
+              console.log('🔄 Token usage update received:', payload);
+              refreshTokens();
+            }
+          )
+          .subscribe((status) => {
+            console.log(`📡 Status da subscription GLOBAL de tokens (${channelName}):`, status);
+          });
+      }
+    } else {
+      console.log(`📡 Reutilizando subscription GLOBAL existente (instance ${instanceId})`);
     }
 
-    const timestamp = Date.now();
-    const channelName = `tokens_${user.id}_${timestamp}`;
-    
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log('🔄 Profile token update received:', {
-            userId: payload.new?.id?.slice(0, 8),
-            oldTokens: payload.old?.total_tokens_used,
-            newTokens: payload.new?.total_tokens_used
-          });
-          
-          refreshTokens();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'token_usage',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log('🔄 Token usage update received:', payload);
-          refreshTokens();
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Status da subscription ULTRA-ROBUSTA de tokens:', status);
-        if (status === 'SUBSCRIBED') {
-          subscriptionActiveRef.current = true;
-        }
-      });
-
-    channelRef.current = channel;
-
     return () => {
-      console.log('🧹 Limpando subscription ULTRA-ROBUSTA de tokens');
-      subscriptionActiveRef.current = false;
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      console.log(`🧹 Cleanup hook instance ${instanceId}`);
+      subscriptionCount--;
+      
+      // Only cleanup global subscription if this was the managing instance and no other instances exist
+      if (isManagerRef.current && subscriptionCount === 0) {
+        console.log('🧹 Limpando subscription GLOBAL (última instância)');
+        if (globalChannel) {
+          supabase.removeChannel(globalChannel);
+          globalChannel = null;
+          globalUserId = null;
+        }
+        isManagerRef.current = false;
       }
     };
   }, [user?.id, refreshTokens]);
