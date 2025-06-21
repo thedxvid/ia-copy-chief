@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserTokenManagement } from '@/components/admin/UserTokenManagement';
+import { UserActivator } from '@/components/admin/UserActivator';
+import { UserTable } from '@/components/admin/UserTable';
 import { QuizTemplatesManager } from '@/components/admin/QuizTemplatesManager';
 import { SecurityAuditDashboard } from '@/components/admin/SecurityAuditDashboard';
-import { Shield, Users, MessageSquare, Activity } from 'lucide-react';
+import { Shield, Users, UserPlus, MessageSquare, Activity } from 'lucide-react';
 
 const Admin = () => {
   return (
@@ -15,10 +16,14 @@ const Admin = () => {
       </div>
       
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
           <TabsTrigger value="users" className="flex items-center space-x-2">
             <Users className="h-4 w-4" />
             <span>Usuários</span>
+          </TabsTrigger>
+          <TabsTrigger value="activation" className="flex items-center space-x-2">
+            <UserPlus className="h-4 w-4" />
+            <span>Ativação</span>
           </TabsTrigger>
           <TabsTrigger value="quiz" className="flex items-center space-x-2">
             <MessageSquare className="h-4 w-4" />
@@ -31,7 +36,11 @@ const Admin = () => {
         </TabsList>
 
         <TabsContent value="users">
-          <UserTokenManagement />
+          <UserTable />
+        </TabsContent>
+
+        <TabsContent value="activation">
+          <UserActivator />
         </TabsContent>
 
         <TabsContent value="quiz">
