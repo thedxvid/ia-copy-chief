@@ -24,9 +24,9 @@ interface CacheData {
 }
 
 const MONTHLY_TOKENS_LIMIT = 100000; // 100k tokens
-const AUTO_REFRESH_INTERVAL = 5000; // Reduzido para 5 segundos para máxima responsividade
+const AUTO_REFRESH_INTERVAL = 3000; // Reduzido para 3 segundos para máxima responsividade
 const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
-const CACHE_EXPIRY_TIME = 30 * 1000; // Reduzido para 30 segundos para máxima atualização
+const CACHE_EXPIRY_TIME = 15 * 1000; // Reduzido para 15 segundos para máxima atualização
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
@@ -116,19 +116,19 @@ export const useTokens = () => {
       
       console.log('🔄 Iniciando busca de tokens para usuário:', user.id);
       
-      // TENTATIVA 1: Usar a função RPC segura
+      // TENTATIVA 1: Usar a função RPC corrigida
       let tokensData = null;
       let usedRpcFunction = false;
       
       try {
-        console.log('🔒 Tentando usar função RPC check_token_balance...');
+        console.log('🔒 Tentando usar função RPC check_token_balance corrigida...');
         const { data: rpcData, error: rpcError } = await supabase
           .rpc('check_token_balance', { p_user_id: user.id });
 
         if (!rpcError && rpcData && rpcData.length > 0) {
           tokensData = rpcData[0];
           usedRpcFunction = true;
-          console.log('✅ RPC check_token_balance funcionou:', tokensData);
+          console.log('✅ RPC check_token_balance (CORRIGIDA) funcionou:', tokensData);
         } else {
           console.warn('⚠️ RPC check_token_balance falhou:', rpcError);
         }
@@ -136,9 +136,9 @@ export const useTokens = () => {
         console.warn('⚠️ Erro na RPC check_token_balance:', rpcError);
       }
 
-      // TENTATIVA 2: Fallback para consulta SQL direta
+      // TENTATIVA 2: Fallback para consulta SQL direta COM CÁLCULO CORRETO
       if (!tokensData) {
-        console.log('🔄 Usando fallback: consulta SQL direta ao profiles...');
+        console.log('🔄 Usando fallback: consulta SQL direta ao profiles com cálculo correto...');
         try {
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -147,13 +147,19 @@ export const useTokens = () => {
             .single();
 
           if (!profileError && profileData) {
+            // CORREÇÃO: Usar o mesmo cálculo da função RPC corrigida
+            const monthlyTokens = profileData.monthly_tokens || 0;
+            const extraTokens = profileData.extra_tokens || 0;
+            const totalUsed = profileData.total_tokens_used || 0;
+            const totalAvailable = Math.max(0, monthlyTokens + extraTokens - totalUsed);
+            
             tokensData = {
-              monthly_tokens: profileData.monthly_tokens || 0,
-              extra_tokens: profileData.extra_tokens || 0,
-              total_available: (profileData.monthly_tokens || 0) + (profileData.extra_tokens || 0),
-              total_used: profileData.total_tokens_used || 0
+              monthly_tokens: monthlyTokens,
+              extra_tokens: extraTokens,
+              total_available: totalAvailable,
+              total_used: totalUsed
             };
-            console.log('✅ Fallback SQL direto funcionou:', tokensData);
+            console.log('✅ Fallback SQL (CORRIGIDO) funcionou:', tokensData);
           } else {
             console.error('❌ Fallback SQL falhou:', profileError);
             throw profileError;
@@ -179,12 +185,13 @@ export const useTokens = () => {
         const flags = profileData || { notified_90: false, notified_50: false, notified_10: false };
         const resetDate = profileData?.tokens_reset_date || null;
         
-        console.log('📊 Tokens atualizados:', {
+        console.log('📊 Tokens atualizados (VALORES CORRETOS):', {
           totalAvailable: tokensData.total_available,
           monthlyTokens: tokensData.monthly_tokens,
           extraTokens: tokensData.extra_tokens,
           totalUsed: tokensData.total_used,
-          method: usedRpcFunction ? 'RPC' : 'SQL_DIRECT',
+          calculation: `${tokensData.monthly_tokens} + ${tokensData.extra_tokens} - ${tokensData.total_used} = ${tokensData.total_available}`,
+          method: usedRpcFunction ? 'RPC_CORRIGIDA' : 'SQL_DIRETO_CORRIGIDO',
           timestamp: new Date().toLocaleTimeString()
         });
         
@@ -355,7 +362,7 @@ export const useTokens = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔄 Configurando subscriptions robustas de tokens para usuário:', user.id);
+    console.log('🔄 Configurando subscriptions ULTRA-ROBUSTAS de tokens para usuário:', user.id);
 
     const channelName = `tokens-realtime-${user.id}-${Date.now()}`;
     const channel = supabase
@@ -376,9 +383,9 @@ export const useTokens = () => {
             timestamp: new Date().toLocaleTimeString()
           });
           
-          // FORÇAR atualização imediata quando há mudança
-          console.log('💰 FORÇANDO atualização de tokens devido a mudança em tempo real');
-          setTimeout(() => fetchTokens(true, true), 100); // Pequeno delay para garantir que a transação foi commitada
+          // FORÇAR atualização INSTANTÂNEA quando há mudança
+          console.log('💰 FORÇANDO atualização INSTANTÂNEA de tokens devido a mudança em tempo real');
+          setTimeout(() => fetchTokens(true, true), 50); // Reduzido para 50ms para máxima velocidade
         }
       )
       .on(
@@ -396,17 +403,17 @@ export const useTokens = () => {
             timestamp: new Date().toLocaleTimeString()
           });
           
-          // FORÇAR atualização imediata quando tokens são usados
-          console.log('🔄 FORÇANDO atualização devido a novo uso de token');
-          setTimeout(() => fetchTokens(true, true), 100); // Pequeno delay para garantir que a transação foi commitada
+          // FORÇAR atualização INSTANTÂNEA quando tokens são usados
+          console.log('🔄 FORÇANDO atualização INSTANTÂNEA devido a novo uso de token');
+          setTimeout(() => fetchTokens(true, true), 50); // Reduzido para 50ms para máxima velocidade
         }
       )
       .subscribe((status) => {
-        console.log('📡 Status da subscription robusta de tokens:', status);
+        console.log('📡 Status da subscription ULTRA-ROBUSTA de tokens:', status);
       });
 
     return () => {
-      console.log('🧹 Limpando subscription robusta de tokens');
+      console.log('🧹 Limpando subscription ULTRA-ROBUSTA de tokens');
       supabase.removeChannel(channel);
     };
   }, [user?.id, fetchTokens]);
@@ -430,7 +437,7 @@ export const useTokens = () => {
 
     const interval = setInterval(() => {
       if (!document.hidden) {
-        console.log('🔄 Auto-refresh tokens (5 segundos)');
+        console.log('🔄 Auto-refresh tokens (3 segundos)');
         fetchTokens(true, true);
       }
     }, AUTO_REFRESH_INTERVAL);
