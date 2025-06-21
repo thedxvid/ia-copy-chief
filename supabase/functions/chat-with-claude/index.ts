@@ -165,12 +165,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // NOVA VERIFICAÇÃO: Status da assinatura ANTES de qualquer operação
+    // NOVA VERIFICAÇÃO: Status da assinatura ANTES de qualquer operação - COM VERIFICAÇÃO DE ADMIN
     console.log('🔒 Verificando status da assinatura para usuário:', userId);
     
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('subscription_status, monthly_tokens, extra_tokens, total_tokens_used')
+      .select('subscription_status, is_admin, monthly_tokens, extra_tokens, total_tokens_used')
       .eq('id', userId)
       .single();
 
@@ -206,52 +206,68 @@ serve(async (req) => {
       );
     }
 
-    // Verificar se a assinatura está ativa
-    if (profile.subscription_status !== 'active') {
-      console.error('🚫 Assinatura não ativa para usuário:', {
+    // NOVA LÓGICA: Verificar se é admin ANTES da verificação de assinatura
+    const isAdmin = profile.is_admin === true;
+    
+    if (isAdmin) {
+      console.log('👑 ADMIN detectado - Pulando verificação de assinatura:', {
         userId,
-        currentStatus: profile.subscription_status
+        subscriptionStatus: profile.subscription_status,
+        adminBypass: true
       });
-      
-      // Mensagens específicas baseadas no status
-      let errorMessage = 'Acesso bloqueado';
-      let errorDetails = 'Sua assinatura não está ativa.';
-      
-      switch (profile.subscription_status) {
-        case 'pending':
-          errorDetails = 'Sua assinatura está pendente de ativação. Aguarde a confirmação do pagamento ou entre em contato com o suporte.';
-          break;
-        case 'canceled':
-          errorDetails = 'Sua assinatura foi cancelada. Para continuar usando o serviço, reative sua assinatura.';
-          break;
-        case 'past_due':
-          errorDetails = 'Sua assinatura está em atraso. Regularize seu pagamento para continuar usando o serviço.';
-          break;
-        case 'inactive':
-          errorDetails = 'Sua assinatura está inativa. Entre em contato com o suporte ou reative sua assinatura.';
-          break;
-        default:
-          errorDetails = `Status da assinatura: ${profile.subscription_status}. Entre em contato com o suporte.`;
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          error: errorMessage,
-          details: errorDetails,
-          subscriptionStatus: profile.subscription_status,
-          code: 'SUBSCRIPTION_NOT_ACTIVE',
-          retryable: false
-        }),
-        { 
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    } else {
+      // Verificar se a assinatura está ativa apenas para usuários não-admin
+      if (profile.subscription_status !== 'active') {
+        console.error('🚫 Assinatura não ativa para usuário não-admin:', {
+          userId,
+          currentStatus: profile.subscription_status
+        });
+        
+        // Mensagens específicas baseadas no status
+        let errorMessage = 'Acesso bloqueado';
+        let errorDetails = 'Sua assinatura não está ativa.';
+        
+        switch (profile.subscription_status) {
+          case 'pending':
+            errorDetails = 'Sua assinatura está pendente de ativação. Aguarde a confirmação do pagamento ou entre em contato com o suporte.';
+            break;
+          case 'canceled':
+            errorDetails = 'Sua assinatura foi cancelada. Para continuar usando o serviço, reative sua assinatura.';
+            break;
+          case 'past_due':
+            errorDetails = 'Sua assinatura está em atraso. Regularize seu pagamento para continuar usando o serviço.';
+            break;
+          case 'inactive':
+            errorDetails = 'Sua assinatura está inativa. Entre em contato com o suporte ou reative sua assinatura.';
+            break;
+          default:
+            errorDetails = `Status da assinatura: ${profile.subscription_status}. Entre em contato com o suporte.`;
         }
-      );
+        
+        return new Response(
+          JSON.stringify({ 
+            error: errorMessage,
+            details: errorDetails,
+            subscriptionStatus: profile.subscription_status,
+            code: 'SUBSCRIPTION_NOT_ACTIVE',
+            retryable: false
+          }),
+          { 
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
     }
 
-    console.log('✅ Assinatura ativa confirmada para usuário:', userId);
+    console.log('✅ Verificação de acesso aprovada:', {
+      userId,
+      isAdmin,
+      subscriptionStatus: profile.subscription_status,
+      accessGranted: true
+    });
 
-    // NOVA VALIDAÇÃO: Verificar se o usuário tem saldo mínimo ANTES de chamar a IA
+    // VERIFICAÇÃO DE TOKENS: Aplicada tanto para admins quanto usuários normais
     console.log('💰 Verificando saldo mínimo para usuário:', userId);
     
     const { data: tokenData, error: tokenError } = await supabase
@@ -294,13 +310,15 @@ serve(async (req) => {
       totalAvailable: userTokens.total_available,
       monthlyTokens: userTokens.monthly_tokens,
       extraTokens: userTokens.extra_tokens,
-      totalUsed: userTokens.total_used
+      totalUsed: userTokens.total_used,
+      isAdmin
     });
 
-    // NOVA VERIFICAÇÃO: Apenas verificar se o usuário tem saldo positivo
+    // VERIFICAÇÃO DE SALDO: Apenas verificar se o usuário tem saldo positivo
     if (userTokens.total_available <= 0) {
       console.error('💸 Saldo insuficiente para iniciar conversa:', {
-        available: userTokens.total_available
+        available: userTokens.total_available,
+        isAdmin
       });
       
       return new Response(
