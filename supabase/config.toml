@@ -23,6 +23,9 @@ verify_jwt = false
 [functions.digital-guru-webhook]
 verify_jwt = false
 
+[functions.token-purchase-webhook]
+verify_jwt = false
+
 [functions.security-logs]
 verify_jwt = true
 
