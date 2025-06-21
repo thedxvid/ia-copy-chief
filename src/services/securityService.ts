@@ -8,16 +8,38 @@ export interface SecurityLog {
   userId: string;
   timestamp: Date;
   metadata?: any;
+  severity?: 'info' | 'warning' | 'error' | 'critical';
+  ip_address?: string;
+  user_agent?: string;
 }
 
 class SecurityService {
   private logs: SecurityLog[] = [];
-  private maxLogsInMemory = 100; // Limitar logs em memória
+  private maxLogsInMemory = 50; // Reduzido para usar mais o banco
+  private ipAddress?: string;
+  private userAgent?: string;
+
+  constructor() {
+    // Capturar informações do cliente
+    this.userAgent = navigator.userAgent;
+    this.getClientIP();
+  }
+
+  private async getClientIP(): Promise<void> {
+    try {
+      // Usar serviço simples para capturar IP
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      this.ipAddress = data.ip;
+    } catch (error) {
+      console.warn('⚠️ Não foi possível capturar IP do cliente:', error);
+    }
+  }
 
   // Limpar logs antigos automaticamente
   private cleanupOldLogs(): void {
-    const oneHourAgo = Date.now() - 3600000; // 1 hora
-    this.logs = this.logs.filter(log => log.timestamp.getTime() > oneHourAgo);
+    const halfHourAgo = Date.now() - 1800000; // 30 minutos
+    this.logs = this.logs.filter(log => log.timestamp.getTime() > halfHourAgo);
     
     // Manter apenas os últimos N logs
     if (this.logs.length > this.maxLogsInMemory) {
@@ -25,7 +47,12 @@ class SecurityService {
     }
   }
 
-  async logAction(action: string, resource: string, metadata?: any): Promise<void> {
+  async logAction(
+    action: string, 
+    resource: string, 
+    metadata?: any, 
+    severity: 'info' | 'warning' | 'error' | 'critical' = 'info'
+  ): Promise<void> {
     const user = await authService.getCurrentUser();
     if (!user) return;
 
@@ -34,24 +61,62 @@ class SecurityService {
       resource,
       userId: user.id,
       timestamp: new Date(),
-      metadata
+      metadata: metadata || {},
+      severity,
+      ip_address: this.ipAddress,
+      user_agent: this.userAgent
     };
 
+    // Validação de entrada mais rigorosa
+    if (!action || typeof action !== 'string' || action.length > 100) {
+      console.error('❌ SecurityService: Ação inválida:', action);
+      return;
+    }
+
+    if (!resource || typeof resource !== 'string' || resource.length > 200) {
+      console.error('❌ SecurityService: Recurso inválido:', resource);
+      return;
+    }
+
     this.logs.push(log);
-    this.cleanupOldLogs(); // Limpeza automática
+    this.cleanupOldLogs();
     
-    console.log('🔐 SecurityService: Ação registrada:', {
-      action,
-      resource,
+    console.log(`🔐 SecurityService: [${severity.toUpperCase()}] ${action} em ${resource}`, {
       userId: user.id,
-      metadata
+      metadata,
+      ip: this.ipAddress
     });
 
-    // Em produção, salvar no banco de dados via Edge Function
+    // Salvar no banco de dados persistente
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
+      const { error } = await supabase
+        .from('security_audit_logs')
+        .insert({
+          user_id: user.id,
+          action,
+          resource,
+          metadata: metadata || {},
+          severity,
+          ip_address: this.ipAddress,
+          user_agent: this.userAgent
+        });
+
+      if (error) {
+        console.warn('⚠️ SecurityService: Falha ao salvar log persistente:', error);
+        // Fallback para Edge Function se RLS falhar
+        await this.fallbackLog(action, resource, metadata);
+      }
+    } catch (error) {
+      console.warn('⚠️ SecurityService: Erro ao salvar log persistente:', error);
+      await this.fallbackLog(action, resource, metadata);
+    }
+  }
+
+  private async fallbackLog(action: string, resource: string, metadata?: any): Promise<void> {
+    try {
       const response = await supabase.functions.invoke('security-logs', {
         body: {
           action,
@@ -61,10 +126,10 @@ class SecurityService {
       });
 
       if (response.error) {
-        console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', response.error);
+        console.warn('⚠️ SecurityService: Fallback também falhou:', response.error);
       }
     } catch (error) {
-      console.warn('⚠️ SecurityService: Falha ao salvar log (não crítico):', error);
+      console.warn('⚠️ SecurityService: Fallback crítico:', error);
     }
   }
 
@@ -73,65 +138,123 @@ class SecurityService {
     if (!user) {
       await this.logAction('ACCESS_DENIED', `${resourceType}:${resourceId}`, { 
         reason: 'Usuário não autenticado',
-        action
-      });
+        action,
+        attempted_resource: resourceType,
+        resource_id: resourceId
+      }, 'warning');
       return false;
     }
 
-    // Para produtos, verificar propriedade
+    // Validação de entrada rigorosa
+    if (!resourceType || !resourceId || !action) {
+      await this.logAction('INVALID_ACCESS_ATTEMPT', `${resourceType}:${resourceId}`, {
+        reason: 'Parâmetros inválidos',
+        resourceType,
+        resourceId,
+        action
+      }, 'error');
+      return false;
+    }
+
+    // Para produtos, verificar propriedade com validação dupla
     if (resourceType === 'product') {
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('user_id')
+          .select('user_id, name')
           .eq('id', resourceId)
           .single();
 
         if (error || !data) {
           await this.logAction('ACCESS_DENIED', `${resourceType}:${resourceId}`, { 
-            reason: 'Recurso não encontrado',
+            reason: 'Recurso não encontrado ou erro na consulta',
             action,
-            error: error?.message
-          });
+            error: error?.message,
+            query_attempted: true
+          }, 'warning');
           return false;
         }
 
-        if (data.user_id !== user.id) {
-          const isAdmin = await authService.isUserAdmin();
-          if (!isAdmin) {
-            await this.logAction('ACCESS_DENIED', `${resourceType}:${resourceId}`, { 
-              reason: 'Usuário não é proprietário nem admin',
-              action,
-              resourceOwner: data.user_id
-            });
-            return false;
-          }
+        // Verificação dupla: proprietário OU admin
+        const isAdmin = await authService.isUserAdmin();
+        const isOwner = data.user_id === user.id;
+
+        if (!isOwner && !isAdmin) {
+          await this.logAction('ACCESS_DENIED', `${resourceType}:${resourceId}`, { 
+            reason: 'Usuário não é proprietário nem admin',
+            action,
+            resourceOwner: data.user_id,
+            productName: data.name,
+            userIsAdmin: isAdmin,
+            userIsOwner: isOwner
+          }, 'warning');
+          return false;
         }
 
-        await this.logAction('ACCESS_GRANTED', `${resourceType}:${resourceId}`, { action });
+        await this.logAction('ACCESS_GRANTED', `${resourceType}:${resourceId}`, { 
+          action,
+          access_type: isAdmin ? 'admin' : 'owner',
+          productName: data.name
+        });
         return true;
       } catch (error) {
         await this.logAction('ACCESS_ERROR', `${resourceType}:${resourceId}`, { 
-          reason: 'Erro na validação',
+          reason: 'Erro crítico na validação',
           action,
-          error: error.message
-        });
+          error: error.message,
+          stack: error.stack
+        }, 'error');
         return false;
       }
     }
 
+    // Log para outros tipos de recurso
+    await this.logAction('ACCESS_GRANTED', `${resourceType}:${resourceId}`, { action });
     return true;
   }
 
-  async checkRateLimit(action: string, maxRequests: number = 60, windowMs: number = 60000): Promise<boolean> {
+  async checkRateLimit(action: string, maxRequests: number = 30, windowMs: number = 60000): Promise<boolean> {
     const user = await authService.getCurrentUser();
     if (!user) return false;
 
-    // Verificar se é admin - admins têm limites maiores
+    try {
+      // Usar nova função do banco com logs persistentes
+      const { data, error } = await supabase.rpc('enhanced_rate_limit_check', {
+        p_user_id: user.id,
+        p_action: action,
+        p_max_requests: maxRequests,
+        p_window_minutes: Math.floor(windowMs / 60000)
+      });
+
+      if (error) {
+        console.error('❌ Erro no rate limit check:', error);
+        // Fallback para lógica local em caso de erro
+        return this.fallbackRateLimit(action, maxRequests, windowMs, user.id);
+      }
+
+      const allowed = data as boolean;
+      
+      if (!allowed) {
+        await this.logAction('RATE_LIMIT_EXCEEDED', action, {
+          maxRequests,
+          windowMs,
+          fallback_used: false
+        }, 'warning');
+      }
+
+      return allowed;
+    } catch (error) {
+      console.error('❌ Erro crítico no rate limiting:', error);
+      return this.fallbackRateLimit(action, maxRequests, windowMs, user.id);
+    }
+  }
+
+  private async fallbackRateLimit(action: string, maxRequests: number, windowMs: number, userId: string): Promise<boolean> {
+    // Verificar se é admin para limites maiores (fallback local)
     const isAdmin = await authService.isUserAdmin();
     if (isAdmin) {
-      maxRequests = maxRequests * 5; // Admins têm 5x mais limite
-      console.log('👑 Admin detectado - Rate limit aumentado para:', maxRequests);
+      maxRequests = maxRequests * 10;
+      console.log('👑 Admin detectado (fallback) - Rate limit aumentado para:', maxRequests);
     }
 
     const now = Date.now();
@@ -139,33 +262,47 @@ class SecurityService {
     
     // Filtrar logs recentes para esta ação
     const recentLogs = this.logs.filter(log => 
-      log.userId === user.id &&
+      log.userId === userId &&
       log.action === action &&
       log.timestamp.getTime() > windowStart
     );
 
-    console.log(`🔍 Rate limit check: ${action} - ${recentLogs.length}/${maxRequests} requests`, {
-      userId: user.id,
-      isAdmin,
-      windowMs: windowMs / 1000 + 's'
-    });
+    const allowed = recentLogs.length < maxRequests;
 
-    if (recentLogs.length >= maxRequests) {
+    if (!allowed) {
       await this.logAction('RATE_LIMIT_EXCEEDED', action, {
         requestCount: recentLogs.length,
         maxRequests,
         windowMs,
-        isAdmin
-      });
-      
-      console.warn(`⏱️ Rate limit excedido: ${action} - ${recentLogs.length}/${maxRequests} requests`);
-      return false;
+        isAdmin,
+        fallback_used: true
+      }, 'warning');
     }
 
-    return true;
+    return allowed;
   }
 
-  getSecurityLogs(limit: number = 100): SecurityLog[] {
+  async detectSuspiciousActivity(userId: string, action: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('detect_suspicious_activity', {
+        p_user_id: userId,
+        p_action: action,
+        p_threshold: 50
+      });
+
+      if (error) {
+        console.error('❌ Erro na detecção de atividade suspeita:', error);
+        return false;
+      }
+
+      return data as boolean;
+    } catch (error) {
+      console.error('❌ Erro crítico na detecção de atividade suspeita:', error);
+      return false;
+    }
+  }
+
+  getSecurityLogs(limit: number = 50): SecurityLog[] {
     this.cleanupOldLogs();
     return this.logs.slice(-limit);
   }
@@ -173,6 +310,40 @@ class SecurityService {
   async auditUserActivity(userId: string): Promise<SecurityLog[]> {
     this.cleanupOldLogs();
     return this.logs.filter(log => log.userId === userId);
+  }
+
+  async getAuditLogs(limit: number = 100): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('security_audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('❌ Erro ao buscar logs de auditoria:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('❌ Erro crítico ao buscar logs de auditoria:', error);
+      return [];
+    }
+  }
+
+  async cleanupOldAuditLogs(): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('cleanup_old_audit_logs');
+      
+      if (error) {
+        console.error('❌ Erro na limpeza de logs antigos:', error);
+      } else {
+        console.log('✅ Limpeza de logs antigos executada com sucesso');
+      }
+    } catch (error) {
+      console.error('❌ Erro crítico na limpeza de logs antigos:', error);
+    }
   }
 }
 

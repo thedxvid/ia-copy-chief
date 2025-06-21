@@ -749,6 +749,42 @@ export type Database = {
         }
         Relationships: []
       }
+      security_audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          resource: string
+          severity: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          resource: string
+          severity?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          resource?: string
+          severity?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       specialized_copies: {
         Row: {
           copy_data: Json
@@ -1023,6 +1059,10 @@ export type Database = {
           total_used: number
         }[]
       }
+      cleanup_old_audit_logs: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       consume_tokens: {
         Args: {
           p_user_id: string
@@ -1030,6 +1070,19 @@ export type Database = {
           p_feature_used: string
           p_prompt_tokens?: number
           p_completion_tokens?: number
+        }
+        Returns: boolean
+      }
+      detect_suspicious_activity: {
+        Args: { p_user_id: string; p_action: string; p_threshold?: number }
+        Returns: boolean
+      }
+      enhanced_rate_limit_check: {
+        Args: {
+          p_user_id: string
+          p_action: string
+          p_max_requests?: number
+          p_window_minutes?: number
         }
         Returns: boolean
       }

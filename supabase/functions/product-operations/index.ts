@@ -11,7 +11,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 serve(async (req) => {
-  console.log('=== 🔐 PRODUCT OPERATIONS EDGE FUNCTION ===');
+  console.log('=== 🔐 PRODUCT OPERATIONS EDGE FUNCTION (ENHANCED SECURITY) ===');
   console.log('Method:', req.method);
   console.log('Timestamp:', new Date().toISOString());
 
@@ -21,8 +21,16 @@ serve(async (req) => {
   }
 
   let userId: string | null = null;
+  let clientIP: string | null = null;
+  let userAgent: string | null = null;
 
   try {
+    // Capturar informações de segurança
+    clientIP = req.headers.get('x-forwarded-for') || 
+               req.headers.get('x-real-ip') || 
+               'unknown';
+    userAgent = req.headers.get('user-agent') || 'unknown';
+
     // Validar método HTTP
     if (!['GET', 'POST', 'PUT', 'DELETE'].includes(req.method)) {
       return new Response(
@@ -86,49 +94,52 @@ serve(async (req) => {
     const isAdmin = profile?.is_admin || false;
     console.log('👑 Status admin:', isAdmin);
 
-    // Logs de auditoria
-    const logAction = async (action: string, resource: string, metadata?: any) => {
+    // Função melhorada para logs de auditoria com validação
+    const logSecurityAction = async (action: string, resource: string, metadata?: any, severity: string = 'info') => {
       try {
+        // Validação de entrada
+        if (!action || typeof action !== 'string' || action.length > 100) {
+          console.error('❌ Ação de log inválida:', action);
+          return;
+        }
+
         await supabase
-          .from('security_logs')
+          .from('security_audit_logs')
           .insert({
             user_id: userId,
             action,
             resource,
-            metadata,
+            metadata: metadata || {},
+            severity,
+            ip_address: clientIP,
+            user_agent: userAgent,
             created_at: new Date().toISOString()
           });
       } catch (error) {
-        console.warn('⚠️ Falha ao salvar log (não crítico):', error);
+        console.warn('⚠️ Falha ao salvar log de segurança (não crítico):', error);
       }
     };
 
-    // Rate limiting otimizado com bypass para admins
-    const checkRateLimit = async (action: string, maxRequests: number = 30) => {
-      // Admins têm 5x mais limite
-      if (isAdmin) {
-        maxRequests = maxRequests * 5;
-        console.log('👑 Admin detectado - Rate limit aumentado para:', maxRequests);
+    // Rate limiting melhorado usando função do banco
+    const checkEnhancedRateLimit = async (action: string, maxRequests: number = 30) => {
+      try {
+        const { data, error } = await supabase.rpc('enhanced_rate_limit_check', {
+          p_user_id: userId,
+          p_action: action,
+          p_max_requests: maxRequests,
+          p_window_minutes: 1
+        });
+
+        if (error) {
+          console.warn('⚠️ Erro no rate limit check, permitindo por segurança:', error);
+          return true;
+        }
+
+        return data as boolean;
+      } catch (error) {
+        console.warn('⚠️ Erro crítico no rate limit, permitindo por segurança:', error);
+        return true;
       }
-
-      const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
-      
-      const { data: recentLogs, error } = await supabase
-        .from('security_logs')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('action', action)
-        .gte('created_at', oneMinuteAgo);
-
-      if (error) {
-        console.warn('⚠️ Erro ao verificar rate limit:', error);
-        return true; // Permitir em caso de erro
-      }
-
-      const currentCount = recentLogs?.length || 0;
-      console.log(`🔍 Rate limit: ${action} - ${currentCount}/${maxRequests} requests`);
-
-      return currentCount < maxRequests;
     };
 
     const url = new URL(req.url);
@@ -141,7 +152,26 @@ serve(async (req) => {
         // Buscar produto específico
         console.log('🔍 Buscando produto específico:', productId);
         
-        if (!await checkRateLimit('GET_PRODUCT', 100)) { // Limite aumentado
+        // Validação de entrada para productId
+        if (!/^[0-9a-f-]{36}$/i.test(productId)) {
+          await logSecurityAction('INVALID_PRODUCT_ID', `product:${productId}`, {
+            reason: 'ID de produto inválido',
+            provided_id: productId
+          }, 'warning');
+          
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid product ID',
+              details: 'ID de produto deve ser um UUID válido'
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        
+        if (!await checkEnhancedRateLimit('GET_PRODUCT', 200)) {
           return new Response(
             JSON.stringify({ 
               error: 'Rate limit exceeded',
@@ -162,7 +192,11 @@ serve(async (req) => {
           .single();
 
         if (error) {
-          await logAction('GET_PRODUCT_ERROR', `product:${productId}`, { error: error.message });
+          await logSecurityAction('GET_PRODUCT_ERROR', `product:${productId}`, { 
+            error: error.message,
+            code: error.code
+          }, 'warning');
+          
           return new Response(
             JSON.stringify({ 
               error: 'Product not found',
@@ -175,7 +209,9 @@ serve(async (req) => {
           );
         }
 
-        await logAction('GET_PRODUCT', `product:${productId}`);
+        await logSecurityAction('GET_PRODUCT', `product:${productId}`, {
+          product_name: product.name
+        });
         
         return new Response(
           JSON.stringify({ data: product }),
@@ -185,10 +221,10 @@ serve(async (req) => {
           }
         );
       } else {
-        // Listar todos os produtos - limite muito permissivo
+        // Listar todos os produtos
         console.log('📋 Listando produtos do usuário');
         
-        if (!await checkRateLimit('GET_PRODUCTS', 100)) { // Limite aumentado
+        if (!await checkEnhancedRateLimit('GET_PRODUCTS', 200)) {
           return new Response(
             JSON.stringify({ 
               error: 'Rate limit exceeded',
@@ -210,7 +246,11 @@ serve(async (req) => {
           .order('created_at', { ascending: false });
 
         if (error) {
-          await logAction('GET_PRODUCTS_ERROR', 'products', { error: error.message });
+          await logSecurityAction('GET_PRODUCTS_ERROR', 'products', { 
+            error: error.message,
+            code: error.code
+          }, 'error');
+          
           return new Response(
             JSON.stringify({ 
               error: 'Failed to fetch products',
@@ -223,7 +263,9 @@ serve(async (req) => {
           );
         }
 
-        await logAction('GET_PRODUCTS', 'products', { count: products?.length || 0 });
+        await logSecurityAction('GET_PRODUCTS', 'products', { 
+          count: products?.length || 0 
+        });
         
         return new Response(
           JSON.stringify({ data: products || [] }),
@@ -239,7 +281,7 @@ serve(async (req) => {
     if (req.method === 'POST') {
       console.log('➕ Criando novo produto');
       
-      if (!await checkRateLimit('CREATE_PRODUCT', 20)) { // Limite razoável para criação
+      if (!await checkEnhancedRateLimit('CREATE_PRODUCT', 30)) {
         return new Response(
           JSON.stringify({ 
             error: 'Rate limit exceeded',
@@ -255,11 +297,56 @@ serve(async (req) => {
       const body = await req.json();
       const { name, niche, sub_niche, status = 'draft' } = body;
 
-      if (!name || !niche) {
+      // Validação rigorosa de entrada
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        await logSecurityAction('INVALID_PRODUCT_DATA', 'products', {
+          reason: 'Nome do produto inválido',
+          provided_name: name
+        }, 'warning');
+        
         return new Response(
           JSON.stringify({ 
-            error: 'Missing required fields',
-            details: 'Nome e nicho são obrigatórios'
+            error: 'Invalid product name',
+            details: 'Nome do produto é obrigatório e deve ser uma string não vazia'
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      if (!niche || typeof niche !== 'string' || niche.trim().length === 0) {
+        await logSecurityAction('INVALID_PRODUCT_DATA', 'products', {
+          reason: 'Nicho do produto inválido',
+          provided_niche: niche
+        }, 'warning');
+        
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid product niche',
+            details: 'Nicho do produto é obrigatório e deve ser uma string não vazia'
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // Limitar tamanho dos campos
+      if (name.length > 255 || niche.length > 255 || (sub_niche && sub_niche.length > 255)) {
+        await logSecurityAction('INVALID_PRODUCT_DATA', 'products', {
+          reason: 'Campos muito longos',
+          name_length: name.length,
+          niche_length: niche.length,
+          sub_niche_length: sub_niche?.length
+        }, 'warning');
+        
+        return new Response(
+          JSON.stringify({ 
+            error: 'Field too long',
+            details: 'Nome, nicho e sub-nicho devem ter no máximo 255 caracteres'
           }),
           { 
             status: 400,
@@ -272,19 +359,21 @@ serve(async (req) => {
         .from('products')
         .insert({
           user_id: userId,
-          name,
-          niche,
-          sub_niche,
+          name: name.trim(),
+          niche: niche.trim(),
+          sub_niche: sub_niche?.trim() || null,
           status
         })
         .select()
         .single();
 
       if (error) {
-        await logAction('CREATE_PRODUCT_ERROR', 'products', { 
+        await logSecurityAction('CREATE_PRODUCT_ERROR', 'products', { 
           error: error.message,
-          productData: { name, niche, sub_niche, status }
-        });
+          code: error.code,
+          productData: { name: name.trim(), niche: niche.trim(), sub_niche, status }
+        }, 'error');
+        
         return new Response(
           JSON.stringify({ 
             error: 'Failed to create product',
@@ -297,7 +386,10 @@ serve(async (req) => {
         );
       }
 
-      await logAction('CREATE_PRODUCT', `product:${product.id}`, { name, niche });
+      await logSecurityAction('CREATE_PRODUCT', `product:${product.id}`, { 
+        name: product.name, 
+        niche: product.niche 
+      });
       
       return new Response(
         JSON.stringify({ data: product }),
@@ -323,9 +415,28 @@ serve(async (req) => {
         );
       }
 
+      // Validação de entrada para productId
+      if (!/^[0-9a-f-]{36}$/i.test(productId)) {
+        await logSecurityAction('INVALID_PRODUCT_ID', `product:${productId}`, {
+          reason: 'ID de produto inválido para atualização',
+          provided_id: productId
+        }, 'warning');
+        
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid product ID',
+            details: 'ID de produto deve ser um UUID válido'
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
       console.log('📝 Atualizando produto:', productId);
       
-      if (!await checkRateLimit('UPDATE_PRODUCT', 40)) { // Limite razoável para updates
+      if (!await checkEnhancedRateLimit('UPDATE_PRODUCT', 60)) {
         return new Response(
           JSON.stringify({ 
             error: 'Rate limit exceeded',
@@ -346,6 +457,25 @@ serve(async (req) => {
       delete updates.user_id;
       delete updates.created_at;
 
+      // Validar campos se fornecidos
+      if (updates.name !== undefined && (!updates.name || typeof updates.name !== 'string' || updates.name.trim().length === 0)) {
+        await logSecurityAction('INVALID_UPDATE_DATA', `product:${productId}`, {
+          reason: 'Nome inválido na atualização',
+          provided_name: updates.name
+        }, 'warning');
+        
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid product name',
+            details: 'Nome do produto deve ser uma string não vazia'
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
       const { data: product, error } = await supabase
         .from('products')
         .update(updates)
@@ -355,10 +485,12 @@ serve(async (req) => {
         .single();
 
       if (error) {
-        await logAction('UPDATE_PRODUCT_ERROR', `product:${productId}`, { 
+        await logSecurityAction('UPDATE_PRODUCT_ERROR', `product:${productId}`, { 
           error: error.message,
+          code: error.code,
           updates
-        });
+        }, 'error');
+        
         return new Response(
           JSON.stringify({ 
             error: 'Failed to update product',
@@ -371,7 +503,10 @@ serve(async (req) => {
         );
       }
 
-      await logAction('UPDATE_PRODUCT', `product:${productId}`, updates);
+      await logSecurityAction('UPDATE_PRODUCT', `product:${productId}`, {
+        updated_fields: Object.keys(updates),
+        product_name: product.name
+      });
       
       return new Response(
         JSON.stringify({ data: product }),
@@ -397,9 +532,28 @@ serve(async (req) => {
         );
       }
 
+      // Validação de entrada para productId
+      if (!/^[0-9a-f-]{36}$/i.test(productId)) {
+        await logSecurityAction('INVALID_PRODUCT_ID', `product:${productId}`, {
+          reason: 'ID de produto inválido para exclusão',
+          provided_id: productId
+        }, 'warning');
+        
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid product ID',
+            details: 'ID de produto deve ser um UUID válido'
+          }),
+          { 
+            status: 400,
+            headers: {  ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
       console.log('🗑️ Deletando produto:', productId);
       
-      if (!await checkRateLimit('DELETE_PRODUCT', 20)) { // Limite conservador para delete
+      if (!await checkEnhancedRateLimit('DELETE_PRODUCT', 40)) {
         return new Response(
           JSON.stringify({ 
             error: 'Rate limit exceeded',
@@ -412,6 +566,14 @@ serve(async (req) => {
         );
       }
 
+      // Buscar informações do produto antes de deletar para logs
+      const { data: productInfo } = await supabase
+        .from('products')
+        .select('name, niche')
+        .eq('id', productId)
+        .eq('user_id', userId)
+        .single();
+
       const { error } = await supabase
         .from('products')
         .delete()
@@ -419,7 +581,11 @@ serve(async (req) => {
         .eq('user_id', userId);
 
       if (error) {
-        await logAction('DELETE_PRODUCT_ERROR', `product:${productId}`, { error: error.message });
+        await logSecurityAction('DELETE_PRODUCT_ERROR', `product:${productId}`, { 
+          error: error.message,
+          code: error.code
+        }, 'error');
+        
         return new Response(
           JSON.stringify({ 
             error: 'Failed to delete product',
@@ -432,7 +598,9 @@ serve(async (req) => {
         );
       }
 
-      await logAction('DELETE_PRODUCT', `product:${productId}`);
+      await logSecurityAction('DELETE_PRODUCT', `product:${productId}`, {
+        deleted_product: productInfo
+      });
       
       return new Response(
         JSON.stringify({ message: 'Product deleted successfully' }),
@@ -456,6 +624,31 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('💥 ERRO CRÍTICO NA FUNÇÃO PRODUCT OPERATIONS:', error);
+    
+    // Log de erro crítico se possível
+    if (userId) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        await supabase
+          .from('security_audit_logs')
+          .insert({
+            user_id: userId,
+            action: 'CRITICAL_ERROR',
+            resource: 'product-operations-function',
+            metadata: {
+              error: error.message,
+              stack: error.stack,
+              method: req.method,
+              url: req.url
+            },
+            severity: 'critical',
+            ip_address: clientIP,
+            user_agent: userAgent
+          });
+      } catch (logError) {
+        console.error('💥 Não foi possível salvar log de erro crítico:', logError);
+      }
+    }
     
     return new Response(
       JSON.stringify({ 
