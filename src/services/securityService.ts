@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from './authService';
 
@@ -11,6 +12,18 @@ export interface SecurityLog {
 
 class SecurityService {
   private logs: SecurityLog[] = [];
+  private maxLogsInMemory = 100; // Limitar logs em memória
+
+  // Limpar logs antigos automaticamente
+  private cleanupOldLogs(): void {
+    const oneHourAgo = Date.now() - 3600000; // 1 hora
+    this.logs = this.logs.filter(log => log.timestamp.getTime() > oneHourAgo);
+    
+    // Manter apenas os últimos N logs
+    if (this.logs.length > this.maxLogsInMemory) {
+      this.logs = this.logs.slice(-this.maxLogsInMemory);
+    }
+  }
 
   async logAction(action: string, resource: string, metadata?: any): Promise<void> {
     const user = await authService.getCurrentUser();
@@ -25,6 +38,7 @@ class SecurityService {
     };
 
     this.logs.push(log);
+    this.cleanupOldLogs(); // Limpeza automática
     
     console.log('🔐 SecurityService: Ação registrada:', {
       action,
@@ -113,6 +127,13 @@ class SecurityService {
     const user = await authService.getCurrentUser();
     if (!user) return false;
 
+    // Verificar se é admin - admins têm limites maiores
+    const isAdmin = await authService.isUserAdmin();
+    if (isAdmin) {
+      maxRequests = maxRequests * 5; // Admins têm 5x mais limite
+      console.log('👑 Admin detectado - Rate limit aumentado para:', maxRequests);
+    }
+
     const now = Date.now();
     const windowStart = now - windowMs;
     
@@ -123,12 +144,21 @@ class SecurityService {
       log.timestamp.getTime() > windowStart
     );
 
+    console.log(`🔍 Rate limit check: ${action} - ${recentLogs.length}/${maxRequests} requests`, {
+      userId: user.id,
+      isAdmin,
+      windowMs: windowMs / 1000 + 's'
+    });
+
     if (recentLogs.length >= maxRequests) {
       await this.logAction('RATE_LIMIT_EXCEEDED', action, {
         requestCount: recentLogs.length,
         maxRequests,
-        windowMs
+        windowMs,
+        isAdmin
       });
+      
+      console.warn(`⏱️ Rate limit excedido: ${action} - ${recentLogs.length}/${maxRequests} requests`);
       return false;
     }
 
@@ -136,10 +166,12 @@ class SecurityService {
   }
 
   getSecurityLogs(limit: number = 100): SecurityLog[] {
+    this.cleanupOldLogs();
     return this.logs.slice(-limit);
   }
 
   async auditUserActivity(userId: string): Promise<SecurityLog[]> {
+    this.cleanupOldLogs();
     return this.logs.filter(log => log.userId === userId);
   }
 }

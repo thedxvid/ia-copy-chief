@@ -27,10 +27,10 @@ export const useProducts = () => {
       // Log da ação para auditoria
       await securityService.logAction('FETCH_PRODUCTS', 'products');
 
-      // Verificar rate limit
-      const canProceed = await securityService.checkRateLimit('FETCH_PRODUCTS', 30, 60000);
+      // Rate limit mais permissivo para fetch de produtos (100 req/min)
+      const canProceed = await securityService.checkRateLimit('FETCH_PRODUCTS', 100, 60000);
       if (!canProceed) {
-        throw new Error('Muitas requisições. Aguarde um momento.');
+        throw new Error('Muitas requisições. Aguarde um momento antes de tentar novamente.');
       }
 
       const data = await productService.getProducts();
@@ -43,9 +43,14 @@ export const useProducts = () => {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar produtos';
       setError(errorMessage);
       
-      toast.error('Erro ao carregar produtos', {
-        description: errorMessage,
-      });
+      // Apenas mostrar toast se não for erro de rate limit
+      if (!errorMessage.includes('Muitas requisições')) {
+        toast.error('Erro ao carregar produtos', {
+          description: errorMessage,
+        });
+      } else {
+        console.warn('⚠️ Rate limit atingido - não mostrando toast para evitar spam');
+      }
     } finally {
       setLoading(false);
     }
@@ -87,8 +92,8 @@ export const useProducts = () => {
       // Log da ação
       await securityService.logAction('CREATE_PRODUCT', 'products', { name: productData.name });
 
-      // Verificar rate limit
-      const canProceed = await securityService.checkRateLimit('CREATE_PRODUCT', 10, 60000);
+      // Rate limit para criação (20 req/min)
+      const canProceed = await securityService.checkRateLimit('CREATE_PRODUCT', 20, 60000);
       if (!canProceed) {
         throw new Error('Muitas criações de produto. Aguarde um momento.');
       }

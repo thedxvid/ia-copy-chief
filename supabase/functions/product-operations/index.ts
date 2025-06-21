@@ -76,6 +76,16 @@ serve(async (req) => {
     userId = user.id;
     console.log('✅ Usuário autenticado:', userId);
 
+    // Verificar se é admin para limites maiores
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .single();
+
+    const isAdmin = profile?.is_admin || false;
+    console.log('👑 Status admin:', isAdmin);
+
     // Logs de auditoria
     const logAction = async (action: string, resource: string, metadata?: any) => {
       try {
@@ -93,8 +103,14 @@ serve(async (req) => {
       }
     };
 
-    // Rate limiting simples
+    // Rate limiting otimizado com bypass para admins
     const checkRateLimit = async (action: string, maxRequests: number = 30) => {
+      // Admins têm 5x mais limite
+      if (isAdmin) {
+        maxRequests = maxRequests * 5;
+        console.log('👑 Admin detectado - Rate limit aumentado para:', maxRequests);
+      }
+
       const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
       
       const { data: recentLogs, error } = await supabase
@@ -109,7 +125,10 @@ serve(async (req) => {
         return true; // Permitir em caso de erro
       }
 
-      return (recentLogs?.length || 0) < maxRequests;
+      const currentCount = recentLogs?.length || 0;
+      console.log(`🔍 Rate limit: ${action} - ${currentCount}/${maxRequests} requests`);
+
+      return currentCount < maxRequests;
     };
 
     const url = new URL(req.url);
@@ -122,7 +141,7 @@ serve(async (req) => {
         // Buscar produto específico
         console.log('🔍 Buscando produto específico:', productId);
         
-        if (!await checkRateLimit('GET_PRODUCT', 60)) {
+        if (!await checkRateLimit('GET_PRODUCT', 100)) { // Limite aumentado
           return new Response(
             JSON.stringify({ 
               error: 'Rate limit exceeded',
@@ -166,14 +185,16 @@ serve(async (req) => {
           }
         );
       } else {
-        // Listar todos os produtos
+        // Listar todos os produtos - limite muito permissivo
         console.log('📋 Listando produtos do usuário');
         
-        if (!await checkRateLimit('GET_PRODUCTS', 30)) {
+        if (!await checkRateLimit('GET_PRODUCTS', 100)) { // Limite aumentado
           return new Response(
             JSON.stringify({ 
               error: 'Rate limit exceeded',
-              details: 'Muitas requisições. Aguarde um momento.'
+              details: 'Muitas requisições. Aguarde um momento.',
+              isAdmin,
+              suggestion: 'Tente novamente em alguns segundos'
             }),
             { 
               status: 429,
@@ -218,7 +239,7 @@ serve(async (req) => {
     if (req.method === 'POST') {
       console.log('➕ Criando novo produto');
       
-      if (!await checkRateLimit('CREATE_PRODUCT', 10)) {
+      if (!await checkRateLimit('CREATE_PRODUCT', 20)) { // Limite razoável para criação
         return new Response(
           JSON.stringify({ 
             error: 'Rate limit exceeded',
@@ -304,7 +325,7 @@ serve(async (req) => {
 
       console.log('📝 Atualizando produto:', productId);
       
-      if (!await checkRateLimit('UPDATE_PRODUCT', 20)) {
+      if (!await checkRateLimit('UPDATE_PRODUCT', 40)) { // Limite razoável para updates
         return new Response(
           JSON.stringify({ 
             error: 'Rate limit exceeded',
@@ -378,7 +399,7 @@ serve(async (req) => {
 
       console.log('🗑️ Deletando produto:', productId);
       
-      if (!await checkRateLimit('DELETE_PRODUCT', 10)) {
+      if (!await checkRateLimit('DELETE_PRODUCT', 20)) { // Limite conservador para delete
         return new Response(
           JSON.stringify({ 
             error: 'Rate limit exceeded',
