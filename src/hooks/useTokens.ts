@@ -37,6 +37,7 @@ export const useTokens = () => {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showExhaustedModal, setShowExhaustedModal] = useState(false);
   const [lastNotificationTime, setLastNotificationTime] = useState<{ [key: string]: number }>({});
   const { user } = useAuth();
 
@@ -224,11 +225,11 @@ export const useTokens = () => {
     const now = Date.now();
     const usagePercentage = ((MONTHLY_TOKENS_LIMIT - tokenData.total_available) / MONTHLY_TOKENS_LIMIT) * 100;
     
-    // Verificar se tokens acabaram - mostrar popup imediatamente
+    // Verificar se tokens acabaram - mostrar modal específico para tokens zerados
     if (tokenData.total_available === 0) {
       const lastZeroNotification = lastNotificationTime['zero'] || 0;
       if (now - lastZeroNotification > NOTIFICATION_COOLDOWN) {
-        setShowUpgradeModal(true);
+        setShowExhaustedModal(true);
         setLastNotificationTime(prev => ({ ...prev, zero: now }));
         
         // Atualizar flag no banco
@@ -240,7 +241,7 @@ export const useTokens = () => {
       return;
     }
     
-    // Notificação 90% usado (crítico) - mostrar popup
+    // Notificação 90% usado (crítico) - mostrar popup de upgrade
     if (usagePercentage >= 90 && !flags.notified_90) {
       const lastCriticalNotification = lastNotificationTime['critical'] || 0;
       if (now - lastCriticalNotification > NOTIFICATION_COOLDOWN) {
@@ -488,6 +489,10 @@ export const useTokens = () => {
 
   const getMonthlyLimit = useCallback(() => MONTHLY_TOKENS_LIMIT, []);
 
+  const handleUpgrade = useCallback(() => {
+    setShowUpgradeModal(true);
+  }, []);
+
   return {
     tokens,
     loading,
@@ -498,7 +503,10 @@ export const useTokens = () => {
     isRefreshing,
     showUpgradeModal,
     setShowUpgradeModal,
-    refreshTokens: (showRefreshing = false) => fetchTokens(showRefreshing, true), // Sempre forçar atualização no refresh manual
+    showExhaustedModal,
+    setShowExhaustedModal,
+    handleUpgrade,
+    refreshTokens: (showRefreshing = false) => fetchTokens(showRefreshing, true),
     getUsagePercentage: useCallback(() => {
       if (!tokens) return 0;
       const totalTokens = tokens.monthly_tokens + tokens.extra_tokens;

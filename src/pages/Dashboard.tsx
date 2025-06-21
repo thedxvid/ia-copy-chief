@@ -10,10 +10,18 @@ import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { GoalsProgress } from '@/components/dashboard/GoalsProgress';
 import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
+import { TokenExhaustedModal } from '@/components/tokens/TokenExhaustedModal';
 import { useTokens } from '@/hooks/useTokens';
 
 const Dashboard = () => {
-  const { tokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
+  const { 
+    tokens, 
+    showUpgradeModal, 
+    setShowUpgradeModal,
+    showExhaustedModal,
+    setShowExhaustedModal,
+    handleUpgrade
+  } = useTokens();
 
   return (
     <DashboardLayout>
@@ -38,6 +46,13 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal para tokens esgotados */}
+      <TokenExhaustedModal
+        isOpen={showExhaustedModal}
+        onClose={() => setShowExhaustedModal(false)}
+        onUpgrade={handleUpgrade}
+      />
 
       {/* Modal de upgrade de tokens */}
       <TokenUpgradeModal
