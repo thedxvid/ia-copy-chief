@@ -20,6 +20,8 @@ export const useTokens = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showExhaustedModal, setShowExhaustedModal] = useState(false);
   
   // Use refs to track subscriptions and prevent duplicates
   const channelRef = useRef<any>(null);
@@ -128,6 +130,43 @@ export const useTokens = () => {
     }
   }, [user, isRefreshing, fetchTokens]);
 
+  // Check if user can afford a feature
+  const canAffordFeature = useCallback((feature: string) => {
+    if (!tokens) return false;
+    
+    const requiredTokens = {
+      chat: 100,
+      copy: 500,
+      analysis: 300
+    };
+    
+    const required = requiredTokens[feature as keyof typeof requiredTokens] || 100;
+    return tokens.total_available >= required;
+  }, [tokens]);
+
+  // Handle upgrade modal
+  const handleUpgrade = useCallback(() => {
+    setShowUpgradeModal(true);
+    setShowExhaustedModal(false);
+  }, []);
+
+  // Handle close exhausted modal
+  const handleCloseExhaustedModal = useCallback(() => {
+    setShowExhaustedModal(false);
+  }, []);
+
+  // Check for low tokens and show modals
+  useEffect(() => {
+    if (tokens && user) {
+      if (tokens.total_available === 0) {
+        setShowExhaustedModal(true);
+      } else if (tokens.total_available < 1000) {
+        // Show upgrade modal for low tokens but not exhausted
+        setTimeout(() => setShowUpgradeModal(true), 2000);
+      }
+    }
+  }, [tokens, user]);
+
   // Initial load with cache
   useEffect(() => {
     if (!user) {
@@ -228,6 +267,13 @@ export const useTokens = () => {
     error,
     lastUpdate,
     isRefreshing,
-    refreshTokens
+    refreshTokens,
+    canAffordFeature,
+    showUpgradeModal,
+    setShowUpgradeModal,
+    showExhaustedModal,
+    setShowExhaustedModal,
+    handleUpgrade,
+    handleCloseExhaustedModal
   };
 };
