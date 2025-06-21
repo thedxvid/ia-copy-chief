@@ -46,18 +46,18 @@ export const useTokens = () => {
       }
       setError(null);
       
-      // Buscar tokens disponíveis
-      const { data: tokensData, error: tokensError } = await supabase
-        .rpc('get_available_tokens', { p_user_id: user.id });
+      // Executar chamadas em paralelo
+      const [tokensResponse, profileResponse] = await Promise.all([
+        supabase.rpc('get_available_tokens', { p_user_id: user.id }),
+        supabase
+          .from('profiles')
+          .select('notified_90, notified_50, notified_10, tokens_reset_date')
+          .eq('id', user.id)
+          .single()
+      ]);
 
-      if (tokensError) throw tokensError;
-
-      // Buscar flags de notificação e data de reset
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('notified_90, notified_50, notified_10, tokens_reset_date')
-        .eq('id', user.id)
-        .single();
+      const { data: tokensData, error: tokensError } = tokensResponse;
+      const { data: profileData, error: profileError } = profileResponse;
 
       if (profileError) {
         console.warn('Erro ao buscar flags de notificação:', profileError);
