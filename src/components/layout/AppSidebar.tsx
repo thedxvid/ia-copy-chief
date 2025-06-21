@@ -1,3 +1,4 @@
+
 import {
   Home,
   LayoutDashboard,
@@ -30,7 +31,7 @@ import {
   BadgeCheck,
   CalendarClock,
   UserCog2,
-  Logout,
+  LogOut,
   User2,
   Key,
   ShieldCheck,
@@ -59,11 +60,13 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { TokenPurchaseModal } from "../tokens/TokenPurchaseModal"
+import { supabase } from "@/integrations/supabase/client"
 
 interface NavItem {
   title: string
