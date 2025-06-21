@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Coins, Plus, Minus, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Coins, Plus, Minus, RefreshCw, AlertTriangle, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -31,12 +31,12 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
   const [reason, setReason] = useState('');
 
   const handleUpdateTokens = async () => {
-    if (!actionType || !value) {
+    if (!actionType || (!value && actionType !== 'reset_monthly')) {
       toast.error('Por favor, preencha todos os campos obrigatórios');
       return;
     }
 
-    const numValue = parseInt(value);
+    const numValue = actionType === 'reset_monthly' ? 100000 : parseInt(value);
     if (isNaN(numValue) || numValue < 0) {
       toast.error('O valor deve ser um número positivo');
       return;
@@ -57,6 +57,32 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
       const { data: currentUser } = await supabase.auth.getUser();
       console.log('👤 TokenEditor: Usuário atual:', currentUser.user?.id?.slice(0, 8));
 
+      // Verificar status de admin do usuário atual
+      const { data: adminProfile, error: adminCheckError } = await supabase
+        .from('profiles')
+        .select('is_admin, full_name')
+        .eq('id', currentUser.user?.id)
+        .single();
+
+      if (adminCheckError) {
+        console.error('❌ TokenEditor: Erro ao verificar admin:', adminCheckError);
+        throw new Error('Erro ao verificar permissões de administrador');
+      }
+
+      console.log('🔐 TokenEditor: Status admin:', {
+        isAdmin: adminProfile?.is_admin,
+        adminName: adminProfile?.full_name
+      });
+
+      if (!adminProfile?.is_admin) {
+        toast.error('Acesso negado', {
+          description: 'Você não tem permissões de administrador. Contate um admin para obter as permissões necessárias.',
+          duration: 8000,
+        });
+        return;
+      }
+
+      // Chamar a função RPC
       const { data, error } = await supabase.rpc('admin_update_user_tokens', {
         p_target_user_id: user.id,
         p_action_type: actionType,
@@ -68,53 +94,63 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
 
       if (error) {
         console.error('❌ TokenEditor: Erro na RPC:', error);
-        throw error;
+        
+        // Tratamento de erros mais específico
+        let errorMessage = 'Erro desconhecido ao atualizar tokens';
+        let errorDescription = 'Verifique os logs do console para mais detalhes.';
+
+        if (error.message) {
+          if (error.message.includes('Admin privileges required')) {
+            errorMessage = 'Permissões insuficientes';
+            errorDescription = 'Você não tem permissões de administrador para esta operação.';
+          } else if (error.message.includes('User not found') || error.message.includes('Target user not found')) {
+            errorMessage = 'Usuário não encontrado';
+            errorDescription = 'O usuário selecionado não existe no sistema.';
+          } else if (error.message.includes('Invalid action type')) {
+            errorMessage = 'Ação inválida';
+            errorDescription = 'O tipo de ação selecionado não é válido.';
+          } else if (error.message.includes('Token value cannot be negative')) {
+            errorMessage = 'Valor inválido';
+            errorDescription = 'O valor dos tokens deve ser um número positivo.';
+          } else {
+            errorMessage = 'Erro na operação';
+            errorDescription = error.message;
+          }
+        }
+
+        toast.error(errorMessage, {
+          description: errorDescription,
+          duration: 8000,
+        });
+        return;
       }
 
-      if (data) {
-        console.log('✅ TokenEditor: Tokens atualizados com sucesso');
-        toast.success('Tokens atualizados com sucesso!', {
-          description: `${getActionDescription(actionType)} - ${numValue.toLocaleString()} tokens`,
-          duration: 5000,
-        });
-        
-        setIsOpen(false);
-        setActionType('');
-        setValue('');
-        setReason('');
-        
-        // Aguardar um pouco antes de atualizar para garantir que o banco foi atualizado
-        setTimeout(() => {
-          console.log('🔄 TokenEditor: Chamando onTokensUpdated...');
-          onTokensUpdated();
-        }, 500);
-      }
-    } catch (error) {
-      console.error('❌ TokenEditor: Erro ao atualizar tokens:', error);
+      // Se chegou aqui, a operação foi bem-sucedida
+      console.log('✅ TokenEditor: Tokens atualizados com sucesso');
       
-      if (error instanceof Error) {
-        if (error.message.includes('Admin privileges required')) {
-          toast.error('Acesso negado', {
-            description: 'Você não tem permissões de administrador.',
-            duration: 5000,
-          });
-        } else if (error.message.includes('User not found')) {
-          toast.error('Usuário não encontrado', {
-            description: 'O usuário selecionado não existe.',
-            duration: 5000,
-          });
-        } else {
-          toast.error('Erro ao atualizar tokens', {
-            description: error.message || 'Erro desconhecido',
-            duration: 5000,
-          });
-        }
-      } else {
-        toast.error('Erro ao atualizar tokens', {
-          description: 'Verifique suas permissões e tente novamente.',
-          duration: 5000,
-        });
-      }
+      toast.success('Tokens atualizados com sucesso!', {
+        description: `${getActionDescription(actionType)} - ${numValue.toLocaleString()} tokens para ${user.full_name}`,
+        duration: 5000,
+      });
+      
+      setIsOpen(false);
+      setActionType('');
+      setValue('');
+      setReason('');
+      
+      // Aguardar um pouco antes de atualizar para garantir que o banco foi atualizado
+      setTimeout(() => {
+        console.log('🔄 TokenEditor: Chamando onTokensUpdated...');
+        onTokensUpdated();
+      }, 500);
+
+    } catch (error) {
+      console.error('❌ TokenEditor: Erro geral:', error);
+      
+      toast.error('Erro interno do sistema', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido. Tente novamente ou contate o suporte.',
+        duration: 8000,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +169,7 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
       case 'reset_monthly':
         return 'Resetar tokens mensais (100.000)';
       default:
-        return '';
+        return 'Ação desconhecida';
     }
   };
 
@@ -151,8 +187,9 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
             <Coins className="w-5 h-5" />
             Editar Tokens do Usuário
           </DialogTitle>
-          <DialogDescription>
-            Edite os tokens de {user.full_name || 'Usuário'}
+          <DialogDescription className="flex items-center gap-2">
+            <User className="w-4 h-4" />
+            Editando tokens de: <strong>{user.full_name || 'Usuário sem nome'}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -181,7 +218,7 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
           {/* Formulário de edição */}
           <div className="space-y-3">
             <div>
-              <Label htmlFor="action">Ação</Label>
+              <Label htmlFor="action">Ação *</Label>
               <Select value={actionType} onValueChange={setActionType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma ação" />
@@ -223,7 +260,7 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
 
             {actionType && actionType !== 'reset_monthly' && (
               <div>
-                <Label htmlFor="value">Valor</Label>
+                <Label htmlFor="value">Valor *</Label>
                 <Input
                   id="value"
                   type="number"
@@ -231,7 +268,11 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   min="0"
+                  step="1000"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sugestão: Use múltiplos de 1.000 tokens
+                </p>
               </div>
             )}
 
@@ -239,7 +280,7 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
               <Label htmlFor="reason">Motivo (opcional)</Label>
               <Textarea
                 id="reason"
-                placeholder="Descreva o motivo da alteração..."
+                placeholder="Descreva o motivo da alteração (ex: Compra de pacote extra, Ajuste de sistema, etc.)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
@@ -254,7 +295,8 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   {getActionDescription(actionType)}
-                  {actionType !== 'reset_monthly' && value && ` (${parseInt(value || '0').toLocaleString()} tokens)`}
+                  {actionType !== 'reset_monthly' && value && ` - ${parseInt(value || '0').toLocaleString()} tokens`}
+                  {actionType === 'reset_monthly' && ' - 100.000 tokens'}
                 </p>
               </div>
             )}
