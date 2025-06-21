@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { TokenMonitoringDashboard } from '@/components/tokens/TokenMonitoringDashboard';
@@ -120,7 +119,7 @@ const Admin = () => {
   };
 
   return (
-    <D Layout>
+    <DashboardLayout>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in w-full max-w-full overflow-x-hidden">
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-2 bg-[#1E1E1E] border border-[#4B5563] rounded-lg p-2">
