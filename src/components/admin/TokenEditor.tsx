@@ -43,7 +43,20 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
     }
 
     setIsLoading(true);
+    
+    console.log('🔄 TokenEditor: Iniciando atualização de tokens:', {
+      userId: user.id.slice(0, 8),
+      userName: user.full_name,
+      action: actionType,
+      value: numValue,
+      reason: reason || 'Não informado'
+    });
+
     try {
+      // Verificar se o usuário atual tem permissões de admin
+      const { data: currentUser } = await supabase.auth.getUser();
+      console.log('👤 TokenEditor: Usuário atual:', currentUser.user?.id?.slice(0, 8));
+
       const { data, error } = await supabase.rpc('admin_update_user_tokens', {
         p_target_user_id: user.id,
         p_action_type: actionType,
@@ -51,19 +64,57 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
         p_reason: reason || null
       });
 
-      if (error) throw error;
+      console.log('📡 TokenEditor: Resposta da RPC:', { data, error });
+
+      if (error) {
+        console.error('❌ TokenEditor: Erro na RPC:', error);
+        throw error;
+      }
 
       if (data) {
-        toast.success('Tokens atualizados com sucesso!');
+        console.log('✅ TokenEditor: Tokens atualizados com sucesso');
+        toast.success('Tokens atualizados com sucesso!', {
+          description: `${getActionDescription(actionType)} - ${numValue.toLocaleString()} tokens`,
+          duration: 5000,
+        });
+        
         setIsOpen(false);
         setActionType('');
         setValue('');
         setReason('');
-        onTokensUpdated();
+        
+        // Aguardar um pouco antes de atualizar para garantir que o banco foi atualizado
+        setTimeout(() => {
+          console.log('🔄 TokenEditor: Chamando onTokensUpdated...');
+          onTokensUpdated();
+        }, 500);
       }
     } catch (error) {
-      console.error('Erro ao atualizar tokens:', error);
-      toast.error('Erro ao atualizar tokens. Verifique suas permissões.');
+      console.error('❌ TokenEditor: Erro ao atualizar tokens:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Admin privileges required')) {
+          toast.error('Acesso negado', {
+            description: 'Você não tem permissões de administrador.',
+            duration: 5000,
+          });
+        } else if (error.message.includes('User not found')) {
+          toast.error('Usuário não encontrado', {
+            description: 'O usuário selecionado não existe.',
+            duration: 5000,
+          });
+        } else {
+          toast.error('Erro ao atualizar tokens', {
+            description: error.message || 'Erro desconhecido',
+            duration: 5000,
+          });
+        }
+      } else {
+        toast.error('Erro ao atualizar tokens', {
+          description: 'Verifique suas permissões e tente novamente.',
+          duration: 5000,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -215,7 +266,14 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ user, onTokensUpdated 
               disabled={isLoading || !actionType || (actionType !== 'reset_monthly' && !value)}
               className="flex-1"
             >
-              {isLoading ? 'Atualizando...' : 'Atualizar Tokens'}
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Atualizando...
+                </div>
+              ) : (
+                'Atualizar Tokens'
+              )}
             </Button>
             <Button
               variant="outline"

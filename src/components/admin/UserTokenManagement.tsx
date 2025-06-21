@@ -28,21 +28,95 @@ export const UserTokenManagement: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      console.log('🔄 UserTokenManagement: Iniciando busca de usuários...');
+      
+      // Buscar todos os usuários usando a função RPC corrigida
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, monthly_tokens, extra_tokens, total_tokens_used')
         .order('full_name', { ascending: true });
 
-      if (error) throw error;
+      if (profilesError) {
+        console.error('❌ UserTokenManagement: Erro ao buscar profiles:', profilesError);
+        throw profilesError;
+      }
 
-      const usersWithCalculatedTokens = data.map(user => ({
-        ...user,
-        total_available: (user.monthly_tokens || 0) + (user.extra_tokens || 0)
-      }));
+      if (!profilesData || profilesData.length === 0) {
+        console.log('⚠️ UserTokenManagement: Nenhum usuário encontrado');
+        setUsers([]);
+        return;
+      }
 
-      setUsers(usersWithCalculatedTokens);
+      console.log('👥 UserTokenManagement: Profiles encontrados:', profilesData.length);
+
+      // Para cada usuário, usar a função RPC corrigida para obter o cálculo correto
+      const usersWithCorrectTokens: UserTokenData[] = [];
+      
+      for (const profile of profilesData) {
+        try {
+          console.log(`🔍 UserTokenManagement: Buscando tokens para usuário ${profile.id.slice(0, 8)}...`);
+          
+          const { data: tokenData, error: tokenError } = await supabase
+            .rpc('check_token_balance', { p_user_id: profile.id });
+
+          if (tokenError) {
+            console.warn(`⚠️ UserTokenManagement: Erro RPC para usuário ${profile.id.slice(0, 8)}:`, tokenError);
+            
+            // Fallback para cálculo manual se RPC falhar
+            const totalAvailable = Math.max(0, 
+              (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) - (profile.total_tokens_used || 0)
+            );
+            
+            usersWithCorrectTokens.push({
+              ...profile,
+              total_available: totalAvailable
+            });
+          } else if (tokenData && tokenData.length > 0) {
+            console.log(`✅ UserTokenManagement: RPC sucesso para ${profile.id.slice(0, 8)}:`, {
+              totalAvailable: tokenData[0].total_available,
+              monthlyTokens: tokenData[0].monthly_tokens,
+              extraTokens: tokenData[0].extra_tokens,
+              totalUsed: tokenData[0].total_used
+            });
+            
+            usersWithCorrectTokens.push({
+              id: profile.id,
+              full_name: profile.full_name,
+              monthly_tokens: tokenData[0].monthly_tokens,
+              extra_tokens: tokenData[0].extra_tokens,
+              total_available: tokenData[0].total_available,
+              total_tokens_used: tokenData[0].total_used
+            });
+          }
+        } catch (userError) {
+          console.warn(`⚠️ UserTokenManagement: Erro ao processar usuário ${profile.id.slice(0, 8)}:`, userError);
+          
+          // Fallback para cálculo manual
+          const totalAvailable = Math.max(0, 
+            (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) - (profile.total_tokens_used || 0)
+          );
+          
+          usersWithCorrectTokens.push({
+            ...profile,
+            total_available: totalAvailable
+          });
+        }
+      }
+
+      console.log('✅ UserTokenManagement: Dados processados:', {
+        totalUsers: usersWithCorrectTokens.length,
+        sampledUser: usersWithCorrectTokens[0] ? {
+          name: usersWithCorrectTokens[0].full_name,
+          totalAvailable: usersWithCorrectTokens[0].total_available,
+          monthlyTokens: usersWithCorrectTokens[0].monthly_tokens,
+          extraTokens: usersWithCorrectTokens[0].extra_tokens,
+          totalUsed: usersWithCorrectTokens[0].total_tokens_used
+        } : 'Nenhum usuário'
+      });
+
+      setUsers(usersWithCorrectTokens);
     } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
+      console.error('❌ UserTokenManagement: Erro ao buscar usuários:', error);
       toast.error('Erro ao carregar usuários');
     } finally {
       setLoading(false);
@@ -51,6 +125,40 @@ export const UserTokenManagement: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  // Configurar subscription para atualizações em tempo real
+  useEffect(() => {
+    console.log('🔄 UserTokenManagement: Configurando subscription...');
+    
+    const channel = supabase
+      .channel('user-token-management-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+        },
+        (payload) => {
+          console.log('🔄 UserTokenManagement: Profile atualizado:', {
+            userId: payload.new?.id?.slice(0, 8),
+            oldTokens: payload.old?.total_tokens_used,
+            newTokens: payload.new?.total_tokens_used
+          });
+          
+          // Atualizar dados quando perfil é modificado
+          fetchUsers();
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 UserTokenManagement: Status da subscription:', status);
+      });
+
+    return () => {
+      console.log('🧹 UserTokenManagement: Limpando subscription');
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const filteredUsers = users.filter(user => {

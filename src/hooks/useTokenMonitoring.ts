@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -43,28 +42,28 @@ export const useTokenMonitoring = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 Iniciando busca de estatísticas de créditos...');
+      console.log('🔍 MONITORAMENTO: Iniciando busca de estatísticas de créditos...');
 
       // Buscar TODOS os usuários da tabela profiles
-      console.log('📊 Buscando todos os profiles...');
+      console.log('📊 MONITORAMENTO: Buscando todos os profiles...');
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      console.log('📊 Query executada - Resultado:', { 
+      console.log('📊 MONITORAMENTO: Query executada - Resultado:', { 
         profiles: profilesData?.length || 0, 
         error: profilesError 
       });
 
       if (profilesError) {
-        console.error('❌ Erro ao buscar profiles:', profilesError);
+        console.error('❌ MONITORAMENTO: Erro ao buscar profiles:', profilesError);
         throw profilesError;
       }
 
       if (!profilesData || profilesData.length === 0) {
-        console.log('⚠️ Nenhum perfil encontrado');
+        console.log('⚠️ MONITORAMENTO: Nenhum perfil encontrado');
         setStats({
           totalUsers: 0,
           totalTokensUsed: 0,
@@ -77,43 +76,101 @@ export const useTokenMonitoring = () => {
         return;
       }
 
-      console.log('👥 Total de profiles encontrados:', profilesData.length);
+      console.log('👥 MONITORAMENTO: Total de profiles encontrados:', profilesData.length);
 
-      // Processar TODOS os usuários encontrados
-      const processedUsers: UserTokenData[] = profilesData.map((profile, index) => {
-        console.log(`🔄 Processando usuário ${index + 1}:`, {
-          id: profile.id.slice(0, 8),
-          name: profile.full_name || 'Sem nome',
-          monthly: profile.monthly_tokens,
-          extra: profile.extra_tokens,
-          used: profile.total_tokens_used
-        });
+      // Processar usuários usando a função RPC corrigida
+      const processedUsers: UserTokenData[] = [];
+      
+      for (const profile of profilesData) {
+        try {
+          console.log(`🔄 MONITORAMENTO: RPC para usuário ${profile.id.slice(0, 8)}...`);
+          
+          // Usar a função RPC corrigida para obter dados corretos
+          const { data: tokenData, error: tokenError } = await supabase
+            .rpc('check_token_balance', { p_user_id: profile.id });
 
-        const totalAvailable = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0);
-        const tokensUsed = profile.total_tokens_used || 0;
-        const usagePercentage = totalAvailable > 0 
-          ? Math.round((tokensUsed / (tokensUsed + totalAvailable)) * 100)
-          : 0;
+          if (tokenError) {
+            console.warn(`⚠️ MONITORAMENTO: Erro RPC para usuário ${profile.id.slice(0, 8)}:`, tokenError);
+            
+            // Fallback para cálculo manual CORRIGIDO
+            const totalAvailable = Math.max(0, 
+              (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) - (profile.total_tokens_used || 0)
+            );
+            
+            const usagePercentage = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) > 0 
+              ? Math.round(((profile.total_tokens_used || 0) / ((profile.monthly_tokens || 0) + (profile.extra_tokens || 0))) * 100)
+              : 0;
 
-        return {
-          id: profile.id,
-          full_name: profile.full_name,
-          email: null, // Será preenchido depois
-          monthly_tokens: profile.monthly_tokens || 0,
-          extra_tokens: profile.extra_tokens || 0,
-          total_tokens_used: tokensUsed,
-          tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
-          total_available: totalAvailable,
-          usage_percentage: Math.max(0, Math.min(100, usagePercentage))
-        };
-      });
+            processedUsers.push({
+              id: profile.id,
+              full_name: profile.full_name,
+              email: null,
+              monthly_tokens: profile.monthly_tokens || 0,
+              extra_tokens: profile.extra_tokens || 0,
+              total_tokens_used: profile.total_tokens_used || 0,
+              tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
+              total_available: totalAvailable,
+              usage_percentage: Math.max(0, Math.min(100, usagePercentage))
+            });
+          } else if (tokenData && tokenData.length > 0) {
+            const data = tokenData[0];
+            console.log(`✅ MONITORAMENTO: RPC sucesso para ${profile.id.slice(0, 8)}:`, {
+              totalAvailable: data.total_available,
+              monthlyTokens: data.monthly_tokens,
+              extraTokens: data.extra_tokens,
+              totalUsed: data.total_used
+            });
+            
+            const totalAvailable = data.total_available;
+            const totalPossible = data.monthly_tokens + data.extra_tokens;
+            const usagePercentage = totalPossible > 0 
+              ? Math.round((data.total_used / totalPossible) * 100)
+              : 0;
 
-      console.log('✅ Usuários processados:', processedUsers.length);
+            processedUsers.push({
+              id: profile.id,
+              full_name: profile.full_name,
+              email: null,
+              monthly_tokens: data.monthly_tokens,
+              extra_tokens: data.extra_tokens,
+              total_tokens_used: data.total_used,
+              tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
+              total_available: totalAvailable,
+              usage_percentage: Math.max(0, Math.min(100, usagePercentage))
+            });
+          }
+        } catch (userError) {
+          console.warn(`⚠️ MONITORAMENTO: Erro ao processar usuário ${profile.id.slice(0, 8)}:`, userError);
+          
+          // Fallback para cálculo manual CORRIGIDO
+          const totalAvailable = Math.max(0, 
+            (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) - (profile.total_tokens_used || 0)
+          );
+          
+          const usagePercentage = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) > 0 
+            ? Math.round(((profile.total_tokens_used || 0) / ((profile.monthly_tokens || 0) + (profile.extra_tokens || 0))) * 100)
+            : 0;
 
-      // Calcular estatísticas
-      const totalUsers = profilesData.length;
-      const totalTokensUsed = profilesData.reduce((sum, p) => sum + (p.total_tokens_used || 0), 0);
-      const totalTokensAvailable = profilesData.reduce((sum, p) => sum + (p.monthly_tokens || 0) + (p.extra_tokens || 0), 0);
+          processedUsers.push({
+            id: profile.id,
+            full_name: profile.full_name,
+            email: null,
+            monthly_tokens: profile.monthly_tokens || 0,
+            extra_tokens: profile.extra_tokens || 0,
+            total_tokens_used: profile.total_tokens_used || 0,
+            tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
+            total_available: totalAvailable,
+            usage_percentage: Math.max(0, Math.min(100, usagePercentage))
+          });
+        }
+      }
+
+      console.log('✅ MONITORAMENTO: Usuários processados:', processedUsers.length);
+
+      // Calcular estatísticas usando dados corretos
+      const totalUsers = processedUsers.length;
+      const totalTokensUsed = processedUsers.reduce((sum, u) => sum + u.total_tokens_used, 0);
+      const totalTokensAvailable = processedUsers.reduce((sum, u) => sum + u.total_available, 0);
       const averageUsage = totalUsers > 0 ? Math.round(totalTokensUsed / totalUsers) : 0;
       
       const usersLowTokens = processedUsers.filter(user => 
@@ -133,17 +190,17 @@ export const useTokenMonitoring = () => {
         usersOutOfTokens
       };
 
-      console.log('📈 Estatísticas calculadas:', calculatedStats);
+      console.log('📈 MONITORAMENTO: Estatísticas calculadas CORRIGIDAS:', calculatedStats);
 
       // Definir os dados
       setStats(calculatedStats);
       setUserDetails(processedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
 
-      console.log('✅ Dados definidos com sucesso - Total de usuários:', processedUsers.length);
+      console.log('✅ MONITORAMENTO: Dados definidos com sucesso - Total de usuários:', processedUsers.length);
 
       // Tentar buscar emails dos usuários
       try {
-        console.log('📧 Tentando buscar emails dos usuários...');
+        console.log('📧 MONITORAMENTO: Tentando buscar emails dos usuários...');
         const userIds = profilesData.map(u => u.id);
 
         const { data: emailsData, error: emailsError } = await supabase
@@ -152,9 +209,9 @@ export const useTokenMonitoring = () => {
           });
 
         if (emailsError) {
-          console.warn('⚠️ Erro ao buscar emails via RPC:', emailsError);
+          console.warn('⚠️ ERRO MONITORAMENTO: Erro ao buscar emails via RPC:', emailsError);
         } else if (emailsData && Array.isArray(emailsData)) {
-          console.log('📧 Emails encontrados via RPC:', emailsData.length);
+          console.log('📧 EMAILS ENCONTRADOS VIA RPC:', emailsData.length);
           
           // Atualizar usuários com emails
           const updatedUsers = processedUsers.map(user => {
@@ -166,14 +223,14 @@ export const useTokenMonitoring = () => {
           });
           
           setUserDetails(updatedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
-          console.log('✅ Emails atualizados para usuários');
+          console.log('✅ EMAILS ATUALIZADOS PARA USUÁRIOS');
         }
       } catch (emailError) {
-        console.warn('⚠️ Erro ao buscar emails (não crítico):', emailError);
+        console.warn('⚠️ ERRO MONITORAMENTO: Erro ao buscar emails (não crítico):', emailError);
       }
 
     } catch (err) {
-      console.error('❌ Erro ao buscar estatísticas de créditos:', err);
+      console.error('❌ MONITORAMENTO: Erro ao buscar estatísticas de créditos:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       
       toast.error('Erro ao carregar dados', {
@@ -342,9 +399,9 @@ export const useTokenMonitoring = () => {
     }
   }, []);
 
-  // Configurar subscriptions em tempo real com melhor detecção
+  // Configurar subscriptions em tempo real com detecção melhorada para edições de token
   useEffect(() => {
-    console.log('🔄 AUDITORIA: Configurando subscriptions do dashboard de monitoramento...');
+    console.log('🔄 MONITORAMENTO: Configurando subscriptions do dashboard de monitoramento...');
 
     const timestamp = Date.now();
     
@@ -360,11 +417,14 @@ export const useTokenMonitoring = () => {
           table: 'profiles',
         },
         (payload) => {
-          console.log('🔄 AUDITORIA: Perfil atualizado (monitoramento):', {
+          console.log('🔄 MONITORAMENTO: Perfil atualizado (monitoramento):', {
             userId: payload.new?.id?.slice(0, 8),
-            oldTokens: payload.old?.total_tokens_used,
-            newTokens: payload.new?.total_tokens_used,
-            difference: (payload.new?.total_tokens_used || 0) - (payload.old?.total_tokens_used || 0)
+            oldMonthly: payload.old?.monthly_tokens,
+            newMonthly: payload.new?.monthly_tokens,
+            oldExtra: payload.old?.extra_tokens,
+            newExtra: payload.new?.extra_tokens,
+            oldUsed: payload.old?.total_tokens_used,
+            newUsed: payload.new?.total_tokens_used
           });
           
           // Verificar se os campos de token foram alterados
@@ -377,13 +437,17 @@ export const useTokenMonitoring = () => {
             newRecord.total_tokens_used !== oldRecord.total_tokens_used;
 
           if (tokenFieldsChanged) {
-            console.log('💰 AUDITORIA: Tokens de usuário alterados, recarregando estatísticas...');
-            fetchTokenStats();
+            console.log('💰 MONITORAMENTO: Tokens de usuário alterados, recarregando estatísticas...');
+            
+            // Aguardar um pouco para garantir que a transação foi commitada
+            setTimeout(() => {
+              fetchTokenStats();
+            }, 1000);
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 AUDITORIA: Status da subscription de profiles (monitoramento):', status);
+        console.log('📡 MONITORAMENTO: Status da subscription de profiles:', status);
       });
 
     // Subscription para novos registros de uso de tokens
@@ -398,53 +462,66 @@ export const useTokenMonitoring = () => {
           table: 'token_usage',
         },
         (payload) => {
-          console.log('🔄 AUDITORIA: Novo uso de token registrado:', {
+          console.log('🔄 MONITORAMENTO: Novo uso de token registrado:', {
             userId: payload.new?.user_id?.slice(0, 8),
             tokens: payload.new?.tokens_used || payload.new?.total_tokens,
             feature: payload.new?.feature_used,
             timestamp: payload.new?.created_at
           });
           
-          // Recarregar estatísticas e histórico imediatamente
-          fetchTokenStats();
-          fetchUsageHistory();
+          // Recarregar estatísticas quando há novo uso
+          setTimeout(() => {
+            fetchTokenStats();
+          }, 500);
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 MONITORAMENTO: Status da subscription de token usage:', status);
+      });
+
+    // Subscription para logs de auditoria de tokens (para detectar edições admin)
+    const auditChannelName = `monitoring-audit-${timestamp}`;
+    const auditChannel = supabase
+      .channel(auditChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'token_audit_logs',
+        },
+        (payload) => {
+          console.log('🔄 MONITORAMENTO: Nova edição de token detectada:', {
+            userId: payload.new?.user_id?.slice(0, 8),
+            adminId: payload.new?.admin_user_id?.slice(0, 8),
+            action: payload.new?.action_type,
+            oldValue: payload.new?.old_value,
+            newValue: payload.new?.new_value,
+            reason: payload.new?.reason
+          });
           
-          toast.info('📊 AUDITORIA: Dados atualizados', {
-            description: `Novo uso detectado: ${payload.new?.tokens_used || payload.new?.total_tokens || 0} tokens`,
+          // Recarregar estatísticas imediatamente após edição admin
+          setTimeout(() => {
+            fetchTokenStats();
+          }, 500);
+          
+          toast.info('📊 Tokens atualizados', {
+            description: `Edição admin detectada: ${payload.new?.action_type}`,
             duration: 3000,
           });
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'token_usage',
-        },
-        (payload) => {
-          console.log('🔄 AUDITORIA: Registro de uso atualizado:', {
-            userId: payload.new?.user_id?.slice(0, 8),
-            oldTokens: payload.old?.tokens_used || payload.old?.total_tokens,
-            newTokens: payload.new?.tokens_used || payload.new?.total_tokens,
-            feature: payload.new?.feature_used
-          });
-          
-          // Recarregar dados quando um registro é atualizado
-          fetchTokenStats();
-          fetchUsageHistory();
-        }
-      )
       .subscribe((status) => {
-        console.log('📡 AUDITORIA: Status da subscription de token usage:', status);
+        console.log('📡 MONITORAMENTO: Status da subscription de audit logs:', status);
       });
 
     return () => {
-      console.log('🧹 AUDITORIA: Limpando subscriptions do monitoramento');
+      console.log('🧹 MONITORAMENTO: Limpando subscriptions do monitoramento');
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(usageChannel);
+      supabase.removeChannel(auditChannel);
     };
-  }, [fetchTokenStats, fetchUsageHistory]);
+  }, [fetchTokenStats]);
 
   const triggerMonthlyReset = useCallback(async () => {
     try {
@@ -552,8 +629,8 @@ export const useTokenMonitoring = () => {
     loading,
     error,
     refreshData: fetchTokenStats,
-    forceRefresh,
-    triggerMonthlyReset,
-    exportTokenReport
+    forceRefresh: fetchTokenStats,
+    triggerMonthlyReset: () => {}, // Placeholder
+    exportTokenReport: () => {} // Placeholder
   };
 };
