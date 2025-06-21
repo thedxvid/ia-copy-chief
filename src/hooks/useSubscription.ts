@@ -16,6 +16,8 @@ export const useSubscription = () => {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<any>(null);
+  const subscriptionActiveRef = useRef(false);
 
   const fetchSubscription = async () => {
     if (!user) {
@@ -55,21 +57,40 @@ export const useSubscription = () => {
     };
 
     initializeSubscription();
+  }, [user?.id]);
 
-    // Criar polling automático para verificar mudanças de status
-    const startPolling = () => {
+  // Setup polling and real-time subscription - ONLY ONCE
+  useEffect(() => {
+    if (!user || !subscription || subscriptionActiveRef.current) return;
+
+    // Cleanup existing subscription
+    if (channelRef.current) {
+      console.log('Cleaning up previous subscription channel');
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    // Clear existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
+    // Setup polling only for pending status
+    if (subscription.subscription_status === 'pending') {
       pollingIntervalRef.current = setInterval(async () => {
         const data = await fetchSubscription();
         if (data && subscription?.subscription_status !== data.subscription_status) {
-          console.log('Subscription status changed:', data.subscription_status);
+          console.log('Subscription status changed via polling:', data.subscription_status);
           setSubscription(data);
+          
+          // Stop polling if no longer pending
+          if (data.subscription_status !== 'pending' && pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
         }
-      }, 5000); // Verificar a cada 5 segundos
-    };
-
-    // Só fazer polling se o status for 'pending'
-    if (subscription?.subscription_status === 'pending') {
-      startPolling();
+      }, 5000);
     }
 
     // Create a unique channel name with timestamp to avoid conflicts
@@ -78,7 +99,7 @@ export const useSubscription = () => {
     
     console.log('Creating subscription channel:', channelName);
     
-    // Subscription real-time
+    // Setup real-time subscription
     const subscriptionChannel = supabase
       .channel(channelName)
       .on(
@@ -94,7 +115,7 @@ export const useSubscription = () => {
           const newData = payload.new as SubscriptionData;
           setSubscription(newData);
           
-          // Parar polling se status não for mais 'pending'
+          // Stop polling if status changed from pending
           if (newData.subscription_status !== 'pending' && pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
@@ -103,17 +124,28 @@ export const useSubscription = () => {
       )
       .subscribe((status) => {
         console.log('Subscription channel status:', status);
+        if (status === 'SUBSCRIBED') {
+          subscriptionActiveRef.current = true;
+        }
       });
+
+    channelRef.current = subscriptionChannel;
 
     return () => {
       console.log('Cleaning up subscription channel:', channelName);
+      subscriptionActiveRef.current = false;
+      
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
-      supabase.removeChannel(subscriptionChannel);
+      
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [user?.id, subscription?.subscription_status]); // Incluir subscription_status para controlar polling
+  }, [user?.id, subscription?.subscription_status]);
 
   const isSubscriptionActive = () => {
     if (!subscription) return false;
