@@ -190,7 +190,7 @@ export const TokenWidget = () => {
             variant="outline" 
             size="sm" 
             onClick={() => setShowPurchase(true)}
-            className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs bg-orange-600 border-orange-600 text-white hover:bg-orange-700 hover:border-orange-700 transition-colors"
+            className="hidden lg:flex items-center gap-1 h-8 px-2 text-xs bg-green-600 border-green-600 text-white hover:bg-green-700 hover:border-green-700 transition-colors"
           >
             <Plus className="h-3 w-3" />
             Comprar
