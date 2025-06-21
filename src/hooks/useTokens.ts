@@ -113,7 +113,7 @@ export const useTokens = () => {
       // SEGURANÇA: Usar a nova função segura para verificar saldo
       console.log('🔒 SECURITY: Fetching token balance securely for user:', user.id);
       const { data: tokensData, error: tokensError } = await supabase
-        .rpc('check_token_balance', { p_user_i1d: user.id });
+        .rpc('check_token_balance', { p_user_id: user.id });
 
       if (tokensError) {
         console.error('❌ SECURITY: Error fetching token balance:', tokensError);
