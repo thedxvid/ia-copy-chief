@@ -38,7 +38,8 @@ export const TokenPurchaseProcessor: React.FC = () => {
   const fetchPendingPurchases = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Buscar compras pendentes primeiro
+      const { data: purchases, error: purchasesError } = await supabase
         .from('token_package_purchases')
         .select(`
           id,
@@ -47,27 +48,40 @@ export const TokenPurchaseProcessor: React.FC = () => {
           tokens_purchased,
           amount_paid,
           payment_status,
-          created_at,
-          profiles!inner (
-            full_name,
-            extra_tokens
-          )
+          created_at
         `)
         .eq('payment_status', 'pending')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (purchasesError) throw purchasesError;
+
+      if (!purchases || purchases.length === 0) {
+        setPendingPurchases([]);
+        return;
+      }
+
+      // Buscar profiles dos usuários
+      const userIds = purchases.map(p => p.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, extra_tokens')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combinar dados
+      const purchasesWithProfiles: PendingPurchase[] = purchases.map(purchase => {
+        const userProfile = profiles?.find(p => p.id === purchase.user_id);
+        return {
+          ...purchase,
+          profiles: userProfile ? {
+            full_name: userProfile.full_name,
+            extra_tokens: userProfile.extra_tokens
+          } : null
+        };
+      });
       
-      // Filtrar apenas resultados válidos e transformar para o tipo esperado
-      const validPurchases: PendingPurchase[] = (data || []).map(purchase => ({
-        ...purchase,
-        profiles: purchase.profiles ? {
-          full_name: purchase.profiles.full_name,
-          extra_tokens: purchase.profiles.extra_tokens
-        } : null
-      }));
-      
-      setPendingPurchases(validPurchases);
+      setPendingPurchases(purchasesWithProfiles);
     } catch (error) {
       console.error('Erro ao buscar compras pendentes:', error);
       toast.error('Erro ao carregar compras pendentes');
