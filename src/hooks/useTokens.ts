@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +26,8 @@ export const useTokens = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showExhaustedModal, setShowExhaustedModal] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [processingMessage, setProcessingMessage] = useState<string>('');
   
   // Local ref to track if this instance should manage cleanup
   const isManagerRef = useRef(false);
@@ -135,14 +136,43 @@ export const useTokens = () => {
       if (data) {
         setTokens(data);
         setLastUpdate(new Date());
+        
+        // Se estava processando e agora temos tokens, marcar como sucesso
+        if (processingStatus === 'processing') {
+          setProcessingStatus('success');
+          setProcessingMessage('Tokens atualizados com sucesso!');
+          
+          // Limpar status após 5 segundos
+          setTimeout(() => {
+            setProcessingStatus('idle');
+            setProcessingMessage('');
+          }, 5000);
+        }
       }
     } catch (err) {
       console.error('Erro ao atualizar tokens:', err);
       setError('Erro ao carregar tokens');
+      
+      if (processingStatus === 'processing') {
+        setProcessingStatus('error');
+        setProcessingMessage('Erro ao atualizar tokens. Tente novamente.');
+      }
     } finally {
       setIsRefreshing(false);
     }
-  }, [user, isRefreshing, fetchTokens]);
+  }, [user, isRefreshing, fetchTokens, processingStatus]);
+
+  // Função para indicar que uma compra está sendo processada
+  const setTokenProcessing = useCallback((message?: string) => {
+    setProcessingStatus('processing');
+    setProcessingMessage(message || 'Processando compra de tokens...');
+  }, []);
+
+  // Função para limpar status de processamento
+  const clearProcessingStatus = useCallback(() => {
+    setProcessingStatus('idle');
+    setProcessingMessage('');
+  }, []);
 
   // Check if user can afford a feature
   const canAffordFeature = useCallback((feature: string) => {
@@ -313,6 +343,10 @@ export const useTokens = () => {
     showExhaustedModal,
     setShowExhaustedModal,
     handleUpgrade,
-    handleCloseExhaustedModal
+    handleCloseExhaustedModal,
+    processingStatus,
+    processingMessage,
+    setTokenProcessing,
+    clearProcessingStatus
   };
 };

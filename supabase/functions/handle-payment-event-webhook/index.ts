@@ -39,6 +39,31 @@ async function logPaymentEvent(supabase: any, body: any) {
   }
 }
 
+// Função otimizada para envio de e-mail em background
+async function sendEmailInBackground(userEmail: string, statusReason: string, newStatus: string) {
+  try {
+    console.log('📧 Iniciando envio de e-mail em background...');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { error: emailError } = await supabase.functions.invoke('send-checkout-email', {
+      body: {
+        email: userEmail,
+        reason: statusReason,
+        newStatus: newStatus,
+        isStatusChange: true
+      }
+    });
+
+    if (emailError) {
+      console.warn('⚠️ Falha ao enviar email de notificação:', emailError);
+    } else {
+      console.log('✅ Email de notificação enviado com sucesso');
+    }
+  } catch (emailError) {
+    console.warn('⚠️ Erro ao tentar enviar email:', emailError);
+  }
+}
+
 serve(async (req) => {
   const timestamp = new Date().toISOString();
   console.log(`🚀 WEBHOOK PAYMENT EVENT HANDLER INICIADO - ${timestamp}`);
@@ -106,8 +131,8 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Registrar evento para auditoria SEMPRE
-    await logPaymentEvent(supabase, body);
+    // Registrar evento para auditoria em paralelo (não bloquear)
+    EdgeRuntime.waitUntil(logPaymentEvent(supabase, body));
 
     // Extrair dados do payload
     const eventType = body.event;
@@ -136,6 +161,8 @@ serve(async (req) => {
         }
       );
     }
+
+    console.log('⚡ Processamento rápido iniciado para:', userEmail);
 
     // Buscar usuário pelo email
     console.log('🔍 Buscando usuário por email:', userEmail);
@@ -234,51 +261,36 @@ serve(async (req) => {
 
     console.log(`✅ Status do usuário atualizado para ${newStatus}`);
 
-    // Marcar evento como processado
-    await supabase
-      .from('digital_guru_webhooks')
-      .update({ processed: true })
-      .eq('subscriber_email', userEmail)
-      .eq('processed', false);
+    // Marcar evento como processado em background
+    EdgeRuntime.waitUntil(
+      supabase
+        .from('digital_guru_webhooks')
+        .update({ processed: true })
+        .eq('subscriber_email', userEmail)
+        .eq('processed', false)
+    );
 
-    // Opcional: Enviar email notificando o usuário sobre a alteração
-    try {
-      console.log('📧 Tentando enviar notificação por email...');
-      const { error: emailError } = await supabase.functions.invoke('send-checkout-email', {
-        body: {
-          email: userEmail,
-          reason: statusReason,
-          newStatus: newStatus,
-          isStatusChange: true
-        }
-      });
+    // Enviar email de notificação em background (não bloquear resposta)
+    EdgeRuntime.waitUntil(sendEmailInBackground(userEmail, statusReason, newStatus));
 
-      if (emailError) {
-        console.warn('⚠️ Falha ao enviar email de notificação:', emailError);
-        // Não bloquear o processamento por causa do email
-      } else {
-        console.log('✅ Email de notificação enviado');
-      }
-    } catch (emailError) {
-      console.warn('⚠️ Erro ao tentar enviar email:', emailError);
-    }
-
-    console.log('🎉 EVENTO DE PAGAMENTO PROCESSADO COM SUCESSO');
+    console.log('🎉 EVENTO DE PAGAMENTO PROCESSADO COM SUCESSO (OTIMIZADO)');
     console.log('📊 Resumo:');
     console.log('  - Email:', userEmail);
     console.log('  - Evento:', eventType);
     console.log('  - Novo Status:', newStatus);
     console.log('  - Motivo:', statusReason);
+    console.log('  - Processamento: RÁPIDO (email em background)');
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Payment event processed successfully',
+        message: 'Payment event processed successfully (optimized)',
         eventType: eventType,
         userEmail: userEmail,
         newStatus: newStatus,
         reason: statusReason,
-        userId: targetUser.id
+        userId: targetUser.id,
+        processingTime: 'optimized'
       }), 
       {
         status: 200,

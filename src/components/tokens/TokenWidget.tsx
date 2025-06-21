@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TokenAnalyticsModal } from './TokenAnalyticsModal';
 import { TokenPurchaseModal } from './TokenPurchaseModal';
+import { TokenProcessingNotification } from './TokenProcessingNotification';
 import { 
   Coins, 
   RefreshCw, 
@@ -22,11 +23,14 @@ export const TokenWidget = () => {
     error, 
     lastUpdate, 
     isRefreshing,
-    refreshTokens 
+    refreshTokens,
+    processingStatus,
+    processingMessage,
+    clearProcessingStatus
   } = useTokens();
   
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [showPurchase, setShowPurchase] = useState(false);
+  const [showPurch, setShowPurchase] = useState(false);
   const [pulseAnimation, setPulseAnimation] = useState(false);
   
   // Ref para armazenar o valor anterior dos tokens
@@ -104,6 +108,17 @@ export const TokenWidget = () => {
 
   return (
     <>
+      {/* Notificação de Processamento */}
+      {processingStatus !== 'idle' && (
+        <div className="fixed top-4 right-4 z-50 w-80">
+          <TokenProcessingNotification
+            status={processingStatus}
+            message={processingMessage}
+            onClose={clearProcessingStatus}
+          />
+        </div>
+      )}
+
       <TooltipProvider>
         <div className="flex items-center gap-2">
           {/* Desktop Version */}
@@ -258,7 +273,7 @@ export const TokenWidget = () => {
       />
       
       <TokenPurchaseModal 
-        isOpen={showPurchase} 
+        isOpen={showPurch} 
         onClose={() => setShowPurchase(false)} 
       />
     </>
