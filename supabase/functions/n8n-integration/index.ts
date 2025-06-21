@@ -85,9 +85,34 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // NOVA VALIDAÇÃO: Verificar se o usuário tem saldo mínimo ANTES de chamar a IA
+    console.log('💰 Verificando saldo mínimo para usuário:', userId);
+    
+    const { data: tokenData, error: tokenError } = await supabase
+      .rpc('get_available_tokens', { p_user_id: userId });
+
+    if (tokenError) {
+      console.error('❌ Erro ao verificar tokens:', tokenError);
+      throw new Error('Erro ao verificar saldo de tokens');
+    }
+
+    if (!tokenData || tokenData.length === 0 || tokenData[0].total_available <= 0) {
+      console.error('❌ Saldo insuficiente para iniciar operação:', {
+        userId,
+        tokenData: tokenData?.[0]
+      });
+      throw new Error('Créditos insuficientes para iniciar esta operação. Recarregue seu saldo.');
+    }
+
+    const userTokens = tokenData[0];
+    console.log('✅ Saldo positivo confirmado:', {
+      totalAvailable: userTokens.total_available,
+      monthlyTokens: userTokens.monthly_tokens,
+      extraTokens: userTokens.extra_tokens
+    });
+
     // Determinar prompt baseado no tipo de requisição
     let prompt = '';
-    let estimatedTokens = 2500; // Tokens estimados para Claude 3.5 Sonnet
 
     if (type === 'copy_generation' && (data?.copy_type || copyType)) {
       // Nova estrutura para copies especializadas (Quiz e páginas especializadas)
@@ -98,163 +123,130 @@ serve(async (req) => {
       } else {
         prompt = buildSpecializedCopyPrompt(data?.copy_type || copyType, data?.quiz_answers || data?.briefing || productData);
       }
-      
-      estimatedTokens = estimateSpecializedTokens(data?.copy_type || copyType);
     } else {
       // Estrutura antiga para compatibilidade (outras ferramentas)
       console.log('🔄 Processing legacy copy generation');
       prompt = buildCopyPrompt(copyType, productData, customInstructions);
-      estimatedTokens = estimateTokensForCopy(copyType, productData, customInstructions);
     }
 
     console.log('💭 Generated prompt length:', prompt.length);
-    console.log('🎯 Estimated tokens:', estimatedTokens);
-
-    // SEGURANÇA CRÍTICA: Verificar E DEDUZIR tokens em uma única operação atômica
-    console.log('🔒 SECURITY: Attempting secure token deduction for user:', userId);
-    const { data: deductionResult, error: deductionError } = await supabase
-      .rpc('secure_deduct_tokens', {
-        p_user_id: userId,
-        p_amount: estimatedTokens,
-        p_feature_used: `copy_generation_${data?.copy_type || copyType}`
-      });
-
-    if (deductionError) {
-      console.error('❌ SECURITY: Token deduction failed - Database error:', deductionError);
-      throw new Error('Erro interno ao processar tokens');
-    }
-
-    if (!deductionResult) {
-      console.log('💸 SECURITY: Token deduction failed - Insufficient balance');
-      
-      // Buscar saldo atual para informar ao usuário
-      const { data: balanceData } = await supabase
-        .rpc('check_token_balance', { p_user_id: userId });
-      
-      const currentBalance = balanceData?.[0]?.total_available || 0;
-      
-      throw new Error(`Tokens insuficientes. Você tem ${currentBalance.toLocaleString()} tokens disponíveis e precisa de aproximadamente ${estimatedTokens.toLocaleString()} tokens para gerar esta copy.`);
-    }
-
-    console.log('✅ SECURITY: Tokens successfully deducted. Proceeding with AI generation...');
 
     // Chamar API de IA com a sintaxe correta
     const aiStartTime = Date.now();
     console.log('🤖 Calling AI API...');
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022', // Mantendo Claude 3.5 Sonnet conforme solicitado
-        max_tokens: 4000,
-        messages: [
-          { role: 'user', content: prompt }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ AI API error:', response.status, errorText);
-      
-      // SEGURANÇA: Reembolsar tokens em caso de falha na API
-      console.log('🔄 SECURITY: Refunding tokens due to AI API failure...');
-      await supabase.rpc('refund_tokens', {
-        p_user_id: userId,
-        p_amount: estimatedTokens,
-        p_reason: `AI API error: ${response.status}`
+    let aiResponse;
+    try {
+      aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicApiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022', // Mantendo Claude 3.5 Sonnet conforme solicitado
+          max_tokens: 4000,
+          messages: [
+            { role: 'user', content: prompt }
+          ]
+        })
       });
+    } catch (error) {
+      console.error('❌ Erro na chamada à API:', error);
+      throw new Error('Falha na comunicação com a API de IA');
+    }
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('❌ AI API error:', aiResponse.status, errorText);
       
       // Melhor tratamento de erros específicos da API
-      if (response.status === 400) {
+      if (aiResponse.status === 400) {
         console.error('🚨 Bad Request - Verificar sintaxe da requisição');
         throw new Error('Erro na formatação da requisição para IA API');
-      } else if (response.status === 401) {
+      } else if (aiResponse.status === 401) {
         console.error('🚨 Unauthorized - API Key inválida');
         throw new Error('Chave da API de IA inválida');
-      } else if (response.status === 429) {
+      } else if (aiResponse.status === 429) {
         console.error('🚨 Rate Limited - Muitas requisições');
         throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos');
       } else {
-        throw new Error(`Falha na comunicação com IA API: ${response.status}`);
+        throw new Error(`Falha na comunicação com IA API: ${aiResponse.status}`);
       }
     }
 
-    const aiData = await response.json();
+    const aiData = await aiResponse.json();
     const aiEndTime = Date.now();
     console.log(`⏱️ AI API response time: ${aiEndTime - aiStartTime}ms`);
     
     // Validação robusta da resposta
     if (!aiData.content || !Array.isArray(aiData.content) || aiData.content.length === 0) {
       console.error('❌ Resposta inválida da API:', aiData);
-      
-      // SEGURANÇA: Reembolsar tokens em caso de resposta inválida
-      console.log('🔄 SECURITY: Refunding tokens due to invalid AI response...');
-      await supabase.rpc('refund_tokens', {
-        p_user_id: userId,
-        p_amount: estimatedTokens,
-        p_reason: 'Invalid AI API response'
-      });
-      
       throw new Error('Resposta inválida da API de IA');
     }
 
     const generatedCopy = aiData.content[0]?.text;
     if (!generatedCopy || typeof generatedCopy !== 'string') {
       console.error('❌ Texto da resposta inválido:', aiData.content[0]);
-      
-      // SEGURANÇA: Reembolsar tokens em caso de texto inválido
-      console.log('🔄 SECURITY: Refunding tokens due to invalid response text...');
-      await supabase.rpc('refund_tokens', {
-        p_user_id: userId,
-        p_amount: estimatedTokens,
-        p_reason: 'Invalid response text'
-      });
-      
       throw new Error('Texto da resposta inválido');
     }
 
     console.log('✅ Copy generated successfully, length:', generatedCopy.length);
 
-    // Calcular tokens reais usados (atualização para métricas mais precisas)
-    const actualTokensUsed = aiData.usage?.input_tokens + aiData.usage?.output_tokens || estimatedTokens;
-    console.log('📊 Token usage - Estimated:', estimatedTokens, 'Actual:', actualTokensUsed);
+    // NOVA LÓGICA: Extrair o custo REAL (output_tokens) da resposta
+    const outputTokens = aiData.usage?.output_tokens;
+    const inputTokens = aiData.usage?.input_tokens || 0;
+    
+    if (typeof outputTokens !== 'number' || outputTokens < 0) {
+      console.error('❌ Não foi possível extrair tokens de saída válidos:', {
+        usage: aiData.usage,
+        outputTokens,
+        type: typeof outputTokens
+      });
+      throw new Error('Erro ao processar o custo da resposta');
+    }
 
-    // Se houve diferença significativa nos tokens, fazer ajuste
-    const tokenDifference = actualTokensUsed - estimatedTokens;
-    if (Math.abs(tokenDifference) > 100) { // Margem de tolerância
-      console.log(`🔄 SECURITY: Adjusting token usage difference: ${tokenDifference}`);
+    console.log('💰 Custo real extraído:', {
+      outputTokens,
+      inputTokens,
+      totalTokens: inputTokens + outputTokens,
+      onlyChargingFor: 'output_tokens'
+    });
+
+    // NOVA LÓGICA: Deduzir apenas os tokens de saída usando a função segura
+    let deductionSuccess = true;
+    if (outputTokens > 0) {
+      console.log('💳 Deduzindo tokens de saída:', outputTokens);
       
-      if (tokenDifference > 0) {
-        // Precisamos deduzir mais tokens
-        const { data: additionalDeduction } = await supabase
-          .rpc('secure_deduct_tokens', {
-            p_user_id: userId,
-            p_amount: tokenDifference,
-            p_feature_used: `copy_generation_${data?.copy_type || copyType}_adjustment`
-          });
-        
-        if (!additionalDeduction) {
-          console.warn('⚠️ Could not deduct additional tokens, but operation was successful');
-        }
-      } else {
-        // Podemos reembolsar a diferença
-        await supabase.rpc('refund_tokens', {
+      const { data: deductionResult, error: deductionError } = await supabase
+        .rpc('secure_deduct_tokens', {
           p_user_id: userId,
-          p_amount: Math.abs(tokenDifference),
-          p_reason: 'Token usage adjustment - overestimation'
+          p_amount: outputTokens,
+          p_feature_used: `copy_generation_${data?.copy_type || copyType}_output`
         });
+
+      if (deductionError || !deductionResult) {
+        console.warn('⚠️ Dedução de tokens falhou após geração da copy:', {
+          userId,
+          outputTokens,
+          error: deductionError?.message,
+          deductionResult
+        });
+        deductionSuccess = false;
+        
+        // Não bloquear a resposta, mas registrar o problema
+        // A copy foi gerada e deve ser retornada ao usuário
+      } else {
+        console.log('✅ Tokens de saída deduzidos com sucesso:', outputTokens);
       }
+    } else {
+      console.log('ℹ️ Resposta não gerou tokens de saída para deduzir');
     }
 
     // Verificar saldo final para notificações
     const { data: finalBalance } = await supabase
-      .rpc('check_token_balance', { p_user_id: userId });
+      .rpc('get_available_tokens', { p_user_id: userId });
     
     const remainingTokens = finalBalance?.[0]?.total_available || 0;
     
@@ -263,13 +255,17 @@ serve(async (req) => {
 
     console.log('🎉 Copy generation completed successfully');
     console.log('💰 Final user balance:', remainingTokens);
+    console.log('🔄 New charging model: output_tokens_only');
 
     return new Response(JSON.stringify({
       generatedCopy,
-      tokensUsed: actualTokensUsed,
+      tokensUsed: outputTokens, // Apenas tokens de saída
+      inputTokens: inputTokens, // Para informação
+      outputTokens: outputTokens, // Para informação
       tokensRemaining: remainingTokens,
       copyType: data?.copy_type || copyType,
-      securityLevel: 'enhanced' // Indicador de que a segurança foi aplicada
+      chargingModel: 'output_tokens_only',
+      deductionSuccess: deductionSuccess
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -287,9 +283,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       error: error.message || 'Erro interno do servidor',
       details: error.name || 'Unknown error',
-      securityLevel: 'enhanced'
+      chargingModel: 'output_tokens_only'
     }), {
-      status: error.message.includes('Tokens insuficientes') ? 402 : 500,
+      status: error.message.includes('Créditos insuficientes') ? 402 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -609,4 +605,242 @@ async function checkAndSendNotifications(supabase: any, userId: string, remainin
       .update(updateData)
       .eq('id', userId);
   }
+}
+
+function buildSpecializedCopyPrompt(copyType: string, briefingData: any): string {
+  console.log('🏗️ Building specialized prompt for:', copyType);
+  console.log('📋 Briefing data:', briefingData);
+  
+  // Se já tem um prompt construído, usar ele
+  if (briefingData?.prompt) {
+    return briefingData.prompt;
+  }
+  
+  // Construir prompt baseado nas respostas do quiz ou briefing
+  const answers = briefingData || {};
+  
+  // Extrair informações principais do briefing
+  const productName = answers.product_name || answers.product || 'produto/serviço';
+  const benefits = answers.product_benefits || answers.benefits || 'benefícios do produto';
+  const audience = answers.target_audience || answers.target || 'público-alvo';
+  const tone = answers.tone || 'profissional';
+  const objective = answers.objective || 'conversão';
+  
+  // Construir texto das informações
+  const answersText = Object.entries(answers)
+    .filter(([key, value]) => value && key !== 'prompt')
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n');
+
+  const typePrompts = {
+    'vsl': `Crie um roteiro completo de VSL (Video Sales Letter) para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HOOK (30-60 segundos) - Prenda a atenção imediatamente
+2. APRESENTAÇÃO - Credibilidade e autoridade
+3. PROBLEMA - Identifique a dor do cliente
+4. AGITAÇÃO - Amplifique o problema
+5. SOLUÇÃO - Apresente o produto como solução
+6. BENEFÍCIOS - Liste benefícios específicos
+7. PROVA SOCIAL - Depoimentos e resultados
+8. OFERTA - Detalhe a proposta de valor
+9. URGÊNCIA/ESCASSEZ - Crie senso de urgência
+10. CTA FINAL - Call to action claro e persuasivo
+
+Tom: ${tone}
+Objetivo: ${objective}`,
+
+    'sales_video': `Crie um roteiro completo de VSL (Video Sales Letter) para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HOOK (30-60 segundos) - Prenda a atenção imediatamente
+2. APRESENTAÇÃO - Credibilidade e autoridade
+3. PROBLEMA - Identifique a dor do cliente
+4. AGITAÇÃO - Amplifique o problema
+5. SOLUÇÃO - Apresente o produto como solução
+6. BENEFÍCIOS - Liste benefícios específicos
+7. PROVA SOCIAL - Depoimentos e resultados
+8. OFERTA - Detalhe a proposta de valor
+9. URGÊNCIA/ESCASSEZ - Crie senso de urgência
+10. CTA FINAL - Call to action claro e persuasivo
+
+Tom: ${tone}
+Objetivo: ${objective}`,
+
+    'product': `Crie uma estrutura de oferta completa para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. PROPOSTA DE VALOR - Headlines impactantes
+2. BENEFÍCIOS PRINCIPAIS - O que o cliente ganha
+3. COMO FUNCIONA - Processo ou metodologia
+4. BÔNUS EXCLUSIVOS - Itens de valor agregado
+5. GARANTIA - Política de satisfação
+6. URGÊNCIA - Limitação de tempo/vagas
+7. PREÇO E CONDIÇÕES - Apresentação da oferta
+8. CTA PERSUASIVO - Chamada para ação
+
+Tom: ${tone}
+Foco: ${audience}`,
+
+    'landing': `Crie uma copy completa para landing page de ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HEADLINE PRINCIPAL - Promessa clara e impactante
+2. SUBHEADLINE - Apoio e clarificação
+3. BENEFÍCIOS - Lista de vantagens específicas
+4. COMO FUNCIONA - Processo simplificado
+5. PROVA SOCIAL - Depoimentos e números
+6. OBJEÇÕES - Antecipe e responda dúvidas
+7. GARANTIA - Reduza o risco percebido
+8. CTA PRINCIPAL - Botão de conversão otimizado
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'landing_page': `Crie uma copy completa para landing page de ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HEADLINE PRINCIPAL - Promessa clara e impactante
+2. SUBHEADLINE - Apoio e clarificação
+3. BENEFÍCIOS - Lista de vantagens específicas
+4. COMO FUNCIONA - Processo simplificado
+5. PROVA SOCIAL - Depoimentos e números
+6. OBJEÇÕES - Antecipe e responda dúvidas
+7. GARANTIA - Reduza o risco percebido
+8. CTA PRINCIPAL - Botão de conversão otimizado
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'page': `Crie uma copy completa para página de ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. HEADLINE PRINCIPAL - Promessa clara e impactante
+2. SUBHEADLINE - Apoio e clarificação
+3. BENEFÍCIOS - Lista de vantagens específicas
+4. COMO FUNCIONA - Processo simplificado
+5. PROVA SOCIAL - Depoimentos e números
+6. OBJEÇÕES - Antecipe e responda dúvidas
+7. GARANTIA - Reduza o risco percebido
+8. CTA PRINCIPAL - Botão de conversão otimizado
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'ads': `Crie múltiplas variações de anúncios pagos para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. VARIAÇÃO 1 - Foco no problema
+   - Headline impactante
+   - Corpo do anúncio
+   - CTA específico
+   
+2. VARIAÇÃO 2 - Foco na solução
+   - Headline diferente
+   - Corpo do anúncio
+   - CTA específico
+   
+3. VARIAÇÃO 3 - Foco no benefício
+   - Headline única
+   - Corpo do anúncio  
+   - CTA específico
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'email': `Crie uma sequência de email marketing para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. EMAIL 1 - Boas-vindas
+   - Assunto persuasivo
+   - Conteúdo de apresentação
+   - CTA suave
+   
+2. EMAIL 2 - Educacional/Valor
+   - Assunto curioso
+   - Conteúdo que agrega valor
+   - CTA de engajamento
+   
+3. EMAIL 3 - Conversão
+   - Assunto urgente
+   - Oferta principal
+   - CTA de conversão
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'content': `Crie conteúdo para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA OBRIGATÓRIA:
+1. TÍTULO/ASSUNTO - Atrativo e otimizado
+2. INTRODUÇÃO - Hook inicial
+3. DESENVOLVIMENTO - Conteúdo principal de valor
+4. CONCLUSÃO - Síntese e direcionamento
+5. CTA - Chamada para ação
+6. HASHTAGS - Relevantes para o nicho (se aplicável)
+
+Tom: ${tone}
+Público: ${audience}`,
+
+    'specialized_copy': `Crie uma copy especializada para ${productName}.
+
+INFORMAÇÕES DO BRIEFING:
+${answersText}
+
+ESTRUTURA BÁSICA:
+1. HEADLINE - Chamada principal
+2. CONTEÚDO - Desenvolvimento persuasivo
+3. BENEFÍCIOS - Vantagens claras
+4. CTA - Chamada para ação
+
+Tom: ${tone}
+Público: ${audience}`
+  };
+
+  return typePrompts[copyType as keyof typeof typePrompts] || 
+         `Crie uma copy profissional para ${productName} baseada nas seguintes informações:\n\n${answersText}\n\nTom: ${tone}\nPúblico: ${audience}\nObjetivo: ${objective}`;
+}
+
+function buildCopyPrompt(copyType: string, productData: any, customInstructions?: string): string {
+  const basePrompt = `Você é um copywriter expert. Gere uma copy ${copyType} profissional e persuasiva para:
+
+PRODUTO: ${productData?.name || 'Produto'}
+NICHO: ${productData?.niche || 'Geral'}
+SUB-NICHO: ${productData?.sub_niche || 'N/A'}
+
+DADOS DO PRODUTO:
+${JSON.stringify(productData, null, 2)}
+
+${customInstructions ? `INSTRUÇÕES ESPECÍFICAS: ${customInstructions}` : ''}
+
+Gere uma copy completa, profissional e otimizada para conversão.`;
+
+  return basePrompt;
 }

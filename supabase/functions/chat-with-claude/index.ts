@@ -23,7 +23,6 @@ serve(async (req) => {
   }
 
   let userId: string | null = null;
-  let tokensToConsume = 0;
 
   try {
     // Validar método HTTP
@@ -160,8 +159,8 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // NOVA VALIDAÇÃO: Verificar tokens disponíveis ANTES de processar
-    console.log('💰 Verificando tokens disponíveis para usuário:', userId);
+    // NOVA VALIDAÇÃO: Verificar se o usuário tem saldo mínimo ANTES de chamar a IA
+    console.log('💰 Verificando saldo mínimo para usuário:', userId);
     
     const { data: tokenData, error: tokenError } = await supabase
       .rpc('get_available_tokens', { p_user_id: userId });
@@ -204,75 +203,27 @@ serve(async (req) => {
       totalUsed: userTokens.total_used
     });
 
-    // Estimar tokens necessários (baseado no prompt e histórico)
-    const promptTokens = Math.ceil((agentPrompt?.length || 0) / 4);
-    const historyTokens = Math.ceil(JSON.stringify(chatHistory || []).length / 4);
-    const messageTokens = Math.ceil(message.length / 4);
-    const estimatedInputTokens = promptTokens + historyTokens + messageTokens;
-    
-    // Estimativa conservadora: tokens de entrada + estimativa de resposta
-    tokensToConsume = estimatedInputTokens + 2000; // Buffer para resposta
-    
-    console.log('📊 Estimativa de tokens:', {
-      promptTokens,
-      historyTokens,
-      messageTokens,
-      estimatedInputTokens,
-      tokensToConsume,
-      available: userTokens.total_available
-    });
-
-    // Verificar se tem tokens suficientes
-    if (userTokens.total_available < tokensToConsume) {
-      console.error('💸 Tokens insuficientes:', {
-        available: userTokens.total_available,
-        needed: tokensToConsume,
-        deficit: tokensToConsume - userTokens.total_available
+    // NOVA VERIFICAÇÃO: Apenas verificar se o usuário tem saldo positivo
+    if (userTokens.total_available <= 0) {
+      console.error('💸 Saldo insuficiente para iniciar conversa:', {
+        available: userTokens.total_available
       });
       
       return new Response(
         JSON.stringify({ 
           error: 'Insufficient tokens',
-          details: `Tokens insuficientes. Disponível: ${userTokens.total_available}, Necessário: ${tokensToConsume}`,
+          details: 'Créditos insuficientes para iniciar uma nova conversa. Recarregue seu saldo.',
           tokensAvailable: userTokens.total_available,
-          tokensNeeded: tokensToConsume,
           retryable: false
         }),
         { 
-          status: 200,
+          status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
-    // CONSUMIR TOKENS ANTES DA CHAMADA À CLAUDE
-    console.log('💳 Consumindo tokens antes da chamada à Claude:', tokensToConsume);
-    
-    const { data: consumeResult, error: consumeError } = await supabase
-      .rpc('consume_tokens', {
-        p_user_id: userId,
-        p_tokens_used: tokensToConsume,
-        p_feature_used: 'chat',
-        p_prompt_tokens: estimatedInputTokens,
-        p_completion_tokens: 0 // Será atualizado depois
-      });
-
-    if (consumeError || !consumeResult) {
-      console.error('❌ Erro ao consumir tokens:', consumeError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Token consumption failed',
-          details: 'Falha ao consumir tokens. Tente novamente.',
-          retryable: true
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    console.log('✅ Tokens consumidos com sucesso');
+    console.log('✅ Saldo positivo confirmado. Prosseguindo com chamada à IA...');
 
     // Preparar prompt do sistema com instruções de identificação correta
     const systemPrompt = prepareSystemPrompt(agentPrompt);
@@ -317,7 +268,8 @@ serve(async (req) => {
         type: claudeData.type,
         model: claudeData.model,
         totalAttempts: 'success',
-        tokensUsed: claudeData.usage?.output_tokens || 0,
+        outputTokens: claudeData.usage?.output_tokens || 0,
+        inputTokens: claudeData.usage?.input_tokens || 0,
         maxTokensAvailable: 8000
       });
       
@@ -327,23 +279,6 @@ serve(async (req) => {
         type: error.name,
         stack: error.stack?.split('\n')[0]
       });
-      
-      // REEMBOLSAR TOKENS EM CASO DE ERRO
-      console.log('💸 Reembolsando tokens devido ao erro na Claude API...');
-      try {
-        await supabase
-          .from('profiles')
-          .update({
-            monthly_tokens: userTokens.monthly_tokens,
-            extra_tokens: userTokens.extra_tokens,
-            total_tokens_used: Math.max(0, userTokens.total_used - tokensToConsume)
-          })
-          .eq('id', userId);
-        
-        console.log('✅ Tokens reembolsados com sucesso');
-      } catch (refundError) {
-        console.error('❌ Erro ao reembolsar tokens:', refundError);
-      }
       
       const errorInfo = categorizeError(error);
       
@@ -417,113 +352,118 @@ serve(async (req) => {
     // CORREÇÃO: Validar e corrigir identificação incorreta na resposta
     aiResponse = correctClaudeIdentification(aiResponse);
 
-    // Calcular tokens usados REAIS (aproximação melhorada)
-    const realPromptTokens = Math.ceil((systemPrompt.length + JSON.stringify(claudeMessages).length) / 4);
-    const realCompletionTokens = Math.ceil(aiResponse.length / 4);
-    const realTotalTokens = realPromptTokens + realCompletionTokens;
+    // NOVA LÓGICA: Extrair o custo REAL (output_tokens) da resposta
+    const outputTokens = claudeData.usage?.output_tokens;
+    const inputTokens = claudeData.usage?.input_tokens || 0;
     
-    // ATUALIZAR REGISTRO DE TOKEN_USAGE COM TOKENS REAIS
-    console.log('📊 Atualizando registro de uso com tokens reais:', {
-      estimatedTokens: tokensToConsume,
-      realTokens: realTotalTokens,
-      promptTokens: realPromptTokens,
-      completionTokens: realCompletionTokens,
-      difference: realTotalTokens - tokensToConsume
-    });
-
-    // Buscar o último registro de token_usage para este usuário e atualizar
-    try {
-      const { data: latestUsage, error: usageError } = await supabase
-        .from('token_usage')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('feature_used', 'chat')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (!usageError && latestUsage && latestUsage.length > 0) {
-        const { error: updateError } = await supabase
-          .from('token_usage')
-          .update({
-            tokens_used: realTotalTokens,
-            prompt_tokens: realPromptTokens,
-            completion_tokens: realCompletionTokens,
-            total_tokens: realTotalTokens
-          })
-          .eq('id', latestUsage[0].id);
-
-        if (updateError) {
-          console.error('❌ Erro ao atualizar registro de uso:', updateError);
-        } else {
-          console.log('✅ Registro de uso atualizado com tokens reais');
+    if (typeof outputTokens !== 'number' || outputTokens < 0) {
+      console.error('❌ Não foi possível extrair tokens de saída válidos da resposta:', {
+        usage: claudeData.usage,
+        outputTokens,
+        type: typeof outputTokens
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid token cost from AI service',
+          details: 'Erro ao processar o custo da resposta',
+          retryable: false
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      }
-    } catch (updateErr) {
-      console.error('❌ Erro ao atualizar token_usage:', updateErr);
+      );
     }
 
-    // AJUSTAR SALDO DE TOKENS SE NECESSÁRIO
-    const tokenDifference = realTotalTokens - tokensToConsume;
-    if (tokenDifference !== 0) {
-      console.log('🔄 Ajustando saldo de tokens. Diferença:', tokenDifference);
-      
-      try {
-        // Buscar dados atuais do usuário
-        const { data: currentUser, error: fetchError } = await supabase
-          .from('profiles')
-          .select('monthly_tokens, extra_tokens, total_tokens_used')
-          .eq('id', userId)
-          .single();
+    console.log('💰 Custo real extraído da resposta:', {
+      outputTokens,
+      inputTokens,
+      totalTokens: inputTokens + outputTokens,
+      onlyChargingFor: 'output_tokens'
+    });
 
-        if (!fetchError && currentUser) {
-          const newTotalUsed = currentUser.total_tokens_used + tokenDifference;
-          
-          await supabase
-            .from('profiles')
-            .update({
-              total_tokens_used: Math.max(0, newTotalUsed)
-            })
-            .eq('id', userId);
-            
-          console.log('✅ Saldo de tokens ajustado');
-        }
-      } catch (adjustError) {
-        console.error('❌ Erro ao ajustar saldo:', adjustError);
+    // NOVA LÓGICA: Deduzir apenas os tokens de saída usando a função segura
+    let deductionSuccess = true;
+    if (outputTokens > 0) {
+      console.log('💳 Deduzindo tokens de saída:', outputTokens);
+      
+      const { data: deductionResult, error: deductionError } = await supabase
+        .rpc('secure_deduct_tokens', {
+          p_user_id: userId,
+          p_amount: outputTokens,
+          p_feature_used: 'chat_output_tokens'
+        });
+
+      if (deductionError || !deductionResult) {
+        console.warn('⚠️ Dedução de tokens falhou após geração da resposta:', {
+          userId,
+          outputTokens,
+          error: deductionError?.message,
+          deductionResult
+        });
+        deductionSuccess = false;
+        
+        // Não bloquear a resposta, mas registrar o problema
+        // A resposta foi gerada e deve ser retornada ao usuário
+      } else {
+        console.log('✅ Tokens de saída deduzidos com sucesso:', outputTokens);
       }
+    } else {
+      console.log('ℹ️ Resposta não gerou tokens de saída para deduzir');
+    }
+
+    // Registrar o uso para auditoria
+    try {
+      const { error: usageError } = await supabase
+        .from('token_usage')
+        .insert({
+          user_id: userId,
+          tokens_used: outputTokens,
+          feature_used: 'chat_output_tokens',
+          prompt_tokens: inputTokens,
+          completion_tokens: outputTokens,
+          total_tokens: outputTokens // Apenas output_tokens são cobrados
+        });
+
+      if (usageError) {
+        console.error('❌ Erro ao registrar uso de tokens:', usageError);
+      } else {
+        console.log('✅ Uso de tokens registrado para auditoria');
+      }
+    } catch (auditError) {
+      console.error('❌ Erro ao registrar auditoria:', auditError);
     }
 
     console.log('🎯 Processamento concluído com Claude 4 Sonnet:', {
       userId,
-      tokensUsed: realTotalTokens,
-      promptTokens: realPromptTokens,
-      completionTokens: realCompletionTokens,
+      outputTokensCharged: outputTokens,
+      inputTokensNotCharged: inputTokens,
       responseLength: aiResponse.length,
       processingTime: Date.now(),
       model: 'claude-sonnet-4-20250514',
       hadProductContext: systemPrompt.includes('CONTEXTO DO PRODUTO'),
       systemPromptPreserved: systemPrompt.length <= 100000,
-      responseTokensUsed: `${claudeData.usage?.output_tokens || 0}/8000`,
-      identificationCorrected: claudeData.content[0]?.text !== aiResponse,
+      deductionSuccess,
+      chargingModel: 'output_tokens_only',
       limitsApplied: {
         systemPrompt: '100k chars',
         responseTokens: '8k tokens',
         messageLimit: '20k chars'
-      },
-      tokenRegistration: 'SUCCESS'
+      }
     });
 
     return new Response(
       JSON.stringify({
         response: aiResponse,
-        tokensUsed: realTotalTokens,
+        tokensUsed: outputTokens, // Apenas tokens de saída
+        inputTokens: inputTokens, // Para informação
+        outputTokens: outputTokens, // Para informação
         model: 'claude-sonnet-4-20250514',
         processingTime: Date.now(),
         contextPreserved: systemPrompt.length <= 100000,
         limitsIncreased: true,
-        responseTokensUsed: claudeData.usage?.output_tokens || 0,
-        maxResponseTokens: 8000,
-        identificationCorrected: true,
-        tokenRegistration: 'SUCCESS'
+        chargingModel: 'output_tokens_only',
+        deductionSuccess: deductionSuccess
       }),
       {
         status: 200,
@@ -538,35 +478,8 @@ serve(async (req) => {
       message: error.message,
       stack: error.stack?.split('\n').slice(0, 3),
       timestamp: new Date().toISOString(),
-      userId,
-      tokensToConsume
+      userId
     });
-    
-    // REEMBOLSAR TOKENS EM CASO DE ERRO CRÍTICO
-    if (userId && tokensToConsume > 0) {
-      console.log('💸 Tentando reembolsar tokens devido ao erro crítico...');
-      try {
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        const { data: currentUser } = await supabase
-          .from('profiles')
-          .select('total_tokens_used')
-          .eq('id', userId)
-          .single();
-
-        if (currentUser) {
-          await supabase
-            .from('profiles')
-            .update({
-              total_tokens_used: Math.max(0, currentUser.total_tokens_used - tokensToConsume)
-            })
-            .eq('id', userId);
-          
-          console.log('✅ Tokens reembolsados após erro crítico');
-        }
-      } catch (refundError) {
-        console.error('❌ Erro ao reembolsar tokens após erro crítico:', refundError);
-      }
-    }
     
     return new Response(
       JSON.stringify({ 
