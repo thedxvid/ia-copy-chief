@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,9 +24,9 @@ interface CacheData {
 }
 
 const MONTHLY_TOKENS_LIMIT = 100000; // 100k tokens
-const AUTO_REFRESH_INTERVAL = 10000; // Reduzido para 10 segundos para melhor responsividade
+const AUTO_REFRESH_INTERVAL = 5000; // Reduzido para 5 segundos para máxima responsividade
 const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
-const CACHE_EXPIRY_TIME = 2 * 60 * 1000; // Reduzido para 2 minutos para melhor responsividade
+const CACHE_EXPIRY_TIME = 30 * 1000; // Reduzido para 30 segundos para máxima atualização
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
@@ -68,7 +67,6 @@ export const useTokens = () => {
       return cachedData;
     } catch (error) {
       console.warn('Erro ao ler cache de tokens:', error);
-      // Remove cache corrompido
       try {
         localStorage.removeItem(getCacheKey());
       } catch (e) {
@@ -92,11 +90,16 @@ export const useTokens = () => {
       };
       
       localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      console.log('✅ Cache salvo com sucesso:', { 
+        totalAvailable: tokenData.total_available,
+        timestamp: new Date().toLocaleTimeString()
+      });
     } catch (error) {
       console.warn('Erro ao salvar cache de tokens:', error);
     }
   }, [user?.id, getCacheKey]);
 
+  // Função robusta para buscar tokens com fallback
   const fetchTokens = useCallback(async (showRefreshing = false, forceUpdate = false) => {
     if (!user?.id) {
       setLoading(false);
@@ -111,14 +114,54 @@ export const useTokens = () => {
       }
       setError(null);
       
-      // SEGURANÇA: Usar a nova função segura para verificar saldo
-      console.log('🔒 SECURITY: Fetching token balance securely for user:', user.id);
-      const { data: tokensData, error: tokensError } = await supabase
-        .rpc('check_token_balance', { p_user_id: user.id });
+      console.log('🔄 Iniciando busca de tokens para usuário:', user.id);
+      
+      // TENTATIVA 1: Usar a função RPC segura
+      let tokensData = null;
+      let usedRpcFunction = false;
+      
+      try {
+        console.log('🔒 Tentando usar função RPC check_token_balance...');
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('check_token_balance', { p_user_id: user.id });
 
-      if (tokensError) {
-        console.error('❌ SECURITY: Error fetching token balance:', tokensError);
-        throw tokensError;
+        if (!rpcError && rpcData && rpcData.length > 0) {
+          tokensData = rpcData[0];
+          usedRpcFunction = true;
+          console.log('✅ RPC check_token_balance funcionou:', tokensData);
+        } else {
+          console.warn('⚠️ RPC check_token_balance falhou:', rpcError);
+        }
+      } catch (rpcError) {
+        console.warn('⚠️ Erro na RPC check_token_balance:', rpcError);
+      }
+
+      // TENTATIVA 2: Fallback para consulta SQL direta
+      if (!tokensData) {
+        console.log('🔄 Usando fallback: consulta SQL direta ao profiles...');
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('monthly_tokens, extra_tokens, total_tokens_used')
+            .eq('id', user.id)
+            .single();
+
+          if (!profileError && profileData) {
+            tokensData = {
+              monthly_tokens: profileData.monthly_tokens || 0,
+              extra_tokens: profileData.extra_tokens || 0,
+              total_available: (profileData.monthly_tokens || 0) + (profileData.extra_tokens || 0),
+              total_used: profileData.total_tokens_used || 0
+            };
+            console.log('✅ Fallback SQL direto funcionou:', tokensData);
+          } else {
+            console.error('❌ Fallback SQL falhou:', profileError);
+            throw profileError;
+          }
+        } catch (fallbackError) {
+          console.error('❌ Erro no fallback SQL:', fallbackError);
+          throw fallbackError;
+        }
       }
 
       // Buscar flags de notificação e data de reset
@@ -132,29 +175,35 @@ export const useTokens = () => {
         console.warn('Erro ao buscar flags de notificação:', profileError);
       }
 
-      if (tokensData && tokensData.length > 0) {
-        const tokenInfo = tokensData[0];
+      if (tokensData) {
         const flags = profileData || { notified_90: false, notified_50: false, notified_10: false };
         const resetDate = profileData?.tokens_reset_date || null;
         
-        setTokens(tokenInfo);
+        console.log('📊 Tokens atualizados:', {
+          totalAvailable: tokensData.total_available,
+          monthlyTokens: tokensData.monthly_tokens,
+          extraTokens: tokensData.extra_tokens,
+          totalUsed: tokensData.total_used,
+          method: usedRpcFunction ? 'RPC' : 'SQL_DIRECT',
+          timestamp: new Date().toLocaleTimeString()
+        });
+        
+        setTokens(tokensData);
         setNotificationFlags(flags);
         setLastResetDate(resetDate);
         setLastUpdate(new Date());
         
         // Salvar no cache após buscar dados do servidor
-        saveToCache(tokenInfo, flags, resetDate);
+        saveToCache(tokensData, flags, resetDate);
         
         // Verificar se precisa mostrar notificações ou popup
-        checkAndShowNotifications(tokenInfo, flags);
-        
-        console.log('✅ SECURITY: Tokens fetched securely:', tokenInfo);
+        checkAndShowNotifications(tokensData, flags);
       } else {
-        console.warn('❌ SECURITY: No token data found for user');
+        console.error('❌ Nenhum dado de token encontrado');
         setError('Dados de tokens não encontrados');
       }
     } catch (err) {
-      console.error('❌ SECURITY: Error fetching tokens:', err);
+      console.error('❌ Erro crítico ao buscar tokens:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar tokens');
     } finally {
       setLoading(false);
@@ -274,13 +323,13 @@ export const useTokens = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔄 SECURITY: Initiating secure token loading for user:', user.id);
+    console.log('🔄 INICIANDO carregamento de tokens para usuário:', user.id);
 
     // Primeiro, tentar carregar do cache
     const cachedData = readFromCache();
     
     if (cachedData) {
-      console.log('💾 SECURITY: Cache data found - instant loading with security validation');
+      console.log('💾 Cache encontrado - carregamento instantâneo');
       
       // Renderizar imediatamente com dados do cache
       setTokens(cachedData.tokens);
@@ -290,10 +339,10 @@ export const useTokens = () => {
       setLoading(false);
       
       // Buscar dados atualizados em segundo plano
-      console.log('🔄 SECURITY: Updating data in background with security validation...');
+      console.log('🔄 Atualizando dados em segundo plano...');
       fetchTokens(true, true);
     } else {
-      console.log('🆕 SECURITY: First visit or cache expired - secure loading');
+      console.log('🆕 Primeira visita ou cache expirado - carregamento completo');
       // Se não há cache, fazer carregamento normal
       fetchTokens(false, false);
     }
@@ -302,11 +351,11 @@ export const useTokens = () => {
     checkResetNeeded();
   }, [user?.id, readFromCache, fetchTokens, checkResetNeeded]);
 
-  // NOVO: Configurar subscription mais robusta para atualizações em tempo real
+  // MELHORADA: Configurar subscription mais robusta para atualizações em tempo real
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔄 Configurando subscription robusta de tokens para usuário:', user.id);
+    console.log('🔄 Configurando subscriptions robustas de tokens para usuário:', user.id);
 
     const channelName = `tokens-realtime-${user.id}-${Date.now()}`;
     const channel = supabase
@@ -320,11 +369,16 @@ export const useTokens = () => {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('🔄 Profile atualizado em tempo real (tokens):', payload);
+          console.log('🔄 Profile atualizado em tempo real (tokens):', {
+            event: payload.eventType,
+            old: payload.old,
+            new: payload.new,
+            timestamp: new Date().toLocaleTimeString()
+          });
           
           // FORÇAR atualização imediata quando há mudança
-          console.log('💰 Forçando atualização de tokens devido a mudança em tempo real');
-          fetchTokens(true, true);
+          console.log('💰 FORÇANDO atualização de tokens devido a mudança em tempo real');
+          setTimeout(() => fetchTokens(true, true), 100); // Pequeno delay para garantir que a transação foi commitada
         }
       )
       .on(
@@ -336,11 +390,15 @@ export const useTokens = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('💳 Novo uso de token detectado em tempo real:', payload);
+          console.log('💳 Novo uso de token detectado em tempo real:', {
+            tokensUsed: payload.new?.tokens_used,
+            feature: payload.new?.feature_used,
+            timestamp: new Date().toLocaleTimeString()
+          });
           
           // FORÇAR atualização imediata quando tokens são usados
-          console.log('🔄 Forçando atualização devido a novo uso de token');
-          fetchTokens(true, true);
+          console.log('🔄 FORÇANDO atualização devido a novo uso de token');
+          setTimeout(() => fetchTokens(true, true), 100); // Pequeno delay para garantir que a transação foi commitada
         }
       )
       .subscribe((status) => {
@@ -372,7 +430,7 @@ export const useTokens = () => {
 
     const interval = setInterval(() => {
       if (!document.hidden) {
-        console.log('🔄 Auto-refresh tokens (mais frequente)');
+        console.log('🔄 Auto-refresh tokens (5 segundos)');
         fetchTokens(true, true);
       }
     }, AUTO_REFRESH_INTERVAL);
@@ -380,7 +438,7 @@ export const useTokens = () => {
     return () => clearInterval(interval);
   }, [fetchTokens, user?.id]);
 
-  // NOVO: Listener para mudanças no localStorage (para sincronizar entre abas)
+  // MELHORADO: Listener para mudanças no localStorage (para sincronizar entre abas)
   useEffect(() => {
     if (!user?.id) return;
 
