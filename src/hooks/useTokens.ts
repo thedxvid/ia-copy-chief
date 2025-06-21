@@ -26,9 +26,6 @@ const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
 const TOKEN_CACHE_KEY = 'tokenDataCache';
 
 export const useTokens = () => {
-// ... existing code ...
-
-export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
