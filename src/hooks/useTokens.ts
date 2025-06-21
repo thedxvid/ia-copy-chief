@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,9 +25,9 @@ interface CacheData {
 }
 
 const MONTHLY_TOKENS_LIMIT = 100000; // 100k tokens
-const AUTO_REFRESH_INTERVAL = 30000; // 30 segundos
+const AUTO_REFRESH_INTERVAL = 10000; // Reduzido para 10 segundos para melhor responsividade
 const NOTIFICATION_COOLDOWN = 24 * 60 * 60 * 1000; // 24 horas em ms
-const CACHE_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutos em ms
+const CACHE_EXPIRY_TIME = 2 * 60 * 1000; // Reduzido para 2 minutos para melhor responsividade
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState<TokenData | null>(null);
@@ -96,7 +97,7 @@ export const useTokens = () => {
     }
   }, [user?.id, getCacheKey]);
 
-  const fetchTokens = useCallback(async (showRefreshing = false) => {
+  const fetchTokens = useCallback(async (showRefreshing = false, forceUpdate = false) => {
     if (!user?.id) {
       setLoading(false);
       return;
@@ -105,7 +106,7 @@ export const useTokens = () => {
     try {
       if (showRefreshing) {
         setIsRefreshing(true);
-      } else {
+      } else if (!forceUpdate) {
         setLoading(true);
       }
       setError(null);
@@ -261,7 +262,7 @@ export const useTokens = () => {
           });
           
           // Atualizar dados após reset
-          fetchTokens();
+          fetchTokens(false, true);
         }
       } catch (err) {
         console.warn('Reset automático não disponível:', err);
@@ -290,58 +291,64 @@ export const useTokens = () => {
       
       // Buscar dados atualizados em segundo plano
       console.log('🔄 SECURITY: Updating data in background with security validation...');
-      fetchTokens(true);
+      fetchTokens(true, true);
     } else {
       console.log('🆕 SECURITY: First visit or cache expired - secure loading');
       // Se não há cache, fazer carregamento normal
-      fetchTokens(false);
+      fetchTokens(false, false);
     }
 
     // Verificar se reset é necessário
     checkResetNeeded();
   }, [user?.id, readFromCache, fetchTokens, checkResetNeeded]);
 
-  // Configurar subscription em tempo real
+  // NOVO: Configurar subscription mais robusta para atualizações em tempo real
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔄 Configurando subscription de tokens para usuário:', user.id);
+    console.log('🔄 Configurando subscription robusta de tokens para usuário:', user.id);
 
-    const channelName = `tokens-${user.id}-${Date.now()}`;
+    const channelName = `tokens-realtime-${user.id}-${Date.now()}`;
     const channel = supabase
       .channel(channelName)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*', // Escutar todos os eventos (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'profiles',
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('🔄 Token profile atualizado em tempo real:', payload);
+          console.log('🔄 Profile atualizado em tempo real (tokens):', payload);
           
-          // Verificar se os campos de token foram alterados
-          const newRecord = payload.new as any;
-          const oldRecord = payload.old as any;
+          // FORÇAR atualização imediata quando há mudança
+          console.log('💰 Forçando atualização de tokens devido a mudança em tempo real');
+          fetchTokens(true, true);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'token_usage',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('💳 Novo uso de token detectado em tempo real:', payload);
           
-          const tokenFieldsChanged = 
-            newRecord.monthly_tokens !== oldRecord.monthly_tokens ||
-            newRecord.extra_tokens !== oldRecord.extra_tokens ||
-            newRecord.total_tokens_used !== oldRecord.total_tokens_used;
-
-          if (tokenFieldsChanged) {
-            console.log('💰 Tokens alterados, atualizando estado...');
-            fetchTokens(true);
-          }
+          // FORÇAR atualização imediata quando tokens são usados
+          console.log('🔄 Forçando atualização devido a novo uso de token');
+          fetchTokens(true, true);
         }
       )
       .subscribe((status) => {
-        console.log('📡 Status da subscription de tokens:', status);
+        console.log('📡 Status da subscription robusta de tokens:', status);
       });
 
     return () => {
-      console.log('🧹 Limpando subscription de tokens');
+      console.log('🧹 Limpando subscription robusta de tokens');
       supabase.removeChannel(channel);
     };
   }, [user?.id, fetchTokens]);
@@ -351,7 +358,7 @@ export const useTokens = () => {
     const handleVisibilityChange = () => {
       if (!document.hidden && user?.id) {
         console.log('👁️ Aba ativa - atualizando tokens');
-        fetchTokens(true);
+        fetchTokens(true, true);
       }
     };
 
@@ -359,19 +366,40 @@ export const useTokens = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [fetchTokens, user?.id]);
 
-  // Auto-refresh a cada 30 segundos quando ativo
+  // Auto-refresh mais frequente quando ativo
   useEffect(() => {
     if (!user?.id) return;
 
     const interval = setInterval(() => {
       if (!document.hidden) {
-        console.log('🔄 Auto-refresh tokens');
-        fetchTokens(true);
+        console.log('🔄 Auto-refresh tokens (mais frequente)');
+        fetchTokens(true, true);
       }
     }, AUTO_REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
   }, [fetchTokens, user?.id]);
+
+  // NOVO: Listener para mudanças no localStorage (para sincronizar entre abas)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === getCacheKey()) {
+        console.log('💾 Cache alterado em outra aba - sincronizando');
+        const cachedData = readFromCache();
+        if (cachedData) {
+          setTokens(cachedData.tokens);
+          setNotificationFlags(cachedData.notificationFlags);
+          setLastResetDate(cachedData.lastResetDate);
+          setLastUpdate(new Date(cachedData.timestamp));
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [user?.id, getCacheKey, readFromCache]);
 
   const getDaysUntilReset = useCallback(() => {
     if (!lastResetDate) return null;
@@ -405,7 +433,7 @@ export const useTokens = () => {
     isRefreshing,
     showUpgradeModal,
     setShowUpgradeModal,
-    refreshTokens: fetchTokens,
+    refreshTokens: (showRefreshing = false) => fetchTokens(showRefreshing, true), // Sempre forçar atualização no refresh manual
     getUsagePercentage: useCallback(() => {
       if (!tokens) return 0;
       const totalTokens = tokens.monthly_tokens + tokens.extra_tokens;
