@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,13 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter, Megaphone, ExternalLink, Edit, Trash2, Copy, LayoutGrid, List, Eye } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateAdModal } from './CreateAdModal';
+import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
 import { Input } from '@/components/ui/input';
+import { useTokens } from '@/hooks/useTokens';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 
 export const AdsPageContent = () => {
   const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('ads');
+  const { tokens, isOutOfTokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -24,7 +26,25 @@ export const AdsPageContent = () => {
     copy.platform?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleCreateClick = () => {
+    // Verificar se há tokens disponíveis
+    if (isOutOfTokens()) {
+      console.log('🚫 [Ads] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    setShowCreateModal(true);
+  };
+
   const handleCreateAd = async (briefing: any, generatedCopy?: any) => {
+    // Verificar tokens novamente antes de criar
+    if (isOutOfTokens()) {
+      console.log('🚫 [Ads] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsCreating(true);
     try {
       const copyData = {
@@ -46,9 +66,17 @@ export const AdsPageContent = () => {
       await createCopy(copyData);
       setShowCreateModal(false);
       toast.success('Anúncio criado com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar anúncio:', error);
-      toast.error('Erro ao criar anúncio');
+      
+      // Se o erro for relacionado a tokens, mostrar popup de upgrade
+      if (error.message?.includes('token') || error.message?.includes('Tokens insuficientes')) {
+        console.log('🚫 [Ads] Erro de tokens - mostrando popup de upgrade');
+        setShowCreateModal(false);
+        setShowUpgradeModal(true);
+      } else {
+        toast.error('Erro ao criar anúncio');
+      }
     } finally {
       setIsCreating(false);
     }
@@ -220,7 +248,7 @@ export const AdsPageContent = () => {
           <p className="text-[#CCCCCC]">Gerencie suas copies de anúncios para diferentes plataformas</p>
         </div>
         <Button 
-          onClick={() => setShowCreateModal(true)}
+          onClick={handleCreateClick}
           className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -272,7 +300,7 @@ export const AdsPageContent = () => {
             </p>
             {!searchTerm && (
               <Button 
-                onClick={() => setShowCreateModal(true)}
+                onClick={handleCreateClick}
                 className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -358,6 +386,14 @@ export const AdsPageContent = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Token upgrade modal */}
+      <TokenUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        tokensRemaining={tokens?.total_available || 0}
+        isOutOfTokens={isOutOfTokens()}
+      />
     </div>
   );
 };
