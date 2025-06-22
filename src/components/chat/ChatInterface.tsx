@@ -15,6 +15,7 @@ import { useScrollPosition } from '@/hooks/useScrollPosition';
 import { MarkdownText } from '@/components/ui/markdown-text';
 import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
 import { useTokens } from '@/hooks/useTokens';
+import { toast } from 'sonner';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
@@ -101,11 +102,35 @@ export const ChatInterface = () => {
 
   // Função customizada para envio de mensagem com verificação de tokens
   const handleSendMessage = async (message: string) => {
+    const CHAT_COST = 100; // Custo mínimo para iniciar um chat
+
     // Verificar se há tokens suficientes antes de enviar
-    if (!tokens || tokens.total_available <= 0) {
-      setShowTokenUpgrade(true);
-      return;
+    if (!tokens || tokens.total_available < CHAT_COST) {
+      setShowTokenUpgrade(true); // Abre o modal de compra/upgrade
+      toast.error('Créditos insuficientes', {
+        description: `Você precisa de pelo menos ${CHAT_COST} créditos para continuar a conversa.`,
+        duration: 8000,
+      });
+      return; // Bloqueia o envio da mensagem
     }
+
+    try {
+      await sendMessage(message);
+      // Atualizar tokens após envio bem-sucedido
+      await refreshTokens();
+    } catch (error: any) {
+      // Se o erro for relacionado a tokens insuficientes, mostrar modal
+      if (error?.message?.includes('créditos') || 
+          error?.message?.includes('tokens') ||
+          error?.status === 402) {
+        setShowTokenUpgrade(true);
+      } else {
+        // Para outros erros, deixar o tratamento padrão
+        console.error("Erro não tratado em ChatInterface:", error);
+      }
+    }
+  };
+// ...
 
     try {
       await sendMessage(message);
