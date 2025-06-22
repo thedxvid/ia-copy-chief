@@ -3,10 +3,8 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminUserTable } from '@/components/admin/AdminUserTable';
 import { UserTokenManagement } from '@/components/admin/UserTokenManagement';
-import { TokenAuditHistory } from '@/components/admin/TokenAuditHistory';
-import { SecurityAuditDashboard } from '@/components/admin/SecurityAuditDashboard';
-import { QuizTemplatesManager } from '@/components/admin/QuizTemplatesManager';
-import { TokenPurchaseProcessor } from '@/components/admin/TokenPurchaseProcessor';
+import { UserAdder } from '@/components/admin/UserAdder';
+import { TokenMonitoringDashboard } from '@/components/admin/TokenMonitoringDashboard';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -32,17 +30,15 @@ const Admin = () => {
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold">Painel Administrativo</h1>
-          <p className="text-muted-foreground">Gerencie usuários, tokens e configurações do sistema</p>
+          <p className="text-muted-foreground">Gerencie usuários, tokens e monitore o sistema</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
             <TabsTrigger value="users">Usuários</TabsTrigger>
-            <TabsTrigger value="tokens">Tokens</TabsTrigger>
-            <TabsTrigger value="purchases">Compras</TabsTrigger>
-            <TabsTrigger value="audit">Auditoria</TabsTrigger>
-            <TabsTrigger value="security">Segurança</TabsTrigger>
-            <TabsTrigger value="quiz">Quiz</TabsTrigger>
+            <TabsTrigger value="tokens">Gerenciar Tokens</TabsTrigger>
+            <TabsTrigger value="adduser">Adicionar Usuário</TabsTrigger>
+            <TabsTrigger value="monitoring">Monitoramento</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="space-y-4">
@@ -53,20 +49,12 @@ const Admin = () => {
             <UserTokenManagement />
           </TabsContent>
 
-          <TabsContent value="purchases" className="space-y-4">
-            <TokenPurchaseProcessor />
+          <TabsContent value="adduser" className="space-y-4">
+            <UserAdder />
           </TabsContent>
 
-          <TabsContent value="audit" className="space-y-4">
-            <TokenAuditHistory />
-          </TabsContent>
-
-          <TabsContent value="security" className="space-y-4">
-            <SecurityAuditDashboard />
-          </TabsContent>
-
-          <TabsContent value="quiz" className="space-y-4">
-            <QuizTemplatesManager />
+          <TabsContent value="monitoring" className="space-y-4">
+            <TokenMonitoringDashboard />
           </TabsContent>
         </Tabs>
       </div>

@@ -1,7 +1,7 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface TokenData {
   monthly_tokens: number;
@@ -11,7 +11,7 @@ interface TokenData {
 }
 
 const CACHE_KEY = 'tokens_cache';
-const CACHE_DURATION = 30000; // Reduzido para 30 segundos para debug
+const CACHE_DURATION = 30000;
 
 // Global state to prevent multiple subscriptions
 let globalChannel: any = null;
@@ -94,8 +94,7 @@ export const useTokens = () => {
         monthly_tokens: tokenData.monthly_tokens,
         extra_tokens: tokenData.extra_tokens,
         total_available: tokenData.total_available,
-        total_used: tokenData.total_used,
-        calculation: `${tokenData.monthly_tokens} + ${tokenData.extra_tokens} - ${tokenData.total_used} = ${tokenData.total_available}`
+        total_used: tokenData.total_used
       });
 
       const result: TokenData = {
@@ -105,13 +104,11 @@ export const useTokens = () => {
         total_tokens_used: tokenData.total_used
       };
 
-      // Verificação especial para debug de tokens extras
       if (tokenData.extra_tokens > 0) {
         console.log('🎯 TOKENS EXTRAS DETECTADOS:', {
           extraTokens: tokenData.extra_tokens,
           monthlyTokens: tokenData.monthly_tokens,
-          totalCalculated: tokenData.monthly_tokens + tokenData.extra_tokens - tokenData.total_used,
-          totalReturned: tokenData.total_available
+          totalAvailable: tokenData.total_available
         });
       }
 
@@ -123,60 +120,56 @@ export const useTokens = () => {
     }
   }, [user, setCachedTokens]);
 
-  const refreshTokens = useCallback(async (force = false) => {
-    if (!user || (isRefreshing && !force)) return;
-
-    // Prevent excessive refreshing - minimum 3 seconds between refreshes (reduzido para debug)
-    const now = Date.now();
-    if (!force && now - lastRefreshRef.current < 3000) {
-      console.log('⏳ Refresh bloqueado - muito frequente');
-      return;
+  // NOVA FUNÇÃO: Verificar se usuário pode usar funcionalidades que consomem tokens
+  const requireTokens = useCallback((minTokens: number = 100, feature: string = 'funcionalidade') => {
+    if (!tokens) {
+      console.warn(`🚫 [Token Guard] Tokens não carregados para ${feature}`);
+      toast.error('Erro', {
+        description: 'Carregando informações de tokens. Tente novamente em um momento.'
+      });
+      return false;
     }
-
-    setIsRefreshing(true);
-    setError(null);
-    lastRefreshRef.current = now;
-
-    try {
-      console.log('🔄 INICIANDO refresh de tokens...');
-      const data = await fetchTokens();
-      if (data) {
-        setTokens(data);
-        setLastUpdate(new Date());
-        
-        // Log especial para debug de tokens extras
-        if (data.extra_tokens > 0) {
-          console.log('🎯 REFRESH DETECTOU TOKENS EXTRAS:', {
-            extraTokens: data.extra_tokens,
-            totalAvailable: data.total_available,
-            state: 'updated'
-          });
-        }
-        
-        // Se estava processando e agora temos tokens, marcar como sucesso
-        if (processingStatus === 'processing') {
-          setProcessingStatus('success');
-          setProcessingMessage('Tokens atualizados com sucesso!');
-          
-          // Limpar status após 5 segundos
-          setTimeout(() => {
-            setProcessingStatus('idle');
-            setProcessingMessage('');
-          }, 5000);
-        }
-      }
-    } catch (err) {
-      console.error('❌ Erro ao atualizar tokens:', err);
-      setError('Erro ao carregar tokens');
+    
+    if (tokens.total_available <= 0) {
+      console.warn(`🚫 [Token Guard] BLOQUEADO - Sem tokens para ${feature}:`, {
+        available: tokens.total_available,
+        required: minTokens
+      });
       
-      if (processingStatus === 'processing') {
-        setProcessingStatus('error');
-        setProcessingMessage('Erro ao atualizar tokens. Tente novamente.');
-      }
-    } finally {
-      setIsRefreshing(false);
+      toast.error('Tokens esgotados', {
+        description: 'Você não possui tokens suficientes. Compre tokens extras para continuar usando esta funcionalidade.'
+      });
+      
+      setShowUpgradeModal(true);
+      return false;
     }
-  }, [user, isRefreshing, fetchTokens, processingStatus]);
+    
+    if (tokens.total_available < minTokens) {
+      console.warn(`🚫 [Token Guard] BLOQUEADO - Tokens insuficientes para ${feature}:`, {
+        available: tokens.total_available,
+        required: minTokens
+      });
+      
+      toast.warning('Tokens insuficientes', {
+        description: `Esta funcionalidade requer ${minTokens} tokens. Você possui ${tokens.total_available} tokens disponíveis.`
+      });
+      
+      setShowUpgradeModal(true);
+      return false;
+    }
+    
+    console.log(`✅ [Token Guard] Aprovado para ${feature}:`, {
+      available: tokens.total_available,
+      required: minTokens
+    });
+    
+    return true;
+  }, [tokens, setShowUpgradeModal]);
+
+  // NOVA FUNÇÃO: Verificar se tokens estão zerados
+  const isOutOfTokens = useCallback(() => {
+    return !tokens || tokens.total_available <= 0;
+  }, [tokens]);
 
   // Função para indicar que uma compra está sendo processada
   const setTokenProcessing = useCallback((message?: string) => {
@@ -204,7 +197,9 @@ export const useTokens = () => {
     const requiredTokens = {
       chat: 100,
       copy: 500,
-      analysis: 300
+      analysis: 300,
+      quiz: 200,
+      tools: 150
     };
     
     const required = requiredTokens[feature as keyof typeof requiredTokens] || 100;
@@ -251,7 +246,6 @@ export const useTokens = () => {
       setLoading(false);
       setLastUpdate(new Date());
       
-      // Log especial para debug de tokens extras no cache
       if (cachedData.extra_tokens > 0) {
         console.log('🎯 CACHE CONTÉM TOKENS EXTRAS:', {
           extraTokens: cachedData.extra_tokens,
@@ -259,7 +253,6 @@ export const useTokens = () => {
         });
       }
       
-      // Update in background only if cache is getting stale (15+ seconds para debug)
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const { timestamp } = JSON.parse(cached);
@@ -399,6 +392,9 @@ export const useTokens = () => {
     processingStatus,
     processingMessage,
     setTokenProcessing,
-    clearProcessingStatus
+    clearProcessingStatus,
+    // NOVAS FUNÇÕES EXPORTADAS
+    requireTokens,
+    isOutOfTokens
   };
 };

@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useTokens } from '@/hooks/useTokens';
 
 interface N8nIntegrationData {
   type: 'copy_generation' | 'performance_analysis' | 'user_action' | 'chat_response';
@@ -13,15 +14,21 @@ interface N8nIntegrationData {
 export const useN8nIntegration = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { requireTokens } = useTokens();
 
   const triggerN8nWorkflow = async (integrationData: N8nIntegrationData) => {
     console.log('triggerN8nWorkflow called with:', integrationData);
+    
+    // BLOQUEIO: Verificar tokens antes de fazer qualquer chamada
+    if (!requireTokens(200, 'geração de conteúdo')) {
+      console.error('🚫 [Token Guard] Bloqueando chamada N8n - tokens insuficientes');
+      throw new Error('Tokens insuficientes para esta operação');
+    }
     
     setIsLoading(true);
     setError(null);
 
     try {
-      // Validação dos dados antes de enviar
       if (!integrationData.user_id) {
         throw new Error('User ID é obrigatório');
       }
@@ -76,6 +83,12 @@ export const useN8nIntegration = () => {
       quizAnswers
     });
 
+    // BLOQUEIO: Verificar tokens antes de gerar conteúdo
+    if (!requireTokens(300, 'geração de copy')) {
+      console.error('🚫 [Token Guard] Bloqueando geração de copy - tokens insuficientes');
+      throw new Error('Tokens insuficientes para gerar copy');
+    }
+
     return triggerN8nWorkflow({
       type: 'copy_generation',
       user_id: userId,
@@ -94,6 +107,12 @@ export const useN8nIntegration = () => {
     userId: string,
     performanceData: any
   ) => {
+    // BLOQUEIO: Verificar tokens antes de análise
+    if (!requireTokens(150, 'análise de performance')) {
+      console.error('🚫 [Token Guard] Bloqueando análise - tokens insuficientes');
+      throw new Error('Tokens insuficientes para análise');
+    }
+
     return triggerN8nWorkflow({
       type: 'performance_analysis',
       user_id: userId,
