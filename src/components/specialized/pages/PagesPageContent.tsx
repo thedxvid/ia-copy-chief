@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,11 +6,14 @@ import { Plus, Search, Filter, FileText, Eye, Trash2, Copy } from 'lucide-react'
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreatePageModal } from './CreatePageModal';
 import { ViewCopyModal } from '../ViewCopyModal';
+import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
 import { Input } from '@/components/ui/input';
+import { useTokens } from '@/hooks/useTokens';
 import { toast } from 'sonner';
 
 export const PagesPageContent = () => {
   const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('pages');
+  const { tokens, isOutOfTokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedCopy, setSelectedCopy] = useState(null);
@@ -23,7 +25,25 @@ export const PagesPageContent = () => {
     copy.copy_data?.page_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleCreateClick = () => {
+    // Verificar se há tokens disponíveis
+    if (isOutOfTokens()) {
+      console.log('🚫 [Pages] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    setShowCreateModal(true);
+  };
+
   const handleCreatePage = async (briefing: any) => {
+    // Verificar tokens novamente antes de criar
+    if (isOutOfTokens()) {
+      console.log('🚫 [Pages] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsCreating(true);
     try {
       const copyData = {
@@ -36,9 +56,17 @@ export const PagesPageContent = () => {
       await createCopy(copyData);
       setShowCreateModal(false);
       toast.success('Página criada com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar página:', error);
-      toast.error('Erro ao criar página');
+      
+      // Se o erro for relacionado a tokens, mostrar popup de upgrade
+      if (error.message?.includes('token') || error.message?.includes('Tokens insuficientes')) {
+        console.log('🚫 [Pages] Erro de tokens - mostrando popup de upgrade');
+        setShowCreateModal(false);
+        setShowUpgradeModal(true);
+      } else {
+        toast.error('Erro ao criar página');
+      }
     } finally {
       setIsCreating(false);
     }
@@ -96,7 +124,7 @@ export const PagesPageContent = () => {
           <p className="text-[#CCCCCC]">Crie copies para landing pages, sales pages e squeeze pages</p>
         </div>
         <Button 
-          onClick={() => setShowCreateModal(true)}
+          onClick={handleCreateClick}
           className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -130,7 +158,7 @@ export const PagesPageContent = () => {
             </p>
             {!searchTerm && (
               <Button 
-                onClick={() => setShowCreateModal(true)}
+                onClick={handleCreateClick}
                 className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -214,6 +242,14 @@ export const PagesPageContent = () => {
         onClose={() => setShowViewModal(false)}
         copyData={selectedCopy}
         copyType="pages"
+      />
+
+      {/* Token upgrade modal */}
+      <TokenUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        tokensRemaining={tokens?.total_available || 0}
+        isOutOfTokens={isOutOfTokens()}
       />
     </div>
   );
