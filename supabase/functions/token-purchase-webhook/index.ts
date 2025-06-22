@@ -98,7 +98,7 @@ serve(async (req) => {
   try {
     const rawData: DigitalGuruWebhookData = await req.json();
     
-    console.log('🎯 TOKEN PURCHASE WEBHOOK - DADOS BRUTOS RECEBIDOS:', JSON.stringify(rawData, null, 2));
+    console.log('[Webhook Tokens] DADOS BRUTOS RECEBIDOS:', JSON.stringify(rawData, null, 2));
 
     // Extrair dados do webhook do Digital Guru Manager
     const extractedData = {
@@ -113,7 +113,7 @@ serve(async (req) => {
       created_at: rawData.dates?.confirmed_at || rawData.dates?.created_at
     };
 
-    console.log('🔍 DADOS EXTRAÍDOS E PROCESSADOS:', {
+    console.log('[Webhook Tokens] DADOS EXTRAÍDOS E PROCESSADOS:', {
       event: extractedData.event,
       orderId: extractedData.order_id,
       status: extractedData.order_status,
@@ -127,52 +127,99 @@ serve(async (req) => {
     const isApprovedEvent = approvedEvents.includes(extractedData.order_status?.toLowerCase());
 
     if (!isApprovedEvent) {
-      console.log('⚠️ Evento ignorado - Status:', extractedData.order_status);
-      return new Response('Event ignored - not approved', { 
+      console.log('[Webhook Tokens] Evento ignorado - Status:', extractedData.order_status);
+      return new Response(JSON.stringify({ 
+        status: 'ignored', 
+        reason: 'Status não aprovado',
+        order_status: extractedData.order_status 
+      }), { 
         status: 200, 
-        headers: corsHeaders 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     // Validar dados obrigatórios
     if (!extractedData.customer_email || !extractedData.order_id) {
-      console.error('❌ Dados obrigatórios ausentes:', {
+      console.error('[Webhook Tokens] Dados obrigatórios ausentes:', {
         email: extractedData.customer_email,
         orderId: extractedData.order_id,
         product: extractedData.product_name
       });
-      return new Response('Missing required data', { 
-        status: 400, 
-        headers: corsHeaders 
+      return new Response(JSON.stringify({ 
+        status: 'error', 
+        reason: 'Dados obrigatórios ausentes',
+        missing: {
+          email: !extractedData.customer_email,
+          orderId: !extractedData.order_id
+        }
+      }), { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Buscar usuário pelo email
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserByEmail(extractedData.customer_email);
+    // CORREÇÃO: Buscar usuário por email usando query direta na tabela profiles
+    console.log('[Webhook Tokens] Buscando usuário por email:', extractedData.customer_email);
     
-    if (authError || !authUser.user) {
-      console.error('❌ Usuário não encontrado:', extractedData.customer_email, authError);
-      return new Response('User not found', { 
-        status: 404, 
-        headers: corsHeaders 
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, extra_tokens')
+      .eq('id', (
+        await supabase.auth.admin.listUsers()
+      ).data.users.find(u => u.email === extractedData.customer_email)?.id)
+      .single();
+
+    // Alternativa mais direta: buscar diretamente por email se houver campo email na tabela profiles
+    // Como não há campo email na tabela profiles, vamos usar uma abordagem diferente
+    
+    // Buscar todos os usuários e filtrar por email (solução temporária)
+    const { data: allUsers, error: usersError } = await supabase.auth.admin.listUsers();
+    
+    if (usersError) {
+      console.error('[Webhook Tokens] Erro ao buscar usuários:', usersError);
+      return new Response(JSON.stringify({ 
+        status: 'error', 
+        reason: 'Erro ao buscar usuários' 
+      }), { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    const authUser = allUsers.users.find(user => user.email === extractedData.customer_email);
+    
+    if (!authUser) {
+      console.error('[Webhook Tokens] Usuário não encontrado por email:', extractedData.customer_email);
+      return new Response(JSON.stringify({ 
+        status: 'error', 
+        reason: 'Usuário não encontrado',
+        email: extractedData.customer_email 
+      }), { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Buscar profile do usuário
     const { data: user, error: userError } = await supabase
       .from('profiles')
       .select('id, full_name, extra_tokens')
-      .eq('id', authUser.user.id)
+      .eq('id', authUser.id)
       .single();
 
     if (userError || !user) {
-      console.error('❌ Profile do usuário não encontrado:', authUser.user.id, userError);
-      return new Response('User profile not found', { 
-        status: 404, 
-        headers: corsHeaders 
+      console.error('[Webhook Tokens] Profile do usuário não encontrado:', authUser.id, userError);
+      return new Response(JSON.stringify({ 
+        status: 'error', 
+        reason: 'Profile do usuário não encontrado',
+        user_id: authUser.id 
+      }), { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log('👤 Usuário encontrado:', {
+    console.log('[Webhook Tokens] Usuário encontrado:', {
       userId: user.id,
       name: user.full_name,
       currentExtraTokens: user.extra_tokens
@@ -187,10 +234,14 @@ serve(async (req) => {
       .single();
 
     if (existingPurchase && existingPurchase.payment_status === 'completed') {
-      console.log('⚠️ Compra já processada:', extractedData.order_id);
-      return new Response('Purchase already processed', { 
+      console.log('[Webhook Tokens] Compra já processada:', extractedData.order_id);
+      return new Response(JSON.stringify({ 
+        status: 'ignored', 
+        reason: 'Compra já processada',
+        order_id: extractedData.order_id 
+      }), { 
         status: 200, 
-        headers: corsHeaders 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -199,7 +250,7 @@ serve(async (req) => {
     const productLower = (extractedData.product_name || '').toLowerCase();
     const orderTotal = extractedData.order_total;
     
-    console.log('🔍 DETERMINANDO TOKENS:', {
+    console.log('[Webhook Tokens] DETERMINANDO TOKENS:', {
       productName: extractedData.product_name,
       productLower: productLower,
       orderTotal: orderTotal
@@ -228,19 +279,24 @@ serve(async (req) => {
       tokensToAdd = 1000000;
     }
 
-    console.log('💰 TOKENS DETERMINADOS:', {
+    console.log('[Webhook Tokens] TOKENS DETERMINADOS:', {
       tokensToAdd: tokensToAdd,
       baseadoEm: tokensToAdd > 0 ? 'valor_ou_nome' : 'nenhum'
     });
 
     if (tokensToAdd === 0) {
-      console.error('❌ Não foi possível determinar quantidade de tokens:', {
+      console.error('[Webhook Tokens] Não foi possível determinar quantidade de tokens:', {
         product: extractedData.product_name,
         total: extractedData.order_total
       });
-      return new Response('Could not determine token amount', { 
-        status: 400, 
-        headers: corsHeaders 
+      return new Response(JSON.stringify({ 
+        status: 'error', 
+        reason: 'Não foi possível determinar quantidade de tokens',
+        product: extractedData.product_name,
+        total: extractedData.order_total 
+      }), { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -264,15 +320,19 @@ serve(async (req) => {
         .single();
 
       if (purchaseError) {
-        console.error('❌ Erro ao criar registro de compra:', purchaseError);
-        return new Response('Error creating purchase record', { 
+        console.error('[Webhook Tokens] Erro ao criar registro de compra:', purchaseError);
+        return new Response(JSON.stringify({ 
+          status: 'error', 
+          reason: 'Erro ao criar registro de compra',
+          error: purchaseError.message 
+        }), { 
           status: 500, 
-          headers: corsHeaders 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
       
       purchaseId = newPurchase.id;
-      console.log('✅ Registro de compra criado:', purchaseId);
+      console.log('[Webhook Tokens] Registro de compra criado:', purchaseId);
     } else {
       // Atualizar registro existente
       const { error: updateError } = await supabase
@@ -286,14 +346,18 @@ serve(async (req) => {
         .eq('id', existingPurchase.id);
 
       if (updateError) {
-        console.error('❌ Erro ao atualizar registro de compra:', updateError);
-        return new Response('Error updating purchase record', { 
+        console.error('[Webhook Tokens] Erro ao atualizar registro de compra:', updateError);
+        return new Response(JSON.stringify({ 
+          status: 'error', 
+          reason: 'Erro ao atualizar registro de compra',
+          error: updateError.message 
+        }), { 
           status: 500, 
-          headers: corsHeaders 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
       
-      console.log('✅ Registro de compra atualizado:', existingPurchase.id);
+      console.log('[Webhook Tokens] Registro de compra atualizado:', existingPurchase.id);
     }
 
     // Creditar tokens extras ao usuário
@@ -307,14 +371,18 @@ serve(async (req) => {
       .eq('id', user.id);
 
     if (creditError) {
-      console.error('❌ Erro ao creditar tokens:', creditError);
-      return new Response('Error crediting tokens', { 
+      console.error('[Webhook Tokens] Erro ao creditar tokens:', creditError);
+      return new Response(JSON.stringify({ 
+        status: 'error', 
+        reason: 'Erro ao creditar tokens',
+        error: creditError.message 
+      }), { 
         status: 500, 
-        headers: corsHeaders 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log('🎉 TOKENS CREDITADOS COM SUCESSO:', {
+    console.log('[Webhook Tokens] TOKENS CREDITADOS COM SUCESSO:', {
       userId: user.id,
       tokensAdded: tokensToAdd,
       newExtraTokens: newTotalTokens,
@@ -335,7 +403,7 @@ serve(async (req) => {
 
     // Enviar email de confirmação
     try {
-      console.log('📧 Enviando email de confirmação de compra...');
+      console.log('[Webhook Tokens] Enviando email de confirmação de compra...');
       
       const { data: emailData, error: emailError } = await supabase.functions.invoke('send-token-purchase-email', {
         body: {
@@ -349,12 +417,12 @@ serve(async (req) => {
       });
 
       if (emailError) {
-        console.error('⚠️ Erro ao enviar email (não crítico):', emailError);
+        console.error('[Webhook Tokens] Erro ao enviar email (não crítico):', emailError);
       } else {
-        console.log('✅ Email de confirmação enviado com sucesso');
+        console.log('[Webhook Tokens] Email de confirmação enviado com sucesso');
       }
     } catch (emailError) {
-      console.error('⚠️ Erro ao enviar email de confirmação (não crítico):', emailError);
+      console.error('[Webhook Tokens] Erro ao enviar email de confirmação (não crítico):', emailError);
     }
 
     return new Response(JSON.stringify({
@@ -373,8 +441,8 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('❌ ERRO NO WEBHOOK DE TOKENS:', error);
-    console.error('❌ STACK TRACE:', error.stack);
+    console.error('[Webhook Tokens] ERRO NO WEBHOOK DE TOKENS:', error);
+    console.error('[Webhook Tokens] STACK TRACE:', error.stack);
     return new Response(JSON.stringify({
       success: false,
       error: error.message,
