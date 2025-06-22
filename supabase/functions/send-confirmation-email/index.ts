@@ -31,7 +31,7 @@ const handler = async (req: Request): Promise<Response> => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Confirme seu Email - CopyMaster</title>
+        <title>Confirme seu Email - CopyChief</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
           
@@ -255,7 +255,7 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <h1>Confirme seu cadastro</h1>
-          <p class="subtitle">Estamos quase terminando! Clique no botão abaixo para confirmar seu email e ativar sua conta CopyMaster.</p>
+          <p class="subtitle">Estamos quase terminando! Clique no botão abaixo para confirmar seu email e ativar sua conta CopyChief.</p>
           
           <div class="email-info">
             <p>Confirmação solicitada para:</p>
@@ -267,7 +267,7 @@ const handler = async (req: Request): Promise<Response> => {
           </a>
           
           <div class="features">
-            <h3 style="margin-bottom: 16px; color: #1a1a1a; font-size: 16px; text-align: center;">O que você pode fazer na CopyMaster:</h3>
+            <h3 style="margin-bottom: 16px; color: #1a1a1a; font-size: 16px; text-align: center;">O que você pode fazer na CopyChief:</h3>
             <div class="feature-item">
               <div class="feature-icon"></div>
               <div class="feature-text">Gerar copies persuasivas para vendas</div>
@@ -291,16 +291,16 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <div class="footer">
-            <p><strong>CopyMaster</strong> - Transformando ideias em copies que convertem</p>
+            <p><strong>CopyChief</strong> - Transformando ideias em copies que convertem</p>
             <p>
               Precisa de ajuda? Entre em contato: 
               <a href="mailto:suporte@iacopychief.com">suporte@iacopychief.com</a>
             </p>
             <p style="margin-top: 20px; font-size: 12px;">
-              © 2024 CopyMaster. Todos os direitos reservados.
+              © 2024 CopyChief. Todos os direitos reservados.
             </p>
             <p style="margin-top: 15px; font-size: 12px; color: #999;">
-              Se você não se cadastrou na CopyMaster, pode ignorar este email com segurança.
+              Se você não se cadastrou na CopyChief, pode ignorar este email com segurança.
               <br><br>
               Caso o botão não funcione, copie e cole este link no seu navegador:<br>
               <a href="${confirmationUrl}" style="color: #4285f4; word-break: break-all;">${confirmationUrl}</a>
@@ -312,9 +312,9 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "CopyMaster <noreply@iacopychief.com>",
+      from: "CopyChief <noreply@iacopychief.com>",
       to: [email],
-      subject: "🚀 Confirme seu email e ative sua conta CopyMaster",
+      subject: "🚀 Confirme seu email e ative sua conta CopyChief",
       html: emailHtml,
     });
 

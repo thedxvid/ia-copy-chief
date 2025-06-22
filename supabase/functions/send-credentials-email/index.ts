@@ -32,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Suas Credenciais de Acesso - CopyMaster</title>
+        <title>Suas Credenciais de Acesso - CopyChief</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
           
@@ -312,7 +312,7 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           ` : ''}
           
-          <h1>${isNewUser ? 'Bem-vindo ao CopyMaster!' : 'Acesso ativado!'}</h1>
+          <h1>${isNewUser ? 'Bem-vindo ao CopyChief!' : 'Acesso ativado!'}</h1>
           <p class="subtitle">
             ${isNewUser 
               ? `Olá, ${name}! Sua conta foi criada com sucesso após a aprovação do pagamento. Use os dados abaixo para fazer seu primeiro login na plataforma.`
@@ -349,13 +349,13 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <div class="footer">
-            <p><strong>CopyMaster</strong> - Transformando ideias em copies que convertem</p>
+            <p><strong>CopyChief</strong> - Transformando ideias em copies que convertem</p>
             <p>
               Precisa de ajuda? Entre em contato: 
               <a href="mailto:suporte@iacopychief.com">suporte@iacopychief.com</a>
             </p>
             <p style="margin-top: 20px; font-size: 12px;">
-              © 2024 CopyMaster. Todos os direitos reservados.
+              © 2024 CopyChief. Todos os direitos reservados.
             </p>
             <p style="margin-top: 15px; font-size: 12px; color: #999;">
               Este email contém informações confidenciais. Se você recebeu por engano, pode ignorá-lo com segurança.
@@ -367,9 +367,9 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "CopyMaster <noreply@iacopychief.com>",
+      from: "CopyChief <noreply@iacopychief.com>",
       to: [email],
-      subject: isNewUser ? "🎉 Pagamento Aprovado - Sua conta CopyMaster está pronta!" : "🔑 Suas credenciais de acesso - CopyMaster",
+      subject: isNewUser ? "🎉 Pagamento Aprovado - Sua conta CopyChief está pronta!" : "🔑 Suas credenciais de acesso - CopyChief",
       html: emailHtml,
     });
 

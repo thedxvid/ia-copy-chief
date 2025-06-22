@@ -52,12 +52,12 @@ serve(async (req) => {
         'Authorization': `Bearer ${resendApiKey}`
       },
       body: JSON.stringify({
-        from: 'CopyMaster <noreply@copymaster.com>',
+        from: 'CopyChief <noreply@iacopychief.com>',
         to: [email],
-        subject: 'Bem-vindo ao CopyMaster!',
+        subject: 'Bem-vindo ao CopyChief!',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">Bem-vindo ao CopyMaster, ${name}!</h2>
+            <h2 style="color: #333;">Bem-vindo ao CopyChief, ${name}!</h2>
             <p>Estamos muito felizes em tê-lo conosco. Você agora tem acesso a:</p>
             <ul>
               <li>✅ Chat com IA especializada em copywriting</li>

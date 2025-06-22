@@ -124,7 +124,7 @@ serve(async (req) => {
             </div>
             
             <div class="footer">
-              <p>Este email foi enviado automaticamente pelo sistema IACopyChief.</p>
+              <p>Este email foi enviado automaticamente pelo sistema CopyChief.</p>
               <p>Se você não fez esta compra, entre em contato conosco imediatamente.</p>
             </div>
           </div>
@@ -133,9 +133,9 @@ serve(async (req) => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: 'IACopyChief <noreply@iacopychief.com>',
+      from: 'CopyChief <noreply@iacopychief.com>',
       to: [email],
-      subject: '🎉 Tokens creditados com sucesso - IACopyChief',
+      subject: '🎉 Tokens creditados com sucesso - CopyChief',
       html: emailHtml,
     });
 
