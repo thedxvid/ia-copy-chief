@@ -158,21 +158,9 @@ serve(async (req) => {
       });
     }
 
-    // CORREÇÃO: Buscar usuário por email usando query direta na tabela profiles
+    // Buscar usuário por email usando query direta
     console.log('[Webhook Tokens] Buscando usuário por email:', extractedData.customer_email);
     
-    const { data: userProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, full_name, extra_tokens')
-      .eq('id', (
-        await supabase.auth.admin.listUsers()
-      ).data.users.find(u => u.email === extractedData.customer_email)?.id)
-      .single();
-
-    // Alternativa mais direta: buscar diretamente por email se houver campo email na tabela profiles
-    // Como não há campo email na tabela profiles, vamos usar uma abordagem diferente
-    
-    // Buscar todos os usuários e filtrar por email (solução temporária)
     const { data: allUsers, error: usersError } = await supabase.auth.admin.listUsers();
     
     if (usersError) {
@@ -300,11 +288,52 @@ serve(async (req) => {
       });
     }
 
+    // CORREÇÃO: Buscar o package_id correto baseado na quantidade de tokens
+    console.log('[Webhook Tokens] Buscando pacote para', tokensToAdd, 'tokens');
+    
+    const { data: tokenPackage, error: packageError } = await supabase
+      .from('token_packages')
+      .select('id, name')
+      .eq('tokens_amount', tokensToAdd)
+      .eq('is_active', true)
+      .single();
+
+    let packageId = null;
+    
+    if (packageError || !tokenPackage) {
+      console.warn('[Webhook Tokens] Pacote não encontrado para', tokensToAdd, 'tokens:', packageError);
+      
+      // Fallback: buscar qualquer pacote ativo (para não falhar a compra)
+      const { data: fallbackPackage } = await supabase
+        .from('token_packages')
+        .select('id, name')
+        .eq('is_active', true)
+        .limit(1)
+        .single();
+      
+      if (fallbackPackage) {
+        packageId = fallbackPackage.id;
+        console.log('[Webhook Tokens] USANDO PACOTE FALLBACK:', fallbackPackage.name);
+      } else {
+        console.error('[Webhook Tokens] Nenhum pacote ativo encontrado');
+        return new Response(JSON.stringify({ 
+          status: 'error', 
+          reason: 'Nenhum pacote de tokens encontrado' 
+        }), { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    } else {
+      packageId = tokenPackage.id;
+      console.log('[Webhook Tokens] PACOTE ENCONTRADO:', tokenPackage.name, 'ID:', packageId);
+    }
+
     // Buscar ou criar registro de compra
     let purchaseId = existingPurchase?.id;
     
     if (!existingPurchase) {
-      // Criar novo registro de compra
+      // Criar novo registro de compra com o package_id correto
       const { data: newPurchase, error: purchaseError } = await supabase
         .from('token_package_purchases')
         .insert({
@@ -314,7 +343,7 @@ serve(async (req) => {
           amount_paid: orderTotal || 0,
           payment_status: 'completed',
           processed_at: new Date().toISOString(),
-          package_id: '00000000-0000-0000-0000-000000000000'
+          package_id: packageId
         })
         .select('id')
         .single();
@@ -341,7 +370,8 @@ serve(async (req) => {
           payment_status: 'completed',
           processed_at: new Date().toISOString(),
           tokens_purchased: tokensToAdd,
-          amount_paid: orderTotal || 0
+          amount_paid: orderTotal || 0,
+          package_id: packageId
         })
         .eq('id', existingPurchase.id);
 
@@ -386,7 +416,8 @@ serve(async (req) => {
       userId: user.id,
       tokensAdded: tokensToAdd,
       newExtraTokens: newTotalTokens,
-      orderId: extractedData.order_id
+      orderId: extractedData.order_id,
+      packageId: packageId
     });
 
     // Registrar log de auditoria
@@ -398,7 +429,7 @@ serve(async (req) => {
         action_type: 'add_extra',
         old_value: user.extra_tokens || 0,
         new_value: newTotalTokens,
-        reason: `Compra de tokens processada via webhook - Order ID: ${extractedData.order_id} - Produto: ${extractedData.product_name}`
+        reason: `Compra de tokens processada via webhook - Order ID: ${extractedData.order_id} - Produto: ${extractedData.product_name} - Package ID: ${packageId}`
       });
 
     // Enviar email de confirmação
@@ -433,6 +464,7 @@ serve(async (req) => {
         tokensAdded: tokensToAdd,
         newTotalTokens: newTotalTokens,
         orderId: extractedData.order_id,
+        packageId: packageId,
         emailSent: true
       }
     }), {
