@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -85,7 +84,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // VERIFICAÇÃO MELHORADA: Status da assinatura com bypass para admin
+    // VERIFICAÇÃO: Status da assinatura com bypass para admin
     console.log('🔒 Verificando status da assinatura para usuário:', userId);
     
     const { data: profile, error: profileError } = await supabase
@@ -104,7 +103,7 @@ serve(async (req) => {
       throw new Error('Perfil do usuário não encontrado');
     }
 
-    // NOVA LÓGICA: Verificar se é admin primeiro
+    // Verificar se é admin primeiro
     const isAdmin = profile.is_admin || false;
     
     if (isAdmin) {
@@ -134,24 +133,24 @@ serve(async (req) => {
       accessGranted: true
     });
 
-    // VERIFICAÇÃO DE SALDO: Mais permissiva para admins
-    console.log('💰 Verificando saldo mínimo para usuário:', userId);
+    // VERIFICAÇÃO CRÍTICA DE SALDO: Aplicada para todos os usuários
+    console.log('[Token Guard] Verificando saldo de tokens para usuário:', userId);
     
     const { data: tokenData, error: tokenError } = await supabase
       .rpc('get_available_tokens', { p_user_id: userId });
 
     if (tokenError) {
-      console.error('❌ Erro ao verificar tokens:', tokenError);
+      console.error('[Token Guard] Erro ao verificar tokens:', tokenError);
       throw new Error('Erro ao verificar saldo de tokens');
     }
 
     if (!tokenData || tokenData.length === 0) {
-      console.error('❌ Dados de token não encontrados:', { userId, tokenData });
+      console.error('[Token Guard] Dados de token não encontrados:', { userId, tokenData });
       throw new Error('Erro ao carregar dados de tokens');
     }
 
     const userTokens = tokenData[0];
-    console.log('💰 Tokens do usuário:', {
+    console.log('[Token Guard] Tokens do usuário:', {
       totalAvailable: userTokens.total_available,
       monthlyTokens: userTokens.monthly_tokens,
       extraTokens: userTokens.extra_tokens,
@@ -159,16 +158,27 @@ serve(async (req) => {
       isAdmin
     });
 
-    // Verificação mais permissiva de saldo para admins
-    if (!isAdmin && userTokens.total_available <= 0) {
-      console.error('❌ Saldo insuficiente para usuário não-admin:', {
+    // VALIDAÇÃO CRÍTICA: Bloquear totalmente se saldo for 0 ou menor (aplicado para todos)
+    if (userTokens.total_available <= 0) {
+      console.error('[Token Guard] BLOQUEANDO REQUISIÇÃO - Saldo zerado:', {
         userId,
-        totalAvailable: userTokens.total_available
+        totalAvailable: userTokens.total_available,
+        monthlyTokens: userTokens.monthly_tokens,
+        extraTokens: userTokens.extra_tokens,
+        isAdmin,
+        action: 'BLOCKED'
       });
-      throw new Error('Créditos insuficientes para iniciar esta operação. Recarregue seu saldo.');
+      
+      const error = new Error('Sem créditos disponíveis. Compre tokens extras ou aguarde a renovação mensal.');
+      error.name = 'InsufficientTokens';
+      throw error;
     }
 
-    console.log('✅ Saldo positivo confirmado. Prosseguindo com chamada à IA...');
+    console.log('[Token Guard] ✅ Saldo validado - Prosseguindo com geração de copy:', {
+      userId,
+      tokensAvailable: userTokens.total_available,
+      action: 'APPROVED'
+    });
 
     // Determinar prompt baseado no tipo de requisição
     let prompt = '';
@@ -321,31 +331,36 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       generatedCopy,
-      tokensUsed: isAdmin ? 0 : outputTokens, // Admins não consomem tokens
+      tokensUsed: outputTokens,
       inputTokens: inputTokens,
       outputTokens: outputTokens,
       tokensRemaining: remainingTokens,
       copyType: data?.copy_type || copyType,
       chargingModel: 'output_tokens_only',
       deductionSuccess: deductionSuccess,
-      adminBypass: isAdmin
+      adminBypass: false
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('💥 Error in copy generation:', error);
+    console.error('[Token Guard] 💥 Error in copy generation:', error);
     
     // Log detalhado para debugging
-    console.error('Error details:', {
+    console.error('[Token Guard] Error details:', {
       name: error.name,
       message: error.message,
       stack: error.stack
     });
     
-    // Tratamento especial para erro de assinatura
-    const status = error.name === 'SubscriptionNotActive' ? 403 : 
-                   error.message.includes('Créditos insuficientes') ? 402 : 500;
+    // Tratamento especial para erros específicos
+    let status = 500;
+    
+    if (error.name === 'SubscriptionNotActive') {
+      status = 403;
+    } else if (error.name === 'InsufficientTokens' || error.message.includes('Sem créditos disponíveis')) {
+      status = 402; // Payment Required
+    }
     
     return new Response(JSON.stringify({
       error: error.message || 'Erro interno do servidor',

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createSecureResponse, createErrorResponse, checkRateLimit, validateAuthToken, sanitizeInput } from '../_shared/security.ts'
@@ -165,7 +164,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // NOVA VERIFICAÇÃO: Status da assinatura ANTES de qualquer operação - COM VERIFICAÇÃO DE ADMIN
+    // VERIFICAÇÃO: Status da assinatura ANTES de qualquer operação - COM VERIFICAÇÃO DE ADMIN
     console.log('🔒 Verificando status da assinatura para usuário:', userId);
     
     const { data: profile, error: profileError } = await supabase
@@ -206,7 +205,7 @@ serve(async (req) => {
       );
     }
 
-    // NOVA LÓGICA: Verificar se é admin ANTES da verificação de assinatura
+    // Verificar se é admin ANTES da verificação de assinatura
     const isAdmin = profile.is_admin === true;
     
     if (isAdmin) {
@@ -224,7 +223,7 @@ serve(async (req) => {
         });
         
         // Mensagens específicas baseadas no status
-        let errorMessage = 'Acesso bloqueado';
+        let errorMessage = 'Assinatura inativa';
         let errorDetails = 'Sua assinatura não está ativa.';
         
         switch (profile.subscription_status) {
@@ -267,14 +266,14 @@ serve(async (req) => {
       accessGranted: true
     });
 
-    // VERIFICAÇÃO DE TOKENS: Aplicada tanto para admins quanto usuários normais
-    console.log('💰 Verificando saldo mínimo para usuário:', userId);
+    // VERIFICAÇÃO CRÍTICA DE SALDO: Aplicada tanto para admins quanto usuários normais
+    console.log('[Token Guard] Verificando saldo de tokens para usuário:', userId);
     
     const { data: tokenData, error: tokenError } = await supabase
       .rpc('get_available_tokens', { p_user_id: userId });
 
     if (tokenError) {
-      console.error('❌ Erro ao verificar tokens:', tokenError);
+      console.error('[Token Guard] Erro ao verificar tokens:', tokenError);
       return new Response(
         JSON.stringify({ 
           error: 'Erro ao verificar créditos',
@@ -290,7 +289,7 @@ serve(async (req) => {
     }
 
     if (!tokenData || tokenData.length === 0) {
-      console.error('❌ Nenhum dado de token encontrado para usuário:', userId);
+      console.error('[Token Guard] Nenhum dado de token encontrado para usuário:', userId);
       return new Response(
         JSON.stringify({ 
           error: 'Dados de créditos não encontrados',
@@ -306,7 +305,7 @@ serve(async (req) => {
     }
 
     const userTokens = tokenData[0];
-    console.log('💰 Tokens do usuário:', {
+    console.log('[Token Guard] Tokens do usuário:', {
       totalAvailable: userTokens.total_available,
       monthlyTokens: userTokens.monthly_tokens,
       extraTokens: userTokens.extra_tokens,
@@ -314,29 +313,37 @@ serve(async (req) => {
       isAdmin
     });
 
-    // VERIFICAÇÃO DE SALDO: Apenas verificar se o usuário tem saldo positivo
+    // VALIDAÇÃO CRÍTICA: Bloquear totalmente se saldo for 0 ou menor
     if (userTokens.total_available <= 0) {
-      console.error('💸 Saldo insuficiente para iniciar conversa:', {
-        available: userTokens.total_available,
-        isAdmin
+      console.error('[Token Guard] BLOQUEANDO REQUISIÇÃO - Saldo zerado:', {
+        userId,
+        totalAvailable: userTokens.total_available,
+        monthlyTokens: userTokens.monthly_tokens,
+        extraTokens: userTokens.extra_tokens,
+        isAdmin,
+        action: 'BLOCKED'
       });
       
       return new Response(
         JSON.stringify({ 
-          error: 'Créditos insuficientes',
-          details: 'Você não possui créditos suficientes para iniciar uma nova conversa. Recarregue seu saldo para continuar.',
+          error: 'Sem créditos disponíveis',
+          details: 'Você não possui créditos suficientes para usar o chat. Compre tokens extras ou aguarde a renovação mensal.',
           tokensAvailable: userTokens.total_available,
           code: 'INSUFFICIENT_TOKENS',
           retryable: false
         }),
         { 
-          status: 402,
+          status: 402, // Payment Required
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
-    console.log('✅ Saldo positivo confirmado. Prosseguindo com chamada à IA...');
+    console.log('[Token Guard] ✅ Saldo validado - Prosseguindo com chamada à IA:', {
+      userId,
+      tokensAvailable: userTokens.total_available,
+      action: 'APPROVED'
+    });
 
     // Preparar prompt do sistema com instruções de identificação correta
     const systemPrompt = prepareSystemPrompt(agentPrompt);
@@ -493,7 +500,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('💰 Custo real extraído da resposta:', {
+    console.log('[Token Guard] Custo real extraído da resposta:', {
       outputTokens,
       inputTokens,
       totalTokens: inputTokens + outputTokens,
@@ -503,7 +510,7 @@ serve(async (req) => {
     // NOVA LÓGICA: Deduzir apenas os tokens de saída usando a função segura
     let deductionSuccess = true;
     if (outputTokens > 0) {
-      console.log('💳 Deduzindo tokens de saída:', outputTokens);
+      console.log('[Token Guard] Deduzindo tokens de saída:', outputTokens);
       
       const { data: deductionResult, error: deductionError } = await supabase
         .rpc('secure_deduct_tokens', {
@@ -513,7 +520,7 @@ serve(async (req) => {
         });
 
       if (deductionError || !deductionResult) {
-        console.warn('⚠️ Dedução de tokens falhou após geração da resposta:', {
+        console.warn('[Token Guard] ⚠️ Dedução de tokens falhou após geração da resposta:', {
           userId,
           outputTokens,
           error: deductionError?.message,
@@ -522,12 +529,11 @@ serve(async (req) => {
         deductionSuccess = false;
         
         // Não bloquear a resposta, mas registrar o problema
-        // A resposta foi gerada e deve ser retornada ao usuário
       } else {
-        console.log('✅ Tokens de saída deduzidos com sucesso:', outputTokens);
+        console.log('[Token Guard] ✅ Tokens de saída deduzidos com sucesso:', outputTokens);
       }
     } else {
-      console.log('ℹ️ Resposta não gerou tokens de saída para deduzir');
+      console.log('[Token Guard] ℹ️ Resposta não gerou tokens de saída para deduzir');
     }
 
     // Registrar o uso para auditoria
