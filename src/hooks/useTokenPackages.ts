@@ -30,6 +30,8 @@ export const useTokenPackages = () => {
         .order('tokens_amount', { ascending: true });
 
       if (error) throw error;
+      
+      console.log('📦 PACOTES CARREGADOS:', data);
       setPackages(data || []);
     } catch (err) {
       console.error('Erro ao carregar pacotes:', err);
@@ -78,7 +80,18 @@ export const useTokenPackages = () => {
       console.log('✅ Compra registrada:', purchase);
 
       // Redirecionar para o checkout usando a URL específica do pacote
-      console.log('🔗 Redirecionando para checkout:', selectedPackage.checkout_url);
+      console.log('🔗 REDIRECIONANDO PARA CHECKOUT:', {
+        url: selectedPackage.checkout_url,
+        packageName: selectedPackage.name,
+        tokens: selectedPackage.tokens_amount
+      });
+      
+      // Validar se a URL não é um placeholder
+      if (selectedPackage.checkout_url.includes('PLACEHOLDER') || selectedPackage.checkout_url.includes('lovableproject.com')) {
+        console.error('❌ URL DE CHECKOUT AINDA É UM PLACEHOLDER:', selectedPackage.checkout_url);
+        throw new Error('URL de checkout não configurada corretamente');
+      }
+      
       window.open(selectedPackage.checkout_url, '_blank');
 
       // Aguardar um pouco e então verificar se houve atualização
