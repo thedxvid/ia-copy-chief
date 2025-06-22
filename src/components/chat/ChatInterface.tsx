@@ -13,6 +13,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AgentEditor } from '@/components/agents/AgentEditor';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
 import { MarkdownText } from '@/components/ui/markdown-text';
+import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
+import { useTokens } from '@/hooks/useTokens';
 
 export const ChatInterface = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
@@ -20,9 +22,11 @@ export const ChatInterface = () => {
   const [isAgentEditorOpen, setIsAgentEditorOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showTokenUpgrade, setShowTokenUpgrade] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { products } = useProducts();
+  const { tokens, refreshTokens } = useTokens();
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
@@ -94,6 +98,37 @@ export const ChatInterface = () => {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [activeSession?.messages, isAtBottom]);
+
+  // Função customizada para envio de mensagem com verificação de tokens
+  const handleSendMessage = async (message: string) => {
+    // Verificar se há tokens suficientes antes de enviar
+    if (!tokens || tokens.total_available <= 0) {
+      setShowTokenUpgrade(true);
+      return;
+    }
+
+    try {
+      await sendMessage(message);
+      // Atualizar tokens após envio bem-sucedido
+      await refreshTokens();
+    } catch (error: any) {
+      // Se o erro for relacionado a tokens insuficientes, mostrar modal
+      if (error?.message?.includes('créditos') || 
+          error?.message?.includes('tokens') ||
+          error?.status === 402) {
+        setShowTokenUpgrade(true);
+      } else {
+        // Para outros erros, deixar o tratamento padrão
+        throw error;
+      }
+    }
+  };
+
+  // Função para fechar modal e atualizar tokens
+  const handleCloseTokenUpgrade = async () => {
+    setShowTokenUpgrade(false);
+    await refreshTokens();
+  };
 
   // Função para scroll suave até o final
   const scrollToBottom = () => {
@@ -371,7 +406,7 @@ export const ChatInterface = () => {
         
         {activeSession && (
           <ChatInput
-            onSendMessage={sendMessage}
+            onSendMessage={handleSendMessage}
             isLoading={isLoading}
             disabled={!activeSession || !selectedAgent}
           />
@@ -382,6 +417,14 @@ export const ChatInterface = () => {
       <AgentEditor
         isOpen={isAgentEditorOpen}
         onClose={() => setIsAgentEditorOpen(false)}
+      />
+
+      {/* Token Upgrade Modal */}
+      <TokenUpgradeModal
+        isOpen={showTokenUpgrade}
+        onClose={handleCloseTokenUpgrade}
+        tokensRemaining={tokens?.total_available || 0}
+        isOutOfTokens={!tokens || tokens.total_available <= 0}
       />
     </div>
   );
