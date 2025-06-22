@@ -1,226 +1,187 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Bot, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { ModernButton } from '@/components/ui/modern-button';
-import { Menu, X, User, LogOut, Bot, Settings, Shield } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ProfileSettings } from '@/components/profile/ProfileSettings';
+import { Button } from '@/components/ui/button';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Lista de emails de administradores definitivos
-  const adminEmails = ['davicastrowp@gmail.com', 'admin@iacopychief.com'];
-  
-  // Verificar se é admin
-  const isAdmin = user?.email && adminEmails.includes(user.email);
-
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
-  const handleMobileNavigation = (path: string) => {
-    navigate(path);
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
     setIsMenuOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
-  const getInitials = (name: string | undefined) => {
-    if (!name) return 'U';
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const navItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Quiz', href: '/quiz' },
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Ferramentas', href: '/tools' },
-    { label: 'Histórico', href: '/history' },
-  ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
-      <div className="mx-auto mt-4 max-w-6xl w-[90%] rounded-full bg-neutral-900/80 backdrop-blur-md shadow-lg border border-white/10 pointer-events-auto">
-        <div className="px-6">
-          <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
-            {/* Logo */}
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-7 sm:w-8 h-7 sm:h-8 bg-[#3B82F6] rounded-xl flex items-center justify-center">
-                <Bot className="w-4 sm:w-5 h-4 sm:h-5 text-white" />
-              </div>
-              <span className="text-lg sm:text-xl font-bold text-white">CopyChief</span>
-            </Link>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className="text-[#CCCCCC] hover:text-white transition-colors duration-200 text-sm lg:text-base"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            {/* Actions */}
-            <div className="flex items-center space-x-2">
-              {loading ? (
-                <div className="w-6 sm:w-8 h-6 sm:h-8 animate-spin rounded-full border-b-2 border-[#3B82F6]"></div>
-              ) : user ? (
-                <div className="flex items-center space-x-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="flex items-center space-x-2 hover:bg-[#1E1E1E] rounded-xl p-1 sm:p-2 transition-colors">
-                        <Avatar className="w-7 sm:w-8 h-7 sm:h-8">
-                          <AvatarFallback className="bg-[#3B82F6] text-white text-xs sm:text-sm">
-                            {getInitials(user.user_metadata?.full_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-white text-sm hidden xl:block">
-                          {user.user_metadata?.full_name || user.email}
-                        </span>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 bg-[#1E1E1E] border-[#4B5563] z-50">
-                      {isAdmin && (
-                        <>
-                          <DropdownMenuItem asChild>
-                            <Link to="/admin" className="flex items-center text-white hover:bg-[#2A2A2A]">
-                              <Shield className="mr-2 h-4 w-4" />
-                              Admin
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-[#4B5563]" />
-                        </>
-                      )}
-                      
-                      <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-                        <SheetTrigger asChild>
-                          <DropdownMenuItem 
-                            className="text-white hover:bg-[#2A2A2A] cursor-pointer"
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <Settings className="mr-2 h-4 w-4" />
-                            Configurações
-                          </DropdownMenuItem>
-                        </SheetTrigger>
-                        <SheetContent 
-                          side="right" 
-                          className="w-full sm:max-w-2xl overflow-y-auto"
-                        >
-                          <SheetHeader className="sr-only">
-                            <SheetTitle>Configurações do Perfil</SheetTitle>
-                          </SheetHeader>
-                          <ProfileSettings onClose={() => setIsProfileOpen(false)} />
-                        </SheetContent>
-                      </Sheet>
-                      
-                      <DropdownMenuItem asChild>
-                        <Link to="/dashboard" className="flex items-center text-white hover:bg-[#2A2A2A]">
-                          <User className="mr-2 h-4 w-4" />
-                          Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-[#4B5563]" />
-                      <DropdownMenuItem onClick={handleSignOut} className="text-white hover:bg-[#2A2A2A]">
-                        <LogOut className="mr-2 h-4 w-4" />
-                        Sair
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ) : (
-                <div className="hidden md:flex items-center space-x-2">
-                  <Link
-                    to="/auth"
-                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 lg:px-4 py-2 text-sm lg:text-base"
-                  >
-                    Entrar
-                  </Link>
-                  <ModernButton asChild size="sm" className="text-sm">
-                    <Link to="/auth?mode=signup">Começar Agora</Link>
-                  </ModernButton>
-                </div>
-              )}
-
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="md:hidden text-white p-1.5 sm:p-2 hover:bg-[#1E1E1E] rounded-xl transition-colors"
-                aria-label="Toggle menu"
-              >
-                {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/95 backdrop-blur-sm border-b border-[#4B5563]/20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] rounded-lg flex items-center justify-center">
+              <Bot className="w-5 h-5 text-white" />
             </div>
-          </div>
-        </div>
-      </div>
+            <span className="text-xl font-bold text-white">CopyChief</span>
+          </Link>
 
-      {/* Mobile Menu Overlay */}
-      {isMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/20 backdrop-blur-sm mt-14 sm:mt-16 pointer-events-auto">
-          <div className="bg-[#121212]/95 backdrop-blur-md border border-[#4B5563]/30 rounded-2xl mx-4 mt-2 shadow-xl pointer-events-auto">
-            <div className="py-4 px-3">
-              <nav className="flex flex-col space-y-2">
-                {navItems.map((item) => (
-                  <button
-                    key={item.href}
-                    onClick={() => handleMobileNavigation(item.href)}
-                    className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50 text-left"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-                
-                {!user && (
-                  <div className="flex flex-col space-y-2 pt-3 border-t border-[#4B5563]/30">
-                    <button
-                      onClick={() => handleMobileNavigation('/auth')}
-                      className="text-[#CCCCCC] hover:text-white transition-colors duration-200 px-3 py-2 text-sm rounded-lg hover:bg-[#2A2A2A]/50 text-left"
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-8">
+            <Link to="/" className="text-[#CCCCCC] hover:text-white transition-colors">
+              Home
+            </Link>
+            <button 
+              onClick={() => scrollToSection('features')}
+              className="text-[#CCCCCC] hover:text-white transition-colors"
+            >
+              Funcionalidades
+            </button>
+            <button 
+              onClick={() => scrollToSection('pricing')}
+              className="text-[#CCCCCC] hover:text-white transition-colors"
+            >
+              Preços
+            </button>
+            <Link to="/about" className="text-[#CCCCCC] hover:text-white transition-colors">
+              Sobre
+            </Link>
+            <Link to="/contact" className="text-[#CCCCCC] hover:text-white transition-colors">
+              Contato
+            </Link>
+          </nav>
+
+          {/* Auth Buttons */}
+          <div className="hidden md:flex items-center space-x-4">
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <Link to="/dashboard">
+                  <Button variant="ghost" className="text-white hover:bg-[#3B82F6]/20">
+                    Dashboard
+                  </Button>
+                </Link>
+                <Button 
+                  onClick={handleSignOut}
+                  variant="outline" 
+                  className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white"
+                >
+                  Sair
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <Link to="/auth">
+                  <Button variant="ghost" className="text-white hover:bg-[#3B82F6]/20">
+                    Entrar
+                  </Button>
+                </Link>
+                <Link to="/auth?mode=signup">
+                  <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">
+                    Começar Grátis
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden text-white"
+          >
+            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-16 left-0 right-0 bg-[#121212] border-b border-[#4B5563]/20">
+            <nav className="px-4 py-4 space-y-4">
+              <Link 
+                to="/" 
+                className="block text-[#CCCCCC] hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Home
+              </Link>
+              <button 
+                onClick={() => scrollToSection('features')}
+                className="block w-full text-left text-[#CCCCCC] hover:text-white transition-colors"
+              >
+                Funcionalidades
+              </button>
+              <button 
+                onClick={() => scrollToSection('pricing')}
+                className="block w-full text-left text-[#CCCCCC] hover:text-white transition-colors"
+              >
+                Preços
+              </button>
+              <Link 
+                to="/about" 
+                className="block text-[#CCCCCC] hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Sobre
+              </Link>
+              <Link 
+                to="/contact" 
+                className="block text-[#CCCCCC] hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contato
+              </Link>
+              
+              <div className="pt-4 border-t border-[#4B5563]/20">
+                {user ? (
+                  <div className="space-y-2">
+                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full text-white hover:bg-[#3B82F6]/20">
+                        Dashboard
+                      </Button>
+                    </Link>
+                    <Button 
+                      onClick={() => {
+                        handleSignOut();
+                        setIsMenuOpen(false);
+                      }}
+                      variant="outline" 
+                      className="w-full border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white"
                     >
-                      Entrar
-                    </button>
-                    <div className="px-3">
-                      <button
-                        onClick={() => handleMobileNavigation('/auth?mode=signup')}
-                        className="w-full bg-[#3B82F6] text-white py-2 px-4 rounded-xl text-sm font-medium hover:bg-[#2563EB] transition-colors"
-                      >
-                        Começar Agora
-                      </button>
-                    </div>
+                      Sair
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full text-white hover:bg-[#3B82F6]/20">
+                        Entrar
+                      </Button>
+                    </Link>
+                    <Link to="/auth?mode=signup" onClick={() => setIsMenuOpen(false)}>
+                      <Button className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white">
+                        Começar Grátis
+                      </Button>
+                    </Link>
                   </div>
                 )}
-              </nav>
-            </div>
+              </div>
+            </nav>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </header>
   );
 };
