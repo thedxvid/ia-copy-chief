@@ -49,6 +49,7 @@ export const useTokenPackages = () => {
       packageId,
       packageName: selectedPackage.name,
       tokensAmount: selectedPackage.tokens_amount,
+      checkoutUrl: selectedPackage.checkout_url,
       userId: user.id
     });
 
@@ -76,14 +77,9 @@ export const useTokenPackages = () => {
 
       console.log('✅ Compra registrada:', purchase);
 
-      // Abrir checkout em nova aba
-      const checkoutUrl = selectedPackage.checkout_url.replace(
-        '{USER_EMAIL}', 
-        encodeURIComponent(user.email || '')
-      );
-      
-      console.log('🔗 Redirecionando para checkout:', checkoutUrl);
-      window.open(checkoutUrl, '_blank');
+      // Redirecionar para o checkout usando a URL específica do pacote
+      console.log('🔗 Redirecionando para checkout:', selectedPackage.checkout_url);
+      window.open(selectedPackage.checkout_url, '_blank');
 
       // Aguardar um pouco e então verificar se houve atualização
       setTimeout(() => {

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -19,13 +18,31 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
   const { packages, loading, purchaseTokens } = useTokenPackages();
 
   const handlePurchase = async (packageId: string) => {
-    try {
-      await purchaseTokens(packageId);
-      toast.success('Redirecionando para o checkout...', {
-        description: 'Você será direcionado para completar o pagamento.'
+    const selectedPackage = packages.find(pkg => pkg.id === packageId);
+    if (!selectedPackage) {
+      toast.error('Erro', {
+        description: 'Pacote não encontrado. Tente novamente.'
       });
+      return;
+    }
+
+    try {
+      console.log('🚀 Iniciando compra do pacote:', {
+        name: selectedPackage.name,
+        tokens: selectedPackage.tokens_amount,
+        price: selectedPackage.price_brl,
+        checkoutUrl: selectedPackage.checkout_url
+      });
+
+      await purchaseTokens(packageId);
+      
+      toast.success('Redirecionando para o checkout...', {
+        description: `Você será direcionado para completar o pagamento de ${selectedPackage.name}.`
+      });
+      
       onClose();
     } catch (error) {
+      console.error('❌ Erro ao iniciar compra:', error);
       toast.error('Erro ao iniciar compra', {
         description: 'Tente novamente em alguns instantes.'
       });
