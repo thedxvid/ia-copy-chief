@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { QuizFlow } from '@/components/quiz/QuizFlow';
 import { QuizTemplateManager } from '@/components/quiz/QuizTemplateManager';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/car';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
