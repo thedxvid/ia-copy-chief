@@ -7,40 +7,72 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Interface mais flexível para aceitar diferentes formatos de webhook
-interface FlexibleWebhookData {
-  // Formato padrão esperado
-  event?: string;
-  data?: {
-    order_id?: string;
-    order_status?: string;
-    customer_email?: string;
-    customer_name?: string;
-    product_name?: string;
-    order_total?: number;
-    payment_method?: string;
-    created_at?: string;
+// Interface para os dados do Digital Guru Manager
+interface DigitalGuruWebhookData {
+  id: string;
+  status: string;
+  type: string;
+  webhook_type: string;
+  contact: {
+    id: string;
+    name: string;
+    email: string;
+    doc?: string;
+    phone_number?: string;
+    phone_local_code?: string;
+    company_name?: string;
   };
-  
-  // Possíveis formatos alternativos
-  event_type?: string;
-  type?: string;
-  status?: string;
-  order_id?: string;
-  order_status?: string;
-  customer_email?: string;
-  customer_name?: string;
-  product_name?: string;
-  product?: string;
-  order_total?: number;
-  total?: number;
-  amount?: number;
-  value?: number;
-  payment_method?: string;
-  created_at?: string;
-  timestamp?: string;
-  
-  // Para capturar qualquer outro formato
+  product: {
+    id: string;
+    name: string;
+    total_value: number;
+    unit_value: number;
+    qty: number;
+    marketplace_name: string;
+    producer: {
+      name: string;
+      marketplace_id: string;
+      contact_email?: string;
+    };
+  };
+  items: Array<{
+    id: string;
+    name: string;
+    total_value: number;
+    unit_value: number;
+    qty: number;
+    type: string;
+    marketplace_name: string;
+    producer: {
+      name: string;
+      marketplace_id: string;
+      contact_email?: string;
+    };
+  }>;
+  payment: {
+    total: number;
+    gross: number;
+    net: number;
+    method?: string;
+    currency: string;
+    installments?: {
+      qty: number;
+      value: number;
+      interest: number;
+    };
+    credit_card?: {
+      brand: string;
+      first_digits: string;
+      last_digits: string;
+    };
+  };
+  dates: {
+    created_at: string;
+    confirmed_at?: string;
+    ordered_at?: string;
+    canceled_at?: string;
+    updated_at: string;
+  };
   [key: string]: any;
 }
 
@@ -64,21 +96,21 @@ serve(async (req) => {
   );
 
   try {
-    const rawData: FlexibleWebhookData = await req.json();
+    const rawData: DigitalGuruWebhookData = await req.json();
     
     console.log('🎯 TOKEN PURCHASE WEBHOOK - DADOS BRUTOS RECEBIDOS:', JSON.stringify(rawData, null, 2));
 
-    // Extrair dados de forma mais flexível
+    // Extrair dados do webhook do Digital Guru Manager
     const extractedData = {
-      event: rawData.event || rawData.event_type || rawData.type || 'unknown',
-      order_id: rawData.data?.order_id || rawData.order_id || 'unknown',
-      order_status: rawData.data?.order_status || rawData.order_status || rawData.status || 'unknown',
-      customer_email: rawData.data?.customer_email || rawData.customer_email || 'unknown',
-      customer_name: rawData.data?.customer_name || rawData.customer_name,
-      product_name: rawData.data?.product_name || rawData.product_name || rawData.product || 'unknown',
-      order_total: rawData.data?.order_total || rawData.order_total || rawData.total || rawData.amount || rawData.value || 0,
-      payment_method: rawData.data?.payment_method || rawData.payment_method,
-      created_at: rawData.data?.created_at || rawData.created_at || rawData.timestamp
+      event: rawData.webhook_type || 'transaction',
+      order_id: rawData.id,
+      order_status: rawData.status,
+      customer_email: rawData.contact?.email,
+      customer_name: rawData.contact?.name,
+      product_name: rawData.product?.name || (rawData.items?.[0]?.name),
+      order_total: rawData.payment?.total || rawData.product?.total_value || (rawData.items?.[0]?.total_value) || 0,
+      payment_method: rawData.payment?.method || 'credit_card',
+      created_at: rawData.dates?.confirmed_at || rawData.dates?.created_at
     };
 
     console.log('🔍 DADOS EXTRAÍDOS E PROCESSADOS:', {
@@ -90,24 +122,20 @@ serve(async (req) => {
       total: extractedData.order_total
     });
 
-    // Validar se é um evento de pagamento aprovado (mais flexível)
-    const approvedEvents = ['order.approved', 'order.paid', 'payment.approved', 'approved', 'paid', 'completed', 'success'];
-    const isApprovedEvent = approvedEvents.some(event => 
-      extractedData.event.toLowerCase().includes(event) || 
-      extractedData.order_status.toLowerCase().includes(event.split('.')[1] || event)
-    );
+    // Validar se é um evento de pagamento aprovado
+    const approvedEvents = ['approved', 'paid', 'completed', 'success', 'confirmed'];
+    const isApprovedEvent = approvedEvents.includes(extractedData.order_status?.toLowerCase());
 
     if (!isApprovedEvent) {
-      console.log('⚠️ Evento ignorado:', extractedData.event, 'Status:', extractedData.order_status);
-      return new Response('Event ignored', { 
+      console.log('⚠️ Evento ignorado - Status:', extractedData.order_status);
+      return new Response('Event ignored - not approved', { 
         status: 200, 
         headers: corsHeaders 
       });
     }
 
     // Validar dados obrigatórios
-    if (!extractedData.customer_email || extractedData.customer_email === 'unknown' || 
-        !extractedData.order_id || extractedData.order_id === 'unknown') {
+    if (!extractedData.customer_email || !extractedData.order_id) {
       console.error('❌ Dados obrigatórios ausentes:', {
         email: extractedData.customer_email,
         orderId: extractedData.order_id,
@@ -166,9 +194,9 @@ serve(async (req) => {
       });
     }
 
-    // Determinar quantidade de tokens (melhorada para incluir 10k)
+    // Determinar quantidade de tokens baseado no valor
     let tokensToAdd = 0;
-    const productLower = extractedData.product_name.toLowerCase();
+    const productLower = (extractedData.product_name || '').toLowerCase();
     const orderTotal = extractedData.order_total;
     
     console.log('🔍 DETERMINANDO TOKENS:', {
@@ -177,8 +205,18 @@ serve(async (req) => {
       orderTotal: orderTotal
     });
 
-    // Mapear produtos para tokens (incluindo 10k)
-    if (productLower.includes('10k') || productLower.includes('10.000') || productLower.includes('10 mil')) {
+    // Mapear valores para tokens
+    if (orderTotal >= 8 && orderTotal <= 12) {
+      tokensToAdd = 10000;        // R$ 10 = 10k tokens
+    } else if (orderTotal >= 90 && orderTotal <= 110) {
+      tokensToAdd = 100000;       // R$ 100 = 100k tokens
+    } else if (orderTotal >= 190 && orderTotal <= 210) {
+      tokensToAdd = 250000;       // R$ 200 = 250k tokens
+    } else if (orderTotal >= 290 && orderTotal <= 310) {
+      tokensToAdd = 500000;       // R$ 300 = 500k tokens
+    } else if (orderTotal >= 390 && orderTotal <= 410) {
+      tokensToAdd = 1000000;      // R$ 400 = 1M tokens
+    } else if (productLower.includes('10k') || productLower.includes('10.000') || productLower.includes('10 mil')) {
       tokensToAdd = 10000;
     } else if (productLower.includes('100k') || productLower.includes('100.000') || productLower.includes('100 mil')) {
       tokensToAdd = 100000;
@@ -188,18 +226,11 @@ serve(async (req) => {
       tokensToAdd = 500000;
     } else if (productLower.includes('1m') || productLower.includes('1.000.000') || productLower.includes('1 milhão')) {
       tokensToAdd = 1000000;
-    } else if (orderTotal) {
-      // Fallback: calcular baseado no valor (incluindo R$10 para 10k)
-      if (orderTotal >= 8 && orderTotal <= 12) tokensToAdd = 10000;        // R$ 10 ± 2
-      else if (orderTotal >= 90 && orderTotal <= 105) tokensToAdd = 100000;  // R$ 97 ± 8
-      else if (orderTotal >= 190 && orderTotal <= 205) tokensToAdd = 250000; // R$ 197 ± 8
-      else if (orderTotal >= 290 && orderTotal <= 305) tokensToAdd = 500000; // R$ 297 ± 8
-      else if (orderTotal >= 390 && orderTotal <= 405) tokensToAdd = 1000000; // R$ 397 ± 8
     }
 
     console.log('💰 TOKENS DETERMINADOS:', {
       tokensToAdd: tokensToAdd,
-      baseadoEm: tokensToAdd > 0 ? (productLower.includes('k') || productLower.includes('mil') || productLower.includes('milhão') ? 'nome_produto' : 'valor') : 'nenhum'
+      baseadoEm: tokensToAdd > 0 ? 'valor_ou_nome' : 'nenhum'
     });
 
     if (tokensToAdd === 0) {
@@ -227,7 +258,7 @@ serve(async (req) => {
           amount_paid: orderTotal || 0,
           payment_status: 'completed',
           processed_at: new Date().toISOString(),
-          package_id: '00000000-0000-0000-0000-000000000000' // UUID padrão para compras via webhook
+          package_id: '00000000-0000-0000-0000-000000000000'
         })
         .select('id')
         .single();
@@ -295,14 +326,14 @@ serve(async (req) => {
       .from('token_audit_logs')
       .insert({
         user_id: user.id,
-        admin_user_id: user.id, // Auto-credit via webhook
+        admin_user_id: user.id,
         action_type: 'add_extra',
         old_value: user.extra_tokens || 0,
         new_value: newTotalTokens,
         reason: `Compra de tokens processada via webhook - Order ID: ${extractedData.order_id} - Produto: ${extractedData.product_name}`
       });
 
-    // NOVO: Enviar email de confirmação
+    // Enviar email de confirmação
     try {
       console.log('📧 Enviando email de confirmação de compra...');
       
@@ -319,13 +350,11 @@ serve(async (req) => {
 
       if (emailError) {
         console.error('⚠️ Erro ao enviar email (não crítico):', emailError);
-        // Não retornar erro aqui, pois os tokens já foram creditados com sucesso
       } else {
         console.log('✅ Email de confirmação enviado com sucesso');
       }
     } catch (emailError) {
       console.error('⚠️ Erro ao enviar email de confirmação (não crítico):', emailError);
-      // Continuar normalmente, pois o importante é que os tokens foram creditados
     }
 
     return new Response(JSON.stringify({
@@ -336,8 +365,7 @@ serve(async (req) => {
         tokensAdded: tokensToAdd,
         newTotalTokens: newTotalTokens,
         orderId: extractedData.order_id,
-        emailSent: true,
-        extractedData: extractedData
+        emailSent: true
       }
     }), {
       status: 200,
