@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -119,6 +120,37 @@ export const useTokens = () => {
       throw error;
     }
   }, [user, setCachedTokens]);
+
+  // Função refreshTokens que estava faltando
+  const refreshTokens = useCallback(async (force = false) => {
+    if (!user) return;
+
+    const now = Date.now();
+    if (!force && now - lastRefreshRef.current < 5000) {
+      console.log('🚫 Refresh bloqueado - muito recente');
+      return;
+    }
+
+    lastRefreshRef.current = now;
+    setIsRefreshing(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Atualizando tokens...');
+      const freshTokens = await fetchTokens();
+      if (freshTokens) {
+        setTokens(freshTokens);
+        setLastUpdate(new Date());
+        console.log('✅ Tokens atualizados:', freshTokens);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error('❌ Erro ao atualizar tokens:', err);
+      setError(errorMessage);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [user, fetchTokens]);
 
   // NOVA FUNÇÃO: Verificar se usuário pode usar funcionalidades que consomem tokens
   const requireTokens = useCallback((minTokens: number = 100, feature: string = 'funcionalidade') => {

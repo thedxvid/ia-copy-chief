@@ -33,7 +33,7 @@ interface QuizQuestion {
 
 export const QuizFlow = () => {
   const { user } = useAuth();
-  const { templates, loading: templatesLoading } = useQuizTemplates();
+  const { templates, isLoading: templatesLoading } = useQuizTemplates();
   const { saveQuizCopy } = useQuizCopySave();
   const { generateCopyWithN8n, isLoading: isGenerating } = useN8nIntegration();
   const { tokens, requireTokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
@@ -121,11 +121,12 @@ export const QuizFlow = () => {
 
     try {
       await saveQuizCopy({
-        title: copyTitle,
-        content: generatedCopy.result,
-        templateId: selectedTemplate.id,
         quizType: selectedTemplate.quiz_type,
-        answers: JSON.stringify(answers)
+        quizAnswers: answers,
+        generatedCopy: {
+          title: copyTitle,
+          content: generatedCopy.result
+        }
       });
 
       toast.success('Copy salvo com sucesso!');
@@ -174,7 +175,7 @@ export const QuizFlow = () => {
           )}
         </div>
         
-        <QuizSelector onSelectTemplate={handleTemplateSelect} />
+        <QuizSelector onSelectQuiz={handleTemplateSelect} />
         
         <TokenUpgradeModal
           isOpen={showTokenUpgrade}
