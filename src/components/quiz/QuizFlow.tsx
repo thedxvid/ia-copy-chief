@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { QuizSelector } from './QuizSelector';
 import { useQuizTemplates } from '@/hooks/useQuizTemplates';
@@ -36,14 +37,13 @@ export const QuizFlow = () => {
   const { templates, isLoading: templatesLoading } = useQuizTemplates();
   const { saveQuizCopy } = useQuizCopySave();
   const { generateCopyWithN8n, isLoading: isGenerating } = useN8nIntegration();
-  const { tokens, requireTokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
+  const { tokens, isOutOfTokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
   
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [generatedCopy, setGeneratedCopy] = useState<any>(null);
   const [copyTitle, setCopyTitle] = useState('');
-  const [showTokenUpgrade, setShowTokenUpgrade] = useState(false);
 
   const isCurrentQuestionAnswered = () => {
     if (!selectedTemplate || !selectedTemplate.questions) return false;
@@ -56,8 +56,10 @@ export const QuizFlow = () => {
   };
 
   const handleTemplateSelect = (template: any) => {
-    // VERIFICAÇÃO: Antes de iniciar o quiz, verificar se há tokens suficientes
-    if (!requireTokens(200, 'quiz de geração de copy')) {
+    // Verificar se há tokens disponíveis
+    if (isOutOfTokens()) {
+      console.log('🚫 [Quiz] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
       return;
     }
     
@@ -70,15 +72,15 @@ export const QuizFlow = () => {
   const handleGenerateCopy = async () => {
     if (!user || !selectedTemplate) return;
 
-    // VERIFICAÇÃO CRÍTICA: Bloquear se não há tokens suficientes
-    if (!requireTokens(300, 'geração de copy via quiz')) {
-      console.error('🚫 [Quiz] Bloqueado - tokens insuficientes');
-      setShowTokenUpgrade(true);
+    // Verificar se há tokens disponíveis antes de gerar
+    if (isOutOfTokens()) {
+      console.log('🚫 [Quiz] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
       return;
     }
 
     try {
-      console.log('🚀 [Quiz] Iniciando geração de copy com tokens suficientes');
+      console.log('🚀 [Quiz] Iniciando geração de copy');
       
       const targetAudience = answers.target_audience || 'Público geral';
       const productInfo = answers.product_description || 'Produto não especificado';
@@ -102,12 +104,10 @@ export const QuizFlow = () => {
     } catch (error: any) {
       console.error('❌ [Quiz] Erro na geração:', error);
       
-      // Se o erro for relacionado a tokens, mostrar modal de upgrade
-      if (error.message?.includes('token') || error.message?.includes('crédito')) {
-        setShowTokenUpgrade(true);
-        toast.error('Tokens insuficientes', {
-          description: 'Você não possui tokens suficientes para esta operação.'
-        });
+      // Se o erro for relacionado a tokens, mostrar popup de upgrade
+      if (error.message?.includes('token') || error.message?.includes('Tokens insuficientes')) {
+        console.log('🚫 [Quiz] Erro de tokens - mostrando popup de upgrade');
+        setShowUpgradeModal(true);
       } else {
         toast.error('Erro na geração', {
           description: error.message || 'Tente novamente em alguns instantes.'
@@ -159,8 +159,8 @@ export const QuizFlow = () => {
             Selecione o template que melhor se adequa ao seu objetivo
           </p>
           
-          {/* AVISO DE TOKENS */}
-          {tokens && tokens.total_available < 500 && (
+          {/* Aviso de tokens baixos - mas não bloqueia */}
+          {tokens && tokens.total_available < 500 && tokens.total_available > 0 && (
             <Card className="mt-4 border-orange-200 bg-orange-50">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 text-orange-700">
@@ -178,10 +178,10 @@ export const QuizFlow = () => {
         <QuizSelector onSelectQuiz={handleTemplateSelect} />
         
         <TokenUpgradeModal
-          isOpen={showTokenUpgrade}
-          onClose={() => setShowTokenUpgrade(false)}
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
           tokensRemaining={tokens?.total_available || 0}
-          isOutOfTokens={!tokens || tokens.total_available <= 0}
+          isOutOfTokens={isOutOfTokens()}
         />
       </div>
     );
@@ -281,7 +281,7 @@ export const QuizFlow = () => {
               {currentQuestionIndex === (selectedTemplate.questions?.length || 1) - 1 ? (
                 <Button
                   onClick={handleGenerateCopy}
-                  disabled={isGenerating || !tokens || tokens.total_available < 200}
+                  disabled={isGenerating}
                   className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                 >
                   {isGenerating ? (
@@ -345,13 +345,10 @@ export const QuizFlow = () => {
 
       {/* Token upgrade modal */}
       <TokenUpgradeModal
-        isOpen={showUpgradeModal || showTokenUpgrade}
-        onClose={() => {
-          setShowUpgradeModal(false);
-          setShowTokenUpgrade(false);
-        }}
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
         tokensRemaining={tokens?.total_available || 0}
-        isOutOfTokens={!tokens || tokens.total_available <= 0}
+        isOutOfTokens={isOutOfTokens()}
       />
     </div>
   );

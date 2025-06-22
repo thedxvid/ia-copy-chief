@@ -7,11 +7,14 @@ import { Plus, Search, Filter, Play, Eye, Trash2, Copy } from 'lucide-react';
 import { useSpecializedCopies } from '@/hooks/useSpecializedCopies';
 import { CreateVideoModal } from './CreateVideoModal';
 import { ViewCopyModal } from '../ViewCopyModal';
+import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
 import { Input } from '@/components/ui/input';
+import { useTokens } from '@/hooks/useTokens';
 import { toast } from 'sonner';
 
 export const SalesVideosPageContent = () => {
   const { copies, loading, deleteCopy, duplicateCopy, createCopy } = useSpecializedCopies('sales-videos');
+  const { tokens, isOutOfTokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedCopy, setSelectedCopy] = useState(null);
@@ -23,7 +26,25 @@ export const SalesVideosPageContent = () => {
     copy.copy_data?.video_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleCreateClick = () => {
+    // Verificar se há tokens disponíveis
+    if (isOutOfTokens()) {
+      console.log('🚫 [Sales Videos] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    setShowCreateModal(true);
+  };
+
   const handleCreateVideo = async (briefing: any) => {
+    // Verificar tokens novamente antes de criar
+    if (isOutOfTokens()) {
+      console.log('🚫 [Sales Videos] Usuário sem tokens - mostrando popup de upgrade');
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsCreating(true);
     try {
       const copyData = {
@@ -36,9 +57,17 @@ export const SalesVideosPageContent = () => {
       await createCopy(copyData);
       setShowCreateModal(false);
       toast.success('Vídeo de vendas criado com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar vídeo:', error);
-      toast.error('Erro ao criar vídeo');
+      
+      // Se o erro for relacionado a tokens, mostrar popup de upgrade
+      if (error.message?.includes('token') || error.message?.includes('Tokens insuficientes')) {
+        console.log('🚫 [Sales Videos] Erro de tokens - mostrando popup de upgrade');
+        setShowCreateModal(false);
+        setShowUpgradeModal(true);
+      } else {
+        toast.error('Erro ao criar vídeo');
+      }
     } finally {
       setIsCreating(false);
     }
@@ -96,7 +125,7 @@ export const SalesVideosPageContent = () => {
           <p className="text-[#CCCCCC]">Crie roteiros para VSLs, webinars e vídeos de demonstração</p>
         </div>
         <Button 
-          onClick={() => setShowCreateModal(true)}
+          onClick={handleCreateClick}
           className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -130,7 +159,7 @@ export const SalesVideosPageContent = () => {
             </p>
             {!searchTerm && (
               <Button 
-                onClick={() => setShowCreateModal(true)}
+                onClick={handleCreateClick}
                 className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -214,6 +243,14 @@ export const SalesVideosPageContent = () => {
         onClose={() => setShowViewModal(false)}
         copyData={selectedCopy}
         copyType="sales-videos"
+      />
+
+      {/* Token upgrade modal */}
+      <TokenUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        tokensRemaining={tokens?.total_available || 0}
+        isOutOfTokens={isOutOfTokens()}
       />
     </div>
   );
