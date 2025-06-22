@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +12,7 @@ interface TokenData {
 
 const CACHE_KEY = 'tokens_cache';
 const CACHE_DURATION = 30000;
+const SECURITY_TOKEN_LIMIT = 2000;
 
 // Global state to prevent multiple subscriptions
 let globalChannel: any = null;
@@ -75,7 +75,7 @@ export const useTokens = () => {
 
     try {
       console.log('🔄 BUSCANDO tokens para usuário:', user.id);
-      console.log('🔒 Usando função RPC check_token_balance...');
+      console.log('🔒 Usando função RPC check_token_balance corrigida...');
       
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('check_token_balance', { p_user_id: user.id });
@@ -91,27 +91,26 @@ export const useTokens = () => {
       }
 
       const tokenData = rpcData[0];
-      console.log('✅ TOKENS ENCONTRADOS:', {
+      console.log('✅ TOKENS ENCONTRADOS (Nova lógica):', {
         monthly_tokens: tokenData.monthly_tokens,
         extra_tokens: tokenData.extra_tokens,
-        total_available: tokenData.total_available,
+        total_available: tokenData.total_available, // Agora é apenas extra_tokens
         total_used: tokenData.total_used
       });
 
       const result: TokenData = {
         monthly_tokens: tokenData.monthly_tokens,
         extra_tokens: tokenData.extra_tokens,
-        total_available: tokenData.total_available,
+        total_available: tokenData.total_available, // CORREÇÃO: Agora apenas extra_tokens
         total_tokens_used: tokenData.total_used
       };
 
-      if (tokenData.extra_tokens > 0) {
-        console.log('🎯 TOKENS EXTRAS DETECTADOS:', {
-          extraTokens: tokenData.extra_tokens,
-          monthlyTokens: tokenData.monthly_tokens,
-          totalAvailable: tokenData.total_available
-        });
-      }
+      console.log('🎯 NOVA LÓGICA DE TOKENS:', {
+        'Limite Mensal (fixo)': tokenData.monthly_tokens,
+        'Tokens Disponíveis (gastáveis)': tokenData.extra_tokens,
+        'Total Usado': tokenData.total_used,
+        'Segurança ativa': 'Bloqueio em 2.000 tokens'
+      });
 
       setCachedTokens(result);
       return result;
@@ -121,7 +120,7 @@ export const useTokens = () => {
     }
   }, [user, setCachedTokens]);
 
-  // Função refreshTokens que estava faltando
+  // Função refreshTokens
   const refreshTokens = useCallback(async (force = false) => {
     if (!user) return;
 
@@ -152,7 +151,7 @@ export const useTokens = () => {
     }
   }, [user, fetchTokens]);
 
-  // NOVA FUNÇÃO: Verificar se usuário pode usar funcionalidades que consomem tokens
+  // FUNÇÃO CORRIGIDA: Verificar se usuário pode usar funcionalidades que consomem tokens
   const requireTokens = useCallback((minTokens: number = 100, feature: string = 'funcionalidade') => {
     if (!tokens) {
       console.warn(`🚫 [Token Guard] Tokens não carregados para ${feature}`);
@@ -162,6 +161,7 @@ export const useTokens = () => {
       return false;
     }
     
+    // CORREÇÃO CRÍTICA: Verificar apenas tokens disponíveis (extra_tokens)
     if (tokens.total_available <= 0) {
       console.warn(`🚫 [Token Guard] BLOQUEADO - Sem tokens para ${feature}:`, {
         available: tokens.total_available,
@@ -169,21 +169,38 @@ export const useTokens = () => {
       });
       
       toast.error('Tokens esgotados', {
-        description: 'Você não possui tokens suficientes. Compre tokens extras para continuar usando esta funcionalidade.'
+        description: 'Você não possui tokens disponíveis. Compre tokens extras para continuar usando esta funcionalidade.'
       });
       
       setShowUpgradeModal(true);
       return false;
     }
     
-    if (tokens.total_available < minTokens) {
+    // NOVO: Bloqueio de segurança - requisições acima de 2.000 tokens são bloqueadas
+    if (minTokens > SECURITY_TOKEN_LIMIT) {
+      console.warn(`🚫 [Token Guard] BLOQUEADO - Requisição muito grande para ${feature}:`, {
+        requested: minTokens,
+        securityLimit: SECURITY_TOKEN_LIMIT
+      });
+      
+      toast.error('Requisição muito grande', {
+        description: `Esta operação requer ${minTokens} tokens, mas o limite de segurança é ${SECURITY_TOKEN_LIMIT} tokens por requisição.`
+      });
+      
+      return false;
+    }
+    
+    // NOVO: Verificar se há tokens suficientes considerando o limite de segurança
+    if (tokens.total_available < Math.max(minTokens, SECURITY_TOKEN_LIMIT)) {
       console.warn(`🚫 [Token Guard] BLOQUEADO - Tokens insuficientes para ${feature}:`, {
         available: tokens.total_available,
-        required: minTokens
+        required: minTokens,
+        securityBuffer: SECURITY_TOKEN_LIMIT,
+        message: `Para segurança, mantenha pelo menos ${SECURITY_TOKEN_LIMIT} tokens disponíveis`
       });
       
       toast.warning('Tokens insuficientes', {
-        description: `Esta funcionalidade requer ${minTokens} tokens. Você possui ${tokens.total_available} tokens disponíveis.`
+        description: `Para garantir o funcionamento correto, mantenha pelo menos ${SECURITY_TOKEN_LIMIT} tokens disponíveis. Compre mais tokens para continuar.`
       });
       
       setShowUpgradeModal(true);
@@ -192,15 +209,16 @@ export const useTokens = () => {
     
     console.log(`✅ [Token Guard] Aprovado para ${feature}:`, {
       available: tokens.total_available,
-      required: minTokens
+      required: minTokens,
+      securityOk: `Buffer de ${SECURITY_TOKEN_LIMIT} tokens mantido`
     });
     
     return true;
   }, [tokens, setShowUpgradeModal]);
 
-  // NOVA FUNÇÃO: Verificar se tokens estão zerados
+  // FUNÇÃO CORRIGIDA: Verificar se tokens estão zerados ou abaixo do limite de segurança
   const isOutOfTokens = useCallback(() => {
-    return !tokens || tokens.total_available <= 0;
+    return !tokens || tokens.total_available < SECURITY_TOKEN_LIMIT;
   }, [tokens]);
 
   // Função para indicar que uma compra está sendo processada
@@ -222,7 +240,7 @@ export const useTokens = () => {
     setProcessingMessage('');
   }, []);
 
-  // Check if user can afford a feature
+  // FUNÇÃO CORRIGIDA: Check if user can afford a feature
   const canAffordFeature = useCallback((feature: string) => {
     if (!tokens) return false;
     
@@ -235,7 +253,9 @@ export const useTokens = () => {
     };
     
     const required = requiredTokens[feature as keyof typeof requiredTokens] || 100;
-    return tokens.total_available >= required;
+    
+    // CORREÇÃO: Verificar apenas tokens disponíveis + buffer de segurança
+    return tokens.total_available >= (required + SECURITY_TOKEN_LIMIT);
   }, [tokens]);
 
   // Handle upgrade modal
@@ -249,13 +269,20 @@ export const useTokens = () => {
     setShowExhaustedModal(false);
   }, []);
 
-  // Check for low tokens and show modals
+  // CORREÇÃO: Check for low tokens and show modals (nova lógica)
   useEffect(() => {
     if (tokens && user) {
-      if (tokens.total_available === 0) {
+      if (tokens.total_available <= 0) {
+        console.log('🚨 Usuário sem tokens disponíveis:', {
+          available: tokens.total_available,
+          monthlyLimit: tokens.monthly_tokens
+        });
         setShowExhaustedModal(true);
-      } else if (tokens.total_available < 1000) {
-        // Show upgrade modal for low tokens but not exhausted
+      } else if (tokens.total_available < SECURITY_TOKEN_LIMIT) {
+        console.log('⚠️ Usuário com poucos tokens (abaixo do limite de segurança):', {
+          available: tokens.total_available,
+          securityLimit: SECURITY_TOKEN_LIMIT
+        });
         setTimeout(() => setShowUpgradeModal(true), 2000);
       }
     }
@@ -277,13 +304,6 @@ export const useTokens = () => {
       setTokens(cachedData);
       setLoading(false);
       setLastUpdate(new Date());
-      
-      if (cachedData.extra_tokens > 0) {
-        console.log('🎯 CACHE CONTÉM TOKENS EXTRAS:', {
-          extraTokens: cachedData.extra_tokens,
-          totalAvailable: cachedData.total_available
-        });
-      }
       
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
@@ -425,7 +445,7 @@ export const useTokens = () => {
     processingMessage,
     setTokenProcessing,
     clearProcessingStatus,
-    // NOVAS FUNÇÕES EXPORTADAS
+    // FUNÇÕES ATUALIZADAS COM NOVA LÓGICA
     requireTokens,
     isOutOfTokens
   };

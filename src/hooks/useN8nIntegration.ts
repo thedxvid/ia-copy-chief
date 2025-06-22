@@ -19,10 +19,10 @@ export const useN8nIntegration = () => {
   const triggerN8nWorkflow = async (integrationData: N8nIntegrationData) => {
     console.log('triggerN8nWorkflow called with:', integrationData);
     
-    // BLOQUEIO: Verificar tokens antes de fazer qualquer chamada
+    // CORREÇÃO: Bloqueio com limite de segurança (2.000 tokens)
     if (!requireTokens(200, 'geração de conteúdo')) {
-      console.error('🚫 [Token Guard] Bloqueando chamada N8n - tokens insuficientes');
-      throw new Error('Tokens insuficientes para esta operação');
+      console.error('🚫 [Token Guard] Bloqueando chamada N8n - tokens insuficientes ou acima do limite de segurança');
+      throw new Error('Tokens insuficientes para esta operação ou limite de segurança atingido');
     }
     
     setIsLoading(true);
@@ -83,10 +83,10 @@ export const useN8nIntegration = () => {
       quizAnswers
     });
 
-    // BLOQUEIO: Verificar tokens antes de gerar conteúdo
+    // CORREÇÃO: Verificar limite de segurança antes de gerar copy
     if (!requireTokens(300, 'geração de copy')) {
-      console.error('🚫 [Token Guard] Bloqueando geração de copy - tokens insuficientes');
-      throw new Error('Tokens insuficientes para gerar copy');
+      console.error('🚫 [Token Guard] Bloqueando geração de copy - tokens insuficientes ou limite de segurança');
+      throw new Error('Tokens insuficientes para gerar copy ou limite de segurança atingido');
     }
 
     return triggerN8nWorkflow({
@@ -107,10 +107,10 @@ export const useN8nIntegration = () => {
     userId: string,
     performanceData: any
   ) => {
-    // BLOQUEIO: Verificar tokens antes de análise
+    // CORREÇÃO: Verificar limite de segurança antes de análise
     if (!requireTokens(150, 'análise de performance')) {
-      console.error('🚫 [Token Guard] Bloqueando análise - tokens insuficientes');
-      throw new Error('Tokens insuficientes para análise');
+      console.error('🚫 [Token Guard] Bloqueando análise - tokens insuficientes ou limite de segurança');
+      throw new Error('Tokens insuficientes para análise ou limite de segurança atingido');
     }
 
     return triggerN8nWorkflow({
