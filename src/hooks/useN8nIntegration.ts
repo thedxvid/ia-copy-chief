@@ -19,10 +19,10 @@ export const useN8nIntegration = () => {
   const triggerN8nWorkflow = async (integrationData: N8nIntegrationData) => {
     console.log('triggerN8nWorkflow called with:', integrationData);
     
-    // CORREÇÃO: Bloqueio com limite de segurança (2.000 tokens)
-    if (!requireTokens(200, 'geração de conteúdo')) {
-      console.error('🚫 [Token Guard] Bloqueando chamada N8n - tokens insuficientes ou acima do limite de segurança');
-      throw new Error('Tokens insuficientes para esta operação ou limite de segurança atingido');
+    // CORREÇÃO: Verificar apenas se há tokens disponíveis (sem limite fixo)
+    if (!requireTokens(100, 'geração de conteúdo')) {
+      console.error('🚫 [Token Guard] Bloqueando chamada N8n - tokens insuficientes');
+      throw new Error('Tokens insuficientes para esta operação');
     }
     
     setIsLoading(true);
@@ -83,10 +83,10 @@ export const useN8nIntegration = () => {
       quizAnswers
     });
 
-    // CORREÇÃO: Verificar limite de segurança antes de gerar copy
-    if (!requireTokens(300, 'geração de copy')) {
-      console.error('🚫 [Token Guard] Bloqueando geração de copy - tokens insuficientes ou limite de segurança');
-      throw new Error('Tokens insuficientes para gerar copy ou limite de segurança atingido');
+    // CORREÇÃO: Verificar apenas se há tokens disponíveis
+    if (!requireTokens(200, 'geração de copy')) {
+      console.error('🚫 [Token Guard] Bloqueando geração de copy - tokens insuficientes');
+      throw new Error('Tokens insuficientes para gerar copy');
     }
 
     return triggerN8nWorkflow({
@@ -107,10 +107,10 @@ export const useN8nIntegration = () => {
     userId: string,
     performanceData: any
   ) => {
-    // CORREÇÃO: Verificar limite de segurança antes de análise
-    if (!requireTokens(150, 'análise de performance')) {
-      console.error('🚫 [Token Guard] Bloqueando análise - tokens insuficientes ou limite de segurança');
-      throw new Error('Tokens insuficientes para análise ou limite de segurança atingido');
+    // CORREÇÃO: Verificar apenas se há tokens disponíveis
+    if (!requireTokens(100, 'análise de performance')) {
+      console.error('🚫 [Token Guard] Bloqueando análise - tokens insuficientes');
+      throw new Error('Tokens insuficientes para análise');
     }
 
     return triggerN8nWorkflow({

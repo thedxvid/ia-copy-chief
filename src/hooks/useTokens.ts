@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +13,6 @@ interface TokenData {
 
 const CACHE_KEY = 'tokens_cache';
 const CACHE_DURATION = 30000;
-const SECURITY_TOKEN_LIMIT = 2000;
 
 // Global state to prevent multiple subscriptions
 let globalChannel: any = null;
@@ -91,25 +91,26 @@ export const useTokens = () => {
       }
 
       const tokenData = rpcData[0];
-      console.log('✅ TOKENS ENCONTRADOS (Nova lógica):', {
+      console.log('✅ TOKENS ENCONTRADOS (Lógica corrigida):', {
         monthly_tokens: tokenData.monthly_tokens,
         extra_tokens: tokenData.extra_tokens,
-        total_available: tokenData.total_available, // Agora é apenas extra_tokens
+        total_available: tokenData.total_available, // Agora: (monthly - used) + extra
         total_used: tokenData.total_used
       });
 
       const result: TokenData = {
         monthly_tokens: tokenData.monthly_tokens,
         extra_tokens: tokenData.extra_tokens,
-        total_available: tokenData.total_available, // CORREÇÃO: Agora apenas extra_tokens
+        total_available: tokenData.total_available, // CORREÇÃO: Cálculo correto no banco
         total_tokens_used: tokenData.total_used
       };
 
-      console.log('🎯 NOVA LÓGICA DE TOKENS:', {
+      console.log('🎯 LÓGICA CORRETA DE TOKENS:', {
         'Limite Mensal (fixo)': tokenData.monthly_tokens,
-        'Tokens Disponíveis (gastáveis)': tokenData.extra_tokens,
-        'Total Usado': tokenData.total_used,
-        'Segurança ativa': 'Bloqueio em 2.000 tokens'
+        'Tokens Usados': tokenData.total_used,
+        'Tokens Mensais Restantes': Math.max(0, tokenData.monthly_tokens - tokenData.total_used),
+        'Tokens Extras': tokenData.extra_tokens,
+        'Total Disponível': tokenData.total_available
       });
 
       setCachedTokens(result);
@@ -161,7 +162,7 @@ export const useTokens = () => {
       return false;
     }
     
-    // CORREÇÃO CRÍTICA: Verificar apenas tokens disponíveis (extra_tokens)
+    // CORREÇÃO: Verificar apenas se há tokens disponíveis (qualquer quantidade)
     if (tokens.total_available <= 0) {
       console.warn(`🚫 [Token Guard] BLOQUEADO - Sem tokens para ${feature}:`, {
         available: tokens.total_available,
@@ -176,49 +177,19 @@ export const useTokens = () => {
       return false;
     }
     
-    // NOVO: Bloqueio de segurança - requisições acima de 2.000 tokens são bloqueadas
-    if (minTokens > SECURITY_TOKEN_LIMIT) {
-      console.warn(`🚫 [Token Guard] BLOQUEADO - Requisição muito grande para ${feature}:`, {
-        requested: minTokens,
-        securityLimit: SECURITY_TOKEN_LIMIT
-      });
-      
-      toast.error('Requisição muito grande', {
-        description: `Esta operação requer ${minTokens} tokens, mas o limite de segurança é ${SECURITY_TOKEN_LIMIT} tokens por requisição.`
-      });
-      
-      return false;
-    }
-    
-    // NOVO: Verificar se há tokens suficientes considerando o limite de segurança
-    if (tokens.total_available < Math.max(minTokens, SECURITY_TOKEN_LIMIT)) {
-      console.warn(`🚫 [Token Guard] BLOQUEADO - Tokens insuficientes para ${feature}:`, {
-        available: tokens.total_available,
-        required: minTokens,
-        securityBuffer: SECURITY_TOKEN_LIMIT,
-        message: `Para segurança, mantenha pelo menos ${SECURITY_TOKEN_LIMIT} tokens disponíveis`
-      });
-      
-      toast.warning('Tokens insuficientes', {
-        description: `Para garantir o funcionamento correto, mantenha pelo menos ${SECURITY_TOKEN_LIMIT} tokens disponíveis. Compre mais tokens para continuar.`
-      });
-      
-      setShowUpgradeModal(true);
-      return false;
-    }
-    
+    // CORREÇÃO: Sempre permitir se há tokens > 0 (o sistema vai deduzir o que tem disponível)
     console.log(`✅ [Token Guard] Aprovado para ${feature}:`, {
       available: tokens.total_available,
       required: minTokens,
-      securityOk: `Buffer de ${SECURITY_TOKEN_LIMIT} tokens mantido`
+      note: 'Sistema irá deduzir o disponível'
     });
     
     return true;
   }, [tokens, setShowUpgradeModal]);
 
-  // FUNÇÃO CORRIGIDA: Verificar se tokens estão zerados ou abaixo do limite de segurança
+  // FUNÇÃO CORRIGIDA: Verificar se tokens estão zerados
   const isOutOfTokens = useCallback(() => {
-    return !tokens || tokens.total_available < SECURITY_TOKEN_LIMIT;
+    return !tokens || tokens.total_available <= 0;
   }, [tokens]);
 
   // Função para indicar que uma compra está sendo processada
@@ -244,18 +215,8 @@ export const useTokens = () => {
   const canAffordFeature = useCallback((feature: string) => {
     if (!tokens) return false;
     
-    const requiredTokens = {
-      chat: 100,
-      copy: 500,
-      analysis: 300,
-      quiz: 200,
-      tools: 150
-    };
-    
-    const required = requiredTokens[feature as keyof typeof requiredTokens] || 100;
-    
-    // CORREÇÃO: Verificar apenas tokens disponíveis + buffer de segurança
-    return tokens.total_available >= (required + SECURITY_TOKEN_LIMIT);
+    // CORREÇÃO: Verificar apenas se há tokens disponíveis (qualquer quantidade)
+    return tokens.total_available > 0;
   }, [tokens]);
 
   // Handle upgrade modal
@@ -269,19 +230,20 @@ export const useTokens = () => {
     setShowExhaustedModal(false);
   }, []);
 
-  // CORREÇÃO: Check for low tokens and show modals (nova lógica)
+  // CORREÇÃO: Check for low tokens and show modals (lógica corrigida)
   useEffect(() => {
     if (tokens && user) {
       if (tokens.total_available <= 0) {
         console.log('🚨 Usuário sem tokens disponíveis:', {
           available: tokens.total_available,
-          monthlyLimit: tokens.monthly_tokens
+          monthlyUsed: tokens.total_tokens_used,
+          monthlyLimit: tokens.monthly_tokens,
+          extras: tokens.extra_tokens
         });
         setShowExhaustedModal(true);
-      } else if (tokens.total_available < SECURITY_TOKEN_LIMIT) {
-        console.log('⚠️ Usuário com poucos tokens (abaixo do limite de segurança):', {
-          available: tokens.total_available,
-          securityLimit: SECURITY_TOKEN_LIMIT
+      } else if (tokens.total_available < 10000) { // Alerta quando menos de 10k tokens
+        console.log('⚠️ Usuário com poucos tokens:', {
+          available: tokens.total_available
         });
         setTimeout(() => setShowUpgradeModal(true), 2000);
       }
@@ -360,13 +322,12 @@ export const useTokens = () => {
                 userId: payload.new?.id?.slice(0, 8),
                 oldExtraTokens: payload.old?.extra_tokens,
                 newExtraTokens: payload.new?.extra_tokens,
-                oldMonthlyTokens: payload.old?.monthly_tokens,
-                newMonthlyTokens: payload.new?.monthly_tokens
+                oldUsed: payload.old?.total_tokens_used,
+                newUsed: payload.new?.total_tokens_used
               });
               
               // Refresh se houve mudança nos tokens
               if (payload.old?.extra_tokens !== payload.new?.extra_tokens ||
-                  payload.old?.monthly_tokens !== payload.new?.monthly_tokens ||
                   payload.old?.total_tokens_used !== payload.new?.total_tokens_used) {
                 console.log('🔄 Tokens alterados - fazendo refresh...');
                 refreshTokens(true);
@@ -445,7 +406,7 @@ export const useTokens = () => {
     processingMessage,
     setTokenProcessing,
     clearProcessingStatus,
-    // FUNÇÕES ATUALIZADAS COM NOVA LÓGICA
+    // FUNÇÕES ATUALIZADAS COM LÓGICA CORRIGIDA
     requireTokens,
     isOutOfTokens
   };
