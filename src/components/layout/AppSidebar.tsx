@@ -1,3 +1,4 @@
+
 import { useState } from "react"
 import { 
   LayoutDashboard, 
@@ -15,7 +16,8 @@ import {
   Settings,
   Shield,
   Coins,
-  Plus
+  Plus,
+  ChefHat
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
@@ -116,7 +118,7 @@ export function AppSidebar() {
         <SidebarHeader className={`border-b border-[#333333] ${isCollapsed ? "px-2 py-4" : "p-4"}`}>
           <div className={`flex items-center ${isCollapsed ? "justify-center" : "space-x-2"}`}>
             <div className="w-8 h-8 bg-[#3B82F6] rounded-xl flex items-center justify-center flex-shrink-0">
-              <Bot className="w-5 h-5 text-white" />
+              <ChefHat className="w-5 h-5 text-white" />
             </div>
             {!isCollapsed && (
               <span className="text-xl font-bold text-white">CopyChief</span>
