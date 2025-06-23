@@ -78,20 +78,28 @@ export const useTokenMonitoring = () => {
 
       console.log('👥 MONITORAMENTO: Total de profiles encontrados:', profilesData.length);
 
-      // Buscar emails dos usuários usando a função RPC
-      console.log('📧 MONITORAMENTO: Buscando emails dos usuários...');
-      const userIds = profilesData.map(u => u.id);
-
-      const { data: emailsData, error: emailsError } = await supabase
-        .rpc('get_user_emails', {
-          user_ids: userIds
-        });
-
-      if (emailsError) {
-        console.warn('⚠️ ERRO MONITORAMENTO: Erro ao buscar emails via RPC:', emailsError);
+      // Buscar emails dos usuários usando auth.admin.listUsers
+      console.log('📧 MONITORAMENTO: Buscando emails dos usuários via admin API...');
+      
+      const { data: authUsersData, error: authError } = await supabase.auth.admin.listUsers();
+      
+      if (authError) {
+        console.warn('⚠️ ERRO MONITORAMENTO: Erro ao buscar emails via auth.admin:', authError);
       }
 
-      console.log('📧 EMAILS ENCONTRADOS VIA RPC:', emailsData?.length || 0);
+      console.log('📧 EMAILS ENCONTRADOS VIA AUTH.ADMIN:', authUsersData?.users?.length || 0);
+
+      // Criar mapa de emails por user_id
+      const emailMap = new Map();
+      if (authUsersData?.users) {
+        authUsersData.users.forEach(user => {
+          if (user.email) {
+            emailMap.set(user.id, user.email);
+          }
+        });
+      }
+
+      console.log('📧 MAPA DE EMAILS CRIADO:', emailMap.size, 'usuários com email');
 
       // Processar usuários usando a função RPC corrigida
       const processedUsers: UserTokenData[] = [];
@@ -104,9 +112,8 @@ export const useTokenMonitoring = () => {
           const { data: tokenData, error: tokenError } = await supabase
             .rpc('check_token_balance', { p_user_id: profile.id });
 
-          // Encontrar email correspondente
-          const emailInfo = emailsData?.find((e: any) => e.id === profile.id);
-          const userEmail = emailInfo?.email || null;
+          // Buscar email do mapa
+          const userEmail = emailMap.get(profile.id) || null;
 
           if (tokenError) {
             console.warn(`⚠️ MONITORAMENTO: Erro RPC para usuário ${profile.id.slice(0, 8)}:`, tokenError);
@@ -171,9 +178,8 @@ export const useTokenMonitoring = () => {
             ? Math.round(((profile.total_tokens_used || 0) / ((profile.monthly_tokens || 0) + (profile.extra_tokens || 0))) * 100)
             : 0;
 
-          // Encontrar email correspondente mesmo no fallback
-          const emailInfo = emailsData?.find((e: any) => e.id === profile.id);
-          const userEmail = emailInfo?.email || null;
+          // Buscar email do mapa mesmo no fallback
+          const userEmail = emailMap.get(profile.id) || null;
 
           processedUsers.push({
             id: profile.id,
@@ -191,6 +197,11 @@ export const useTokenMonitoring = () => {
 
       console.log('✅ MONITORAMENTO: Usuários processados:', processedUsers.length);
       console.log('📧 USUÁRIOS COM EMAIL:', processedUsers.filter(u => u.email).length);
+      console.log('📧 PRIMEIROS 3 USUÁRIOS:', processedUsers.slice(0, 3).map(u => ({
+        name: u.full_name,
+        email: u.email,
+        id: u.id.slice(0, 8)
+      })));
 
       // Calcular estatísticas usando dados corretos
       const totalUsers = processedUsers.length;
