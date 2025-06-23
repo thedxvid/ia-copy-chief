@@ -30,6 +30,18 @@ interface TokenUsageHistory {
   feature_breakdown: { [key: string]: number };
 }
 
+// Tipagem para os dados de usuário do Supabase Auth
+interface AuthUser {
+  id: string;
+  email?: string;
+  [key: string]: any;
+}
+
+interface AuthUsersResponse {
+  users: AuthUser[];
+  [key: string]: any;
+}
+
 export const useTokenMonitoring = () => {
   const [stats, setStats] = useState<TokenStats | null>(null);
   const [userDetails, setUserDetails] = useState<UserTokenData[]>([]);
@@ -89,10 +101,10 @@ export const useTokenMonitoring = () => {
 
       console.log('📧 EMAILS ENCONTRADOS VIA AUTH.ADMIN:', authUsersData?.users?.length || 0);
 
-      // Criar mapa de emails por user_id
-      const emailMap = new Map();
+      // Criar mapa de emails por user_id com tipagem correta
+      const emailMap = new Map<string, string>();
       if (authUsersData?.users) {
-        authUsersData.users.forEach(user => {
+        (authUsersData as AuthUsersResponse).users.forEach((user: AuthUser) => {
           if (user.email) {
             emailMap.set(user.id, user.email);
           }
