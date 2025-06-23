@@ -22,15 +22,27 @@ const ResetPassword = () => {
   useEffect(() => {
     const verifyResetToken = async () => {
       console.log('🔍 Verificando token de recuperação...');
+      console.log('🔗 URL completa:', window.location.href);
+      console.log('🔗 Search params:', window.location.search);
       
       // Verificar se temos os parâmetros necessários na URL
       const token = searchParams.get('token');
       const type = searchParams.get('type');
+      const accessToken = searchParams.get('access_token');
+      const refreshToken = searchParams.get('refresh_token');
       
-      console.log('🔗 URL params:', { token: token ? 'presente' : 'ausente', type });
+      console.log('🔗 URL params detectados:', { 
+        token: token ? 'presente' : 'ausente', 
+        type, 
+        accessToken: accessToken ? 'presente' : 'ausente',
+        refreshToken: refreshToken ? 'presente' : 'ausente'
+      });
       
-      if (!token || type !== 'recovery') {
-        console.error('❌ Token ou tipo inválido:', { token: !!token, type });
+      // Aceitar tanto o formato antigo (token + type) quanto o novo (access_token + refresh_token)
+      const hasValidParams = (token && type === 'recovery') || (accessToken && refreshToken);
+      
+      if (!hasValidParams) {
+        console.error('❌ Parâmetros de recuperação inválidos ou ausentes');
         setValidToken(false);
         toast.error('Link de recuperação inválido ou expirado');
         
@@ -42,11 +54,36 @@ const ResetPassword = () => {
       }
 
       try {
-        // Verificar se o token é válido tentando obter a sessão
         console.log('🔐 Verificando validade do token...');
         
-        // O Supabase deve processar automaticamente o token quando a página carrega
-        // Vamos verificar se temos uma sessão válida
+        // Se temos access_token e refresh_token, vamos definir a sessão
+        if (accessToken && refreshToken) {
+          console.log('🔐 Configurando sessão com tokens da URL...');
+          
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (error) {
+            console.error('❌ Erro ao configurar sessão:', error);
+            setValidToken(false);
+            toast.error('Link de recuperação expirado ou inválido');
+            return;
+          }
+          
+          if (data.session) {
+            console.log('✅ Sessão configurada com sucesso');
+            setValidToken(true);
+          } else {
+            console.log('⚠️ Sessão não encontrada após configuração');
+            setValidToken(false);
+          }
+          
+          return;
+        }
+        
+        // Verificar se já temos uma sessão válida (formato antigo)
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -60,7 +97,7 @@ const ResetPassword = () => {
           console.log('✅ Token válido, sessão encontrada');
           setValidToken(true);
         } else {
-          console.log('⚠️ Nenhuma sessão encontrada, mas token presente na URL');
+          console.log('⚠️ Nenhuma sessão encontrada');
           // Mesmo sem sessão, se o token está na URL, vamos permitir tentar
           setValidToken(true);
         }
@@ -117,7 +154,9 @@ const ResetPassword = () => {
         console.error('❌ Erro ao atualizar senha:', error);
         
         // Tratamento específico para diferentes tipos de erro
-        if (error.message.includes('session_not_found') || error.message.includes('invalid_token')) {
+        if (error.message.includes('session_not_found') || 
+            error.message.includes('invalid_token') ||
+            error.message.includes('Token has expired')) {
           toast.error('Link de recuperação expirado ou inválido. Solicite um novo link.');
           setTimeout(() => {
             navigate('/auth');

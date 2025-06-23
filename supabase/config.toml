@@ -11,8 +11,8 @@ max_rows = 1000
 [auth]
 enabled = true
 port = 54322
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://lovable.dev"]
+site_url = "https://iacopychief.com"
+additional_redirect_urls = ["https://lovable.dev", "https://iacopychief.com/auth/reset-password", "https://iacopychief.com/email-confirmed"]
 jwt_expiry = 3600
 refresh_token_rotation_enabled = true
 security_update_password_require_reauthentication = true

@@ -103,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, fullName?: string, checkoutUrl?: string) => {
     console.log('📝 Attempting sign up for:', email);
     
-    // Configurar redirect URL correto para página de confirmação
+    // Usar a URL de produção para confirmação de email
     const redirectUrl = `${window.location.origin}/email-confirmed`;
     
     const { error } = await supabase.auth.signUp({
@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     console.log('🔑 Initiating password reset for:', email);
     
-    // URL de redirecionamento correta - deve corresponder ao que foi configurado no Supabase
+    // URL de redirecionamento usando a URL de produção correta
     const redirectUrl = `${window.location.origin}/auth/reset-password`;
     
     console.log('🔗 Reset password redirect URL:', redirectUrl);
