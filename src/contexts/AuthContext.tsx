@@ -51,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
+        console.log('🔐 Auth state change:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
+      console.log('🔐 Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -85,14 +85,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 Attempting sign in for:', email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    if (error) {
+      console.error('❌ Sign in error:', error);
+    } else {
+      console.log('✅ Sign in successful');
+    }
+    
     return { error };
   };
 
   const signUp = async (email: string, password: string, fullName?: string, checkoutUrl?: string) => {
+    console.log('📝 Attempting sign up for:', email);
+    
     // Configurar redirect URL correto para página de confirmação
     const redirectUrl = `${window.location.origin}/email-confirmed`;
     
@@ -103,16 +113,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
-          // Remover checkout_url já que não vamos mais enviar por email
         },
       },
     });
+    
+    if (error) {
+      console.error('❌ Sign up error:', error);
+    } else {
+      console.log('✅ Sign up successful, confirmation email sent');
+    }
+    
     return { error };
   };
 
   const signOut = async () => {
     try {
-      console.log('Starting logout process...');
+      console.log('🚪 Starting logout process...');
       
       // Clear local state first
       setUser(null);
@@ -122,30 +138,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Logout error:', error);
+        console.error('❌ Logout error:', error);
       }
       
       // Clear any remaining local storage
       localStorage.removeItem('supabase.auth.token');
       sessionStorage.clear();
       
-      console.log('Logout completed, redirecting...');
+      console.log('✅ Logout completed, redirecting...');
       
       // Force redirect to home page
       window.location.href = '/';
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('❌ Error during logout:', error);
       // Even if there's an error, redirect to home
       window.location.href = '/';
     }
   };
 
   const resetPassword = async (email: string) => {
+    console.log('🔑 Initiating password reset for:', email);
+    
+    // URL de redirecionamento correta - deve corresponder ao que foi configurado no Supabase
     const redirectUrl = `${window.location.origin}/auth/reset-password`;
+    
+    console.log('🔗 Reset password redirect URL:', redirectUrl);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
     });
+
+    if (error) {
+      console.error('❌ Reset password error:', error);
+    } else {
+      console.log('✅ Password reset email sent successfully');
+    }
+    
     return { error };
   };
 
