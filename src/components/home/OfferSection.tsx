@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { Check, Clock, Users, Award, Zap, Target, TrendingUp, Shield } from 'lucide-react';
 import { ModernCard } from '@/components/ui/modern-card';
 import { ModernButton } from '@/components/ui/modern-button';
 import { Badge } from '@/components/ui/badge';
-import { Link } from 'react-router-dom';
+
 export function OfferSection() {
   const benefits = [{
     icon: Zap,
@@ -39,6 +40,7 @@ export function OfferSection() {
   const totalValue = benefits.reduce((sum, benefit) => {
     return sum + parseInt(benefit.value.replace('R$ ', '').replace('/mês', ''));
   }, 0);
+  
   return <section id="pricing" className="relative py-16 sm:py-24 px-3 sm:px-4 bg-gradient-to-b from-[#121212] via-[#1A1A1A] to-[#121212] overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0">
@@ -139,10 +141,15 @@ export function OfferSection() {
 
                 {/* CTA Button */}
                 <ModernButton size="lg" className="w-full bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-lg sm:text-xl font-bold py-4 sm:py-6 rounded-full hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-[#3B82F6]/30 mb-4 sm:mb-6" asChild>
-                  <Link to="/auth?mode=signup" className="flex items-center justify-center gap-3">
+                  <a 
+                    href="https://clkdmg.site/pay/100-mil-tokens" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-3"
+                  >
                     <Zap className="w-5 sm:w-6 h-5 sm:h-6" />
                     Quero Desbloquear Agora
-                  </Link>
+                  </a>
                 </ModernButton>
 
                 {/* Guarantees */}
