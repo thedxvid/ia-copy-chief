@@ -21,44 +21,36 @@ const ResetPassword = () => {
 
   useEffect(() => {
     const verifyResetToken = async () => {
-      console.log('🔍 Verificando token de recuperação...');
-      console.log('🔗 URL completa:', window.location.href);
-      console.log('🔗 Search params:', window.location.search);
+      console.log('🔍 [RESET] Iniciando verificação de token...');
+      console.log('🔗 [RESET] URL completa:', window.location.href);
+      console.log('🔗 [RESET] Hash:', window.location.hash);
+      console.log('🔗 [RESET] Search params:', window.location.search);
       
-      // Verificar se temos os parâmetros necessários na URL
-      const token = searchParams.get('token');
-      const type = searchParams.get('type');
-      const accessToken = searchParams.get('access_token');
-      const refreshToken = searchParams.get('refresh_token');
+      // Extrair todos os possíveis parâmetros da URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
       
-      console.log('🔗 URL params detectados:', { 
-        token: token ? 'presente' : 'ausente', 
-        type, 
+      // Verificar parâmetros no hash (formato novo do Supabase)
+      const accessToken = hashParams.get('access_token') || urlParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token') || urlParams.get('refresh_token');
+      const tokenHash = hashParams.get('token_hash') || urlParams.get('token_hash');
+      const type = hashParams.get('type') || urlParams.get('type');
+      
+      // Verificar parâmetros no search (formato antigo)
+      const token = urlParams.get('token');
+      
+      console.log('🔗 [RESET] Parâmetros detectados:', { 
         accessToken: accessToken ? 'presente' : 'ausente',
-        refreshToken: refreshToken ? 'presente' : 'ausente'
+        refreshToken: refreshToken ? 'presente' : 'ausente',
+        tokenHash: tokenHash ? 'presente' : 'ausente',
+        type,
+        token: token ? 'presente' : 'ausente'
       });
-      
-      // Aceitar tanto o formato antigo (token + type) quanto o novo (access_token + refresh_token)
-      const hasValidParams = (token && type === 'recovery') || (accessToken && refreshToken);
-      
-      if (!hasValidParams) {
-        console.error('❌ Parâmetros de recuperação inválidos ou ausentes');
-        setValidToken(false);
-        toast.error('Link de recuperação inválido ou expirado');
-        
-        // Redirecionar para auth após 3 segundos
-        setTimeout(() => {
-          navigate('/auth');
-        }, 3000);
-        return;
-      }
 
       try {
-        console.log('🔐 Verificando validade do token...');
-        
-        // Se temos access_token e refresh_token, vamos definir a sessão
+        // Primeiro, tentar com access_token e refresh_token (formato novo)
         if (accessToken && refreshToken) {
-          console.log('🔐 Configurando sessão com tokens da URL...');
+          console.log('🔐 [RESET] Tentando configurar sessão com access/refresh tokens...');
           
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -66,51 +58,51 @@ const ResetPassword = () => {
           });
           
           if (error) {
-            console.error('❌ Erro ao configurar sessão:', error);
-            setValidToken(false);
-            toast.error('Link de recuperação expirado ou inválido');
-            return;
+            console.error('❌ [RESET] Erro ao configurar sessão:', error);
+            throw error;
           }
           
           if (data.session) {
-            console.log('✅ Sessão configurada com sucesso');
+            console.log('✅ [RESET] Sessão configurada com sucesso!');
             setValidToken(true);
-          } else {
-            console.log('⚠️ Sessão não encontrada após configuração');
-            setValidToken(false);
+            return;
           }
-          
-          return;
         }
         
-        // Verificar se já temos uma sessão válida (formato antigo)
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Se não temos tokens, tentar verificar sessão atual
+        console.log('🔐 [RESET] Verificando sessão atual...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('❌ Erro ao verificar sessão:', error);
-          setValidToken(false);
-          toast.error('Erro ao verificar link de recuperação');
-          return;
+        if (sessionError) {
+          console.error('❌ [RESET] Erro ao verificar sessão:', sessionError);
+          throw sessionError;
         }
 
         if (session) {
-          console.log('✅ Token válido, sessão encontrada');
+          console.log('✅ [RESET] Sessão válida encontrada!');
           setValidToken(true);
-        } else {
-          console.log('⚠️ Nenhuma sessão encontrada');
-          // Mesmo sem sessão, se o token está na URL, vamos permitir tentar
-          setValidToken(true);
+          return;
         }
-        
-      } catch (error) {
-        console.error('❌ Erro ao verificar token:', error);
+
+        // Se chegou até aqui, não temos uma sessão válida
+        console.log('⚠️ [RESET] Nenhuma sessão válida encontrada');
         setValidToken(false);
-        toast.error('Erro ao processar link de recuperação');
+        toast.error('Link de recuperação inválido ou expirado');
+        
+      } catch (error: any) {
+        console.error('❌ [RESET] Erro na verificação do token:', error);
+        setValidToken(false);
+        
+        if (error.message?.includes('expired') || error.message?.includes('invalid')) {
+          toast.error('Link de recuperação expirado. Solicite um novo link.');
+        } else {
+          toast.error('Erro ao processar link de recuperação');
+        }
       }
     };
 
     verifyResetToken();
-  }, [searchParams, navigate]);
+  }, []);
 
   const validatePassword = (password: string) => {
     const errors = [];
@@ -125,6 +117,8 @@ const ResetPassword = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🔐 [RESET] Iniciando processo de alteração de senha...');
+
     if (!newPassword || !confirmPassword) {
       toast.error('Preencha todos os campos');
       return;
@@ -142,44 +136,42 @@ const ResetPassword = () => {
     }
 
     setLoading(true);
-    console.log('🔐 Iniciando atualização de senha...');
 
     try {
-      // Atualizar a senha usando o token da URL
+      console.log('🔐 [RESET] Chamando updateUser...');
+      
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
+      console.log('🔐 [RESET] Resposta do updateUser:', { data, error });
+
       if (error) {
-        console.error('❌ Erro ao atualizar senha:', error);
+        console.error('❌ [RESET] Erro ao atualizar senha:', error);
         
-        // Tratamento específico para diferentes tipos de erro
         if (error.message.includes('session_not_found') || 
             error.message.includes('invalid_token') ||
-            error.message.includes('Token has expired')) {
-          toast.error('Link de recuperação expirado ou inválido. Solicite um novo link.');
-          setTimeout(() => {
-            navigate('/auth');
-          }, 2000);
+            error.message.includes('expired')) {
+          toast.error('Sessão expirada. Solicite um novo link de recuperação.');
+          setTimeout(() => navigate('/auth'), 2000);
         } else {
           toast.error(error.message || 'Erro ao alterar senha');
         }
         return;
       }
 
-      console.log('✅ Senha alterada com sucesso:', data);
-      toast.success('Senha alterada com sucesso!');
+      console.log('✅ [RESET] Senha alterada com sucesso!');
+      toast.success('Senha alterada com sucesso! Redirecionando para o login...');
       
-      // Fazer logout para garantir que o usuário faça login com a nova senha
+      // Fazer logout para limpar a sessão de recuperação
       await supabase.auth.signOut();
       
-      // Redirecionar para login após sucesso
       setTimeout(() => {
         navigate('/auth');
       }, 1500);
 
     } catch (error: any) {
-      console.error('❌ Erro inesperado ao alterar senha:', error);
+      console.error('❌ [RESET] Erro inesperado:', error);
       toast.error('Erro inesperado ao alterar senha');
     } finally {
       setLoading(false);
@@ -190,7 +182,12 @@ const ResetPassword = () => {
     navigate('/auth');
   };
 
-  // Se ainda estamos verificando o token
+  const handleRequestNewLink = () => {
+    navigate('/auth');
+    toast.info('Solicite um novo link de recuperação na tela de login');
+  };
+
+  // Loading state
   if (validToken === null) {
     return (
       <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
@@ -204,7 +201,7 @@ const ResetPassword = () => {
     );
   }
 
-  // Se o token é inválido
+  // Invalid token state
   if (validToken === false) {
     return (
       <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
@@ -224,13 +221,23 @@ const ResetPassword = () => {
               Solicite um novo link de recuperação na página de login
             </p>
             
-            <Button
-              onClick={handleBackToAuth}
-              className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Voltar ao Login
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={handleRequestNewLink}
+                className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+              >
+                Solicitar Novo Link
+              </Button>
+              
+              <Button
+                onClick={handleBackToAuth}
+                variant="outline"
+                className="w-full border-[#4B5563] text-[#CCCCCC] hover:bg-[#2A2A2A]"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar ao Login
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -303,7 +310,7 @@ const ResetPassword = () => {
               </div>
             </div>
 
-            {/* Validações de senha */}
+            {/* Password validation */}
             {newPassword && (
               <div className="space-y-2">
                 <Label className="text-white text-sm">Requisitos da senha:</Label>
@@ -330,7 +337,7 @@ const ResetPassword = () => {
               </div>
             )}
 
-            {/* Aviso de senhas diferentes */}
+            {/* Password mismatch warning */}
             {confirmPassword && newPassword !== confirmPassword && (
               <div className="flex items-center gap-2 text-red-400 text-sm">
                 <AlertCircle className="w-4 h-4" />

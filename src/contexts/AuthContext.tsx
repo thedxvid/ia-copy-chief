@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     console.log('🔑 Initiating password reset for:', email);
     
-    // URL de redirecionamento usando a URL de produção correta
+    // URL de redirecionamento simplificada
     const redirectUrl = `${window.location.origin}/auth/reset-password`;
     
     console.log('🔗 Reset password redirect URL:', redirectUrl);

@@ -15,7 +15,7 @@ site_url = "https://iacopychief.com"
 additional_redirect_urls = ["https://lovable.dev", "https://iacopychief.com/auth/reset-password", "https://iacopychief.com/email-confirmed"]
 jwt_expiry = 3600
 refresh_token_rotation_enabled = true
-security_update_password_require_reauthentication = true
+security_update_password_require_reauthentication = false
 
 [functions.kiwify-webhook]
 verify_jwt = false
