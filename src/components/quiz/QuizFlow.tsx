@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { QuizSelector } from './QuizSelector';
 import { useQuizTemplates, parseQuestions, type QuizQuestion } from '@/hooks/useQuizTemplates';
@@ -18,6 +17,27 @@ import { toast } from 'sonner';
 import { ArrowRight, ArrowLeft, Sparkles, Save, AlertCircle, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQuizQuestions, getQuizTitle } from '@/data/quizQuestions';
+
+// Mapeamento de tipos de quiz para tipos da API N8n
+const mapQuizTypeToN8nType = (quizType: string): "vsl" | "ads" | "landing_page" | "email" => {
+  const typeMapping: Record<string, "vsl" | "ads" | "landing_page" | "email"> = {
+    'vsl': 'vsl',
+    'ads': 'ads',
+    'landing': 'landing_page',
+    'product': 'landing_page', // Estrutura de oferta usa landing_page
+    'email_marketing': 'email',
+    'sales_letter': 'landing_page',
+    'social_media': 'ads'
+  };
+
+  // Se for um template personalizado, extrair o tipo base
+  if (quizType.startsWith('template_')) {
+    // Para templates personalizados, usar landing_page como padrão
+    return 'landing_page';
+  }
+
+  return typeMapping[quizType] || 'landing_page';
+};
 
 export const QuizFlow = () => {
   const { user } = useAuth();
@@ -106,10 +126,14 @@ export const QuizFlow = () => {
       const targetAudience = answers.target_audience || answers.target || answers.publico_alvo || 'Público geral';
       const productInfo = answers.product_description || answers.product || answers.produto || 'Produto não especificado';
 
+      // Mapear o tipo de quiz para o tipo esperado pela API N8n
+      const n8nCopyType = mapQuizTypeToN8nType(selectedQuizType);
+      console.log('🔄 [QuizFlow] Mapeamento de tipo:', selectedQuizType, '->', n8nCopyType);
+
       const result = await generateCopyWithN8n(
         user.id,
         answers,
-        selectedQuizType,
+        n8nCopyType,
         targetAudience,
         productInfo
       );
