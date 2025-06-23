@@ -87,6 +87,21 @@ export const TokenMonitoringDashboard = () => {
     return <Badge variant="default">Normal</Badge>;
   };
 
+  const formatUserDisplay = (user: any) => {
+    const name = user.full_name;
+    const email = user.email;
+    
+    if (name && email) {
+      return `${name} (${email})`;
+    } else if (email) {
+      return email;
+    } else if (name) {
+      return `${name} (sem email)`;
+    } else {
+      return `Usuário ${user.id.slice(0, 8)}`;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header com ações */}
@@ -256,7 +271,7 @@ export const TokenMonitoringDashboard = () => {
               <div key={user.id} className="flex items-center justify-between p-3 border border-gray-600 rounded-lg bg-[#2A2A2A]">
                 <div className="flex-1">
                   <p className="font-medium text-sm text-white">
-                    {user.full_name || `Usuário ${user.id.slice(0, 8)}`}
+                    {formatUserDisplay(user)}
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatNumber(user.total_available)} créditos disponíveis • 
