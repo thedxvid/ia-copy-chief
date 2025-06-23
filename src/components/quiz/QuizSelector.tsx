@@ -23,47 +23,52 @@ interface QuizOption {
   isCustom?: boolean;
 }
 
-const standardQuizOptions: QuizOption[] = [{
-  id: 'vsl',
-  title: 'Vídeo de Vendas (VSL)',
-  description: 'Crie roteiros persuasivos para seus vídeos de vendas',
-  icon: Video,
-  color: 'text-red-400',
-  bgColor: 'bg-red-500/10 border-red-500/20',
-  questions: 10,
-  time: '5 min',
-  generates: 'Roteiro completo de VSL'
-}, {
-  id: 'product',
-  title: 'Estrutura de Oferta',
-  description: 'Monte ofertas irresistíveis com bônus e urgência',
-  icon: Package,
-  color: 'text-green-400',
-  bgColor: 'bg-green-500/10 border-green-500/20',
-  questions: 10,
-  time: '7 min',
-  generates: 'Oferta completa estruturada'
-}, {
-  id: 'landing',
-  title: 'Landing Page',
-  description: 'Páginas que convertem visitantes em clientes',
-  icon: MousePointer,
-  color: 'text-blue-400',
-  bgColor: 'bg-blue-500/10 border-blue-500/20',
-  questions: 10,
-  time: '5 min',
-  generates: 'Copy completa da página'
-}, {
-  id: 'ads',
-  title: 'Anúncios Pagos',
-  description: 'Anúncios que geram cliques e conversões',
-  icon: Megaphone,
-  color: 'text-purple-400',
-  bgColor: 'bg-purple-500/10 border-purple-500/20',
-  questions: 10,
-  time: '6 min',
-  generates: 'Múltiplas variações de anúncios'
-}];
+const standardQuizOptions: QuizOption[] = [
+  {
+    id: 'vsl',
+    title: 'Vídeo de Vendas (VSL)',
+    description: 'Crie roteiros persuasivos para seus vídeos de vendas',
+    icon: Video,
+    color: 'text-red-400',
+    bgColor: 'bg-red-500/10 border-red-500/20',
+    questions: 10,
+    time: '5 min',
+    generates: 'Roteiro completo de VSL'
+  },
+  {
+    id: 'product',
+    title: 'Estrutura de Oferta',
+    description: 'Monte ofertas irresistíveis com bônus e urgência',
+    icon: Package,
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/10 border-green-500/20',
+    questions: 10,
+    time: '7 min',
+    generates: 'Oferta completa estruturada'
+  },
+  {
+    id: 'landing',
+    title: 'Landing Page',
+    description: 'Páginas que convertem visitantes em clientes',
+    icon: MousePointer,
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/10 border-blue-500/20',
+    questions: 10,
+    time: '5 min',
+    generates: 'Copy completa da página'
+  },
+  {
+    id: 'ads',
+    title: 'Anúncios Pagos',
+    description: 'Anúncios que geram cliques e conversões',
+    icon: Megaphone,
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500/10 border-purple-500/20',
+    questions: 10,
+    time: '6 min',
+    generates: 'Múltiplas variações de anúncios'
+  }
+];
 
 interface QuizSelectorProps {
   onSelectQuiz: (quizType: string, productId?: string) => void;
@@ -113,6 +118,7 @@ export const QuizSelector: React.FC<QuizSelectorProps> = ({
   }, [templates, templatesLoading]);
 
   const handleQuizSelect = (quizType: string) => {
+    console.log('🎯 [QuizSelector] Quiz selecionado:', quizType, 'Produto:', selectedProductId);
     onSelectQuiz(quizType, selectedProductId);
   };
 

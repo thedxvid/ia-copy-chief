@@ -1,20 +1,13 @@
 
 import React, { useState } from 'react';
-import { QuizSelector } from '@/components/quiz/QuizSelector';
 import { QuizFlow } from '@/components/quiz/QuizFlow';
 import { QuizTemplateManager } from '@/components/quiz/QuizTemplateManager';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuizCopySave } from '@/hooks/useQuizCopySave';
-import { useN8nIntegration } from '@/hooks/useN8nIntegration';
-import { useQuizTemplates, parseQuestions } from '@/hooks/useQuizTemplates';
-import { Copy, Download, RotateCcw, History, AlertCircle, Settings } from 'lucide-react';
-import { toast } from 'sonner';
+import { AlertCircle, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useProducts } from '@/hooks/useProducts';
 
 const Quiz = () => {
   const [activeTab, setActiveTab] = useState<'quiz' | 'templates'>('quiz');

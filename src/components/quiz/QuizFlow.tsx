@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { QuizSelector } from './QuizSelector';
-import { useQuizTemplates } from '@/hooks/useQuizTemplates';
+import { useQuizTemplates, parseQuestions, type QuizQuestion } from '@/hooks/useQuizTemplates';
 import { useQuizCopySave } from '@/hooks/useQuizCopySave';
 import { useN8nIntegration } from '@/hooks/useN8nIntegration';
 import { useTokens } from '@/hooks/useTokens';
@@ -12,25 +12,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { ArrowRight, ArrowLeft, Sparkles, Save, AlertCircle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Sparkles, Save, AlertCircle, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface QuizTemplate {
-  id: string;
-  title: string;
-  description: string;
-  quiz_type: string;
-  questions: QuizQuestion[];
-}
-
-interface QuizQuestion {
-  id: string;
-  question_text: string;
-  question_type: string;
-  options: string[];
-  required: boolean;
-}
+import { getQuizQuestions, getQuizTitle } from '@/data/quizQuestions';
 
 export const QuizFlow = () => {
   const { user } = useAuth();
@@ -39,74 +26,110 @@ export const QuizFlow = () => {
   const { generateCopyWithN8n, isLoading: isGenerating } = useN8nIntegration();
   const { tokens, isOutOfTokens, showUpgradeModal, setShowUpgradeModal } = useTokens();
   
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [selectedQuizType, setSelectedQuizType] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [generatedCopy, setGeneratedCopy] = useState<any>(null);
   const [copyTitle, setCopyTitle] = useState('');
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
 
-  const isCurrentQuestionAnswered = () => {
-    if (!selectedTemplate || !selectedTemplate.questions) return false;
-    const question = selectedTemplate.questions[currentQuestionIndex];
-    return !!answers[question.id];
-  };
-
-  const handleAnswerChange = (questionId: string, value: any) => {
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
-  };
-
-  const handleTemplateSelect = (template: any) => {
+  const handleQuizSelect = async (quizType: string, productId?: string) => {
+    console.log('🎯 [QuizFlow] Quiz selecionado:', quizType, 'Produto:', productId);
+    
     // Verificar se há tokens disponíveis
     if (isOutOfTokens()) {
-      console.log('🚫 [Quiz] Usuário sem tokens - mostrando popup de upgrade');
+      console.log('🚫 [QuizFlow] Usuário sem tokens - mostrando popup de upgrade');
       setShowUpgradeModal(true);
       return;
     }
     
-    setSelectedTemplate(template);
-    setCurrentQuestionIndex(0);
-    setAnswers({});
-    setGeneratedCopy(null);
+    setSelectedQuizType(quizType);
+    setSelectedProductId(productId || '');
+    setIsLoadingQuestions(true);
+    
+    try {
+      // Carregar perguntas do quiz
+      const loadedQuestions = await getQuizQuestions(quizType);
+      console.log('📝 [QuizFlow] Perguntas carregadas:', loadedQuestions.length);
+      
+      setQuestions(loadedQuestions);
+      setCurrentQuestionIndex(0);
+      setAnswers({});
+      setGeneratedCopy(null);
+      setCopyTitle('');
+    } catch (error) {
+      console.error('❌ [QuizFlow] Erro ao carregar perguntas:', error);
+      toast.error('Erro ao carregar perguntas do quiz');
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
+  const handleProductChange = (productId: string | undefined) => {
+    setSelectedProductId(productId || '');
+  };
+
+  const isCurrentQuestionAnswered = () => {
+    if (!questions.length) return false;
+    const question = questions[currentQuestionIndex];
+    const answer = answers[question.id];
+    
+    // Para perguntas obrigatórias, verificar se há resposta
+    if (question.required) {
+      return answer && answer.toString().trim() !== '';
+    }
+    
+    return true; // Perguntas não obrigatórias sempre passam
+  };
+
+  const handleAnswerChange = (questionId: string, value: any) => {
+    console.log('📝 [QuizFlow] Resposta alterada:', questionId, value);
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
   const handleGenerateCopy = async () => {
-    if (!user || !selectedTemplate) return;
+    if (!user || !selectedQuizType || !questions.length) return;
 
     // Verificar se há tokens disponíveis antes de gerar
     if (isOutOfTokens()) {
-      console.log('🚫 [Quiz] Usuário sem tokens - mostrando popup de upgrade');
+      console.log('🚫 [QuizFlow] Usuário sem tokens - mostrando popup de upgrade');
       setShowUpgradeModal(true);
       return;
     }
 
     try {
-      console.log('🚀 [Quiz] Iniciando geração de copy');
+      console.log('🚀 [QuizFlow] Iniciando geração de copy');
+      console.log('📊 [QuizFlow] Respostas:', answers);
       
-      const targetAudience = answers.target_audience || 'Público geral';
-      const productInfo = answers.product_description || 'Produto não especificado';
+      const targetAudience = answers.target_audience || answers.target || answers.publico_alvo || 'Público geral';
+      const productInfo = answers.product_description || answers.product || answers.produto || 'Produto não especificado';
 
       const result = await generateCopyWithN8n(
         user.id,
         answers,
-        selectedTemplate.quiz_type,
+        selectedQuizType,
         targetAudience,
         productInfo
       );
 
-      console.log('✅ [Quiz] Copy gerado com sucesso:', result);
+      console.log('✅ [QuizFlow] Copy gerado com sucesso:', result);
       setGeneratedCopy(result);
-      setCopyTitle(`${selectedTemplate.title} - ${new Date().toLocaleDateString()}`);
+      
+      const quizTitle = getQuizTitle(selectedQuizType);
+      setCopyTitle(`${quizTitle} - ${new Date().toLocaleDateString()}`);
       
       toast.success('Copy gerado com sucesso!', {
         description: 'Seu conteúdo foi gerado e está pronto para ser salvo.'
       });
 
     } catch (error: any) {
-      console.error('❌ [Quiz] Erro na geração:', error);
+      console.error('❌ [QuizFlow] Erro na geração:', error);
       
       // Se o erro for relacionado a tokens, mostrar popup de upgrade
       if (error.message?.includes('token') || error.message?.includes('Tokens insuficientes')) {
-        console.log('🚫 [Quiz] Erro de tokens - mostrando popup de upgrade');
+        console.log('🚫 [QuizFlow] Erro de tokens - mostrando popup de upgrade');
         setShowUpgradeModal(true);
       } else {
         toast.error('Erro na geração', {
@@ -121,7 +144,7 @@ export const QuizFlow = () => {
 
     try {
       await saveQuizCopy({
-        quizType: selectedTemplate.quiz_type,
+        quizType: selectedQuizType,
         quizAnswers: answers,
         generatedCopy: {
           title: copyTitle,
@@ -138,32 +161,120 @@ export const QuizFlow = () => {
     }
   };
 
-  if (templatesLoading) {
+  const renderQuestionInput = (question: QuizQuestion) => {
+    const value = answers[question.id] || '';
+    
+    switch (question.type) {
+      case 'text':
+        return (
+          <Input
+            type="text"
+            id={`question-${currentQuestionIndex}`}
+            placeholder={question.placeholder}
+            value={value}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="bg-[#1E1E1E] border-[#4B5563]/20 text-white"
+          />
+        );
+      
+      case 'textarea':
+        return (
+          <Textarea
+            id={`question-${currentQuestionIndex}`}
+            placeholder={question.placeholder}
+            value={value}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="bg-[#1E1E1E] border-[#4B5563]/20 text-white min-h-[100px]"
+            maxLength={question.maxLength}
+          />
+        );
+      
+      case 'select':
+        return (
+          <Select value={value} onValueChange={(val) => handleAnswerChange(question.id, val)}>
+            <SelectTrigger className="bg-[#1E1E1E] border-[#4B5563]/20 text-white">
+              <SelectValue placeholder="Selecione uma opção" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1E1E1E] border-[#4B5563]/20">
+              {question.options?.map((option, index) => (
+                <SelectItem key={index} value={option} className="text-white hover:bg-[#3B82F6]/20">
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      
+      case 'radio':
+        return (
+          <RadioGroup value={value} onValueChange={(val) => handleAnswerChange(question.id, val)}>
+            {question.options?.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <RadioGroupItem value={option} id={`option-${index}`} />
+                <Label htmlFor={`option-${index}`} className="text-white cursor-pointer">
+                  {option}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        );
+      
+      case 'number':
+        return (
+          <Input
+            type="number"
+            id={`question-${currentQuestionIndex}`}
+            placeholder={question.placeholder}
+            value={value}
+            min={question.min}
+            max={question.max}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="bg-[#1E1E1E] border-[#4B5563]/20 text-white"
+          />
+        );
+      
+      default:
+        return (
+          <Input
+            type="text"
+            id={`question-${currentQuestionIndex}`}
+            placeholder={question.placeholder}
+            value={value}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="bg-[#1E1E1E] border-[#4B5563]/20 text-white"
+          />
+        );
+    }
+  };
+
+  if (templatesLoading || isLoadingQuestions) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Carregando templates...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3B82F6] mx-auto mb-4"></div>
+          <p className="text-white">
+            {templatesLoading ? 'Carregando templates...' : 'Carregando perguntas...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Template selection screen
-  if (!selectedTemplate) {
+  // Tela de seleção de quiz
+  if (!selectedQuizType || !questions.length) {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Escolha o Tipo de Copy</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl font-bold mb-2 text-white">Escolha o Tipo de Copy</h2>
+          <p className="text-[#CCCCCC]">
             Selecione o template que melhor se adequa ao seu objetivo
           </p>
           
           {/* Aviso de tokens baixos - mas não bloqueia */}
           {tokens && tokens.total_available < 500 && tokens.total_available > 0 && (
-            <Card className="mt-4 border-orange-200 bg-orange-50">
+            <Card className="mt-4 border-orange-500/20 bg-orange-500/10">
               <CardContent className="pt-4">
-                <div className="flex items-center gap-2 text-orange-700">
+                <div className="flex items-center gap-2 text-orange-300">
                   <AlertCircle className="h-4 w-4" />
                   <p className="text-sm">
                     Você possui {tokens.total_available.toLocaleString()} tokens. 
@@ -175,7 +286,11 @@ export const QuizFlow = () => {
           )}
         </div>
         
-        <QuizSelector onSelectQuiz={handleTemplateSelect} />
+        <QuizSelector 
+          onSelectQuiz={handleQuizSelect}
+          selectedProductId={selectedProductId}
+          onProductChange={handleProductChange}
+        />
         
         <TokenUpgradeModal
           isOpen={showUpgradeModal}
@@ -189,99 +304,89 @@ export const QuizFlow = () => {
 
   return (
     <div className="space-y-6">
-      {/* Quiz progress and questions */}
+      {/* Quiz em andamento */}
       {!generatedCopy && (
-        <Card>
+        <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  {selectedTemplate.title}
-                  <Badge variant="secondary">{selectedTemplate.quiz_type}</Badge>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  {getQuizTitle(selectedQuizType)}
+                  <Badge variant="secondary" className="bg-[#3B82F6]/20 text-[#3B82F6]">
+                    {selectedQuizType}
+                  </Badge>
                 </CardTitle>
-                <CardDescription>{selectedTemplate.description}</CardDescription>
+                <CardDescription className="text-[#CCCCCC]">
+                  Responda as perguntas para gerar sua copy personalizada
+                </CardDescription>
               </div>
-              <Badge variant="outline">
-                {currentQuestionIndex + 1} / {selectedTemplate.questions?.length || 0}
+              <Badge variant="outline" className="border-[#4B5563]/20 text-[#CCCCCC]">
+                {currentQuestionIndex + 1} / {questions.length}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Progress bar */}
-            <div className="w-full bg-muted rounded-full h-2">
+            {/* Barra de progresso */}
+            <div className="w-full bg-[#4B5563]/20 rounded-full h-2">
               <div
-                className="bg-primary h-2 rounded-full transition-all duration-300"
+                className="bg-[#3B82F6] h-2 rounded-full transition-all duration-300"
                 style={{
-                  width: `${((currentQuestionIndex + 1) / (selectedTemplate.questions?.length || 1)) * 100}%`
+                  width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`
                 }}
               />
             </div>
 
-            {/* Current question */}
-            {selectedTemplate.questions && selectedTemplate.questions[currentQuestionIndex] && (
+            {/* Pergunta atual */}
+            {questions[currentQuestionIndex] && (
               <div className="space-y-4">
-                <Label htmlFor={`question-${currentQuestionIndex}`}>
-                  {selectedTemplate.questions[currentQuestionIndex].question_text}
-                </Label>
-                {selectedTemplate.questions[currentQuestionIndex].question_type === 'text' && (
-                  <Input
-                    type="text"
-                    id={`question-${currentQuestionIndex}`}
-                    value={answers[selectedTemplate.questions[currentQuestionIndex].id] || ''}
-                    onChange={(e) =>
-                      handleAnswerChange(selectedTemplate.questions[currentQuestionIndex].id, e.target.value)
-                    }
-                  />
+                <div className="flex items-start gap-2">
+                  <Label htmlFor={`question-${currentQuestionIndex}`} className="text-white text-base font-medium">
+                    {questions[currentQuestionIndex].question}
+                    {questions[currentQuestionIndex].required && (
+                      <span className="text-red-400 ml-1">*</span>
+                    )}
+                  </Label>
+                </div>
+                
+                {questions[currentQuestionIndex].helpText && (
+                  <p className="text-sm text-[#CCCCCC] -mt-2">
+                    {questions[currentQuestionIndex].helpText}
+                  </p>
                 )}
-                {selectedTemplate.questions[currentQuestionIndex].question_type === 'textarea' && (
-                  <Textarea
-                    id={`question-${currentQuestionIndex}`}
-                    value={answers[selectedTemplate.questions[currentQuestionIndex].id] || ''}
-                    onChange={(e) =>
-                      handleAnswerChange(selectedTemplate.questions[currentQuestionIndex].id, e.target.value)
-                    }
-                  />
-                )}
-                {selectedTemplate.questions[currentQuestionIndex].question_type === 'select' && (
-                  <select
-                    id={`question-${currentQuestionIndex}`}
-                    className="w-full px-4 py-2 rounded-md bg-white border border-gray-300 focus:outline-none focus:border-primary"
-                    value={answers[selectedTemplate.questions[currentQuestionIndex].id] || ''}
-                    onChange={(e) =>
-                      handleAnswerChange(selectedTemplate.questions[currentQuestionIndex].id, e.target.value)
-                    }
-                  >
-                    <option value="">Selecione uma opção</option>
-                    {selectedTemplate.questions[currentQuestionIndex].options?.map((option, index) => (
-                      <option key={index} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
+                
+                {renderQuestionInput(questions[currentQuestionIndex])}
+                
+                {questions[currentQuestionIndex].maxLength && (
+                  <div className="text-xs text-[#888888] text-right">
+                    {(answers[questions[currentQuestionIndex].id] || '').length} / {questions[currentQuestionIndex].maxLength} caracteres
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Navigation buttons */}
+            {/* Botões de navegação */}
             <div className="flex justify-between pt-4">
               <Button
                 variant="outline"
                 onClick={() => {
                   if (currentQuestionIndex === 0) {
-                    setSelectedTemplate(null);
+                    setSelectedQuizType('');
+                    setQuestions([]);
+                    setAnswers({});
                   } else {
                     setCurrentQuestionIndex(prev => prev - 1);
                   }
                 }}
+                className="border-[#4B5563]/20 text-white hover:bg-[#4B5563]/20"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 {currentQuestionIndex === 0 ? 'Voltar' : 'Anterior'}
               </Button>
 
-              {currentQuestionIndex === (selectedTemplate.questions?.length || 1) - 1 ? (
+              {currentQuestionIndex === questions.length - 1 ? (
                 <Button
                   onClick={handleGenerateCopy}
-                  disabled={isGenerating}
+                  disabled={isGenerating || !isCurrentQuestionAnswered()}
                   className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                 >
                   {isGenerating ? (
@@ -300,6 +405,7 @@ export const QuizFlow = () => {
                 <Button
                   onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
                   disabled={!isCurrentQuestionAnswered()}
+                  className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
                 >
                   Próxima
                   <ArrowRight className="h-4 w-4 ml-2" />
@@ -310,32 +416,37 @@ export const QuizFlow = () => {
         </Card>
       )}
 
-      {/* Generated copy display */}
+      {/* Copy gerado */}
       {generatedCopy && (
-        <Card>
+        <Card className="bg-[#1E1E1E] border-[#4B5563]/20">
           <CardHeader>
-            <CardTitle>Resultado da Geração</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-white">Resultado da Geração</CardTitle>
+            <CardDescription className="text-[#CCCCCC]">
               Aqui está o copy gerado com base nas suas respostas
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="copy-title">Título da Copy</Label>
+              <Label htmlFor="copy-title" className="text-white">Título da Copy</Label>
               <Input
                 type="text"
                 id="copy-title"
                 placeholder="Título da sua copy"
                 value={copyTitle}
                 onChange={(e) => setCopyTitle(e.target.value)}
+                className="bg-[#1E1E1E] border-[#4B5563]/20 text-white"
               />
             </div>
             <Textarea
-              className="min-h-[200px] resize-none bg-muted/50"
+              className="min-h-[300px] resize-none bg-[#1E1E1E] border-[#4B5563]/20 text-white"
               readOnly
               value={generatedCopy.result}
             />
-            <Button onClick={handleSaveCopy} className="w-full">
+            <Button 
+              onClick={handleSaveCopy} 
+              className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+              disabled={!copyTitle.trim()}
+            >
               <Save className="h-4 w-4 mr-2" />
               Salvar Copy
             </Button>
@@ -343,7 +454,7 @@ export const QuizFlow = () => {
         </Card>
       )}
 
-      {/* Token upgrade modal */}
+      {/* Modal de upgrade de tokens */}
       <TokenUpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
