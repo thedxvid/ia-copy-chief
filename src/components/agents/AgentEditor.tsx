@@ -88,17 +88,27 @@ export const AgentEditor: React.FC<AgentEditorProps> = ({
           setIconName(agent.icon_name);
         }
       } else if (duplicateFromAgent) {
-        // Duplicar agente
+        // Verificar se é um agente padrão - BLOQUEAR duplicação
+        const isDefaultAgent = !duplicateFromAgent.id || typeof duplicateFromAgent.id === 'string' && !duplicateFromAgent.user_id;
+        
+        if (isDefaultAgent) {
+          console.warn('Tentativa de duplicar agente padrão bloqueada por segurança');
+          // Fechar o editor e não permitir duplicação
+          onClose();
+          return;
+        }
+        
+        // Duplicar apenas agentes customizados
         setName(`${duplicateFromAgent.name} (Cópia)`);
         setDescription(duplicateFromAgent.description || '');
         setPrompt(duplicateFromAgent.prompt);
-        setIconName(duplicateFromAgent.icon || '🤖');
+        setIconName(duplicateFromAgent.icon_name || '🤖');
       } else {
         // Novo agente
         resetForm();
       }
     }
-  }, [isOpen, agentId, duplicateFromAgent, customAgents]);
+  }, [isOpen, agentId, duplicateFromAgent, customAgents, onClose]);
 
   const resetForm = () => {
     setName('');

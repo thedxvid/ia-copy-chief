@@ -32,7 +32,8 @@ export const AgentsList: React.FC = () => {
     setIsEditorOpen(true);
   };
 
-  const handleDuplicate = (agent: any) => {
+  // Função de duplicar apenas para agentes customizados
+  const handleDuplicateCustomAgent = (agent: any) => {
     setEditingAgentId(undefined);
     setDuplicateFromAgent(agent);
     setIsEditorOpen(true);
@@ -96,7 +97,7 @@ export const AgentsList: React.FC = () => {
         </Button>
       </div>
 
-      {/* Agentes Padrão */}
+      {/* Agentes Padrão - SEM botão de duplicar */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Agentes Padrão</h3>
         <div className="grid gap-4">
@@ -116,15 +117,7 @@ export const AgentsList: React.FC = () => {
                       </Badge>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDuplicate(agent)}
-                    className="text-[#CCCCCC] hover:text-white hover:bg-[#4B5563]/20"
-                    title="Duplicar e editar"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
+                  {/* Removido o botão de duplicar para agentes padrão */}
                 </div>
               </CardHeader>
             </Card>
@@ -132,7 +125,7 @@ export const AgentsList: React.FC = () => {
         </div>
       </div>
 
-      {/* Agentes Personalizados */}
+      {/* Agentes Personalizados - COM botão de duplicar */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Meus Agentes Personalizados</h3>
         {customAgents.length === 0 ? (
@@ -143,7 +136,7 @@ export const AgentsList: React.FC = () => {
                 Nenhum agente personalizado ainda
               </h3>
               <p className="text-[#CCCCCC] mb-6">
-                Crie seus próprios agentes ou duplique um agente padrão para personalizar.
+                Crie seus próprios agentes personalizados do zero.
               </p>
               <Button
                 onClick={handleCreateNew}
@@ -190,7 +183,7 @@ export const AgentsList: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDuplicate(agent)}
+                        onClick={() => handleDuplicateCustomAgent(agent)}
                         className="text-[#CCCCCC] hover:text-white hover:bg-[#4B5563]/20"
                         title="Duplicar agente"
                       >
