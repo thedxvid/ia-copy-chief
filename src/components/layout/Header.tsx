@@ -75,9 +75,7 @@ export const Header = () => {
                   </Button>
                 </Link>
                 <Link to="/auth?mode=signup">
-                  <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">
-                    Começar Grátis
-                  </Button>
+                  <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">Começar Agora</Button>
                 </Link>
               </div>}
           </div>
