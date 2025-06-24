@@ -38,60 +38,94 @@ export const useTokenMonitoring = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserEmails = async (userIds: string[]): Promise<Map<string, string>> => {
+    console.log('🔍 DIAGNÓSTICO: Iniciando busca de emails para', userIds.length, 'usuários');
+    
+    // Método 1: Tentar edge function primeiro
     try {
-      console.log('📧 EMAILS: Buscando emails para', userIds.length, 'usuários usando edge function...');
+      console.log('📧 MÉTODO 1: Tentando edge function get-user-emails...');
       
-      // Tentar usar a edge function get-user-emails primeiro
       const { data: emailsData, error: emailsError } = await supabase.functions.invoke('get-user-emails', {
         body: { user_ids: userIds }
       });
 
+      console.log('📧 EDGE FUNCTION RESPONSE:', {
+        data: emailsData,
+        error: emailsError,
+        dataType: typeof emailsData,
+        isArray: Array.isArray(emailsData),
+        dataLength: emailsData?.length
+      });
+
       if (emailsError) {
-        console.warn('⚠️ EMAILS: Erro na edge function:', emailsError);
+        console.error('❌ EDGE FUNCTION ERROR:', emailsError);
         throw emailsError;
       }
 
-      if (emailsData && Array.isArray(emailsData)) {
+      if (emailsData && Array.isArray(emailsData) && emailsData.length > 0) {
         const emailMap = new Map<string, string>();
         emailsData.forEach((user: { id: string; email: string }) => {
+          console.log('📧 PROCESSANDO USUÁRIO DA EDGE FUNCTION:', { id: user.id?.slice(0, 8), email: user.email });
           if (user.email) {
             emailMap.set(user.id, user.email);
           }
         });
-        console.log('✅ EMAILS: Edge function retornou', emailMap.size, 'emails');
+        console.log('✅ EDGE FUNCTION SUCESSO:', emailMap.size, 'emails encontrados');
+        console.log('📧 EMAILS MAPEADOS:', Array.from(emailMap.entries()).slice(0, 3));
         return emailMap;
+      } else {
+        console.warn('⚠️ EDGE FUNCTION: Dados vazios ou inválidos:', emailsData);
       }
     } catch (edgeFunctionError) {
-      console.warn('⚠️ EMAILS: Edge function falhou, tentando RPC fallback:', edgeFunctionError);
+      console.error('❌ EDGE FUNCTION FALHOU COMPLETAMENTE:', edgeFunctionError);
     }
 
-    // Fallback: usar a função RPC
+    // Método 2: Fallback para RPC
     try {
-      console.log('📧 EMAILS: Tentando RPC fallback...');
+      console.log('📧 MÉTODO 2: Tentando RPC fallback get_user_emails...');
+      
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('get_user_emails', { user_ids: userIds });
 
+      console.log('📧 RPC RESPONSE:', {
+        data: rpcData,
+        error: rpcError,
+        dataType: typeof rpcData,
+        isArray: Array.isArray(rpcData),
+        dataLength: rpcData?.length
+      });
+
       if (rpcError) {
-        console.warn('⚠️ EMAILS: Erro na função RPC:', rpcError);
+        console.error('❌ RPC ERROR:', rpcError);
         throw rpcError;
       }
 
-      if (rpcData && Array.isArray(rpcData)) {
+      if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
         const emailMap = new Map<string, string>();
         rpcData.forEach((user: { id: string; email: string }) => {
+          console.log('📧 PROCESSANDO USUÁRIO DO RPC:', { id: user.id?.slice(0, 8), email: user.email });
           if (user.email) {
             emailMap.set(user.id, user.email);
           }
         });
-        console.log('✅ EMAILS: RPC retornou', emailMap.size, 'emails');
+        console.log('✅ RPC SUCESSO:', emailMap.size, 'emails encontrados');
+        console.log('📧 EMAILS MAPEADOS:', Array.from(emailMap.entries()).slice(0, 3));
         return emailMap;
+      } else {
+        console.warn('⚠️ RPC: Dados vazios ou inválidos:', rpcData);
       }
     } catch (rpcError) {
-      console.error('❌ EMAILS: Ambos os métodos falharam:', rpcError);
+      console.error('❌ RPC FALHOU COMPLETAMENTE:', rpcError);
     }
 
-    // Se tudo falhar, retornar mapa vazio
-    console.warn('⚠️ EMAILS: Não foi possível buscar emails, retornando mapa vazio');
+    // Se tudo falhar, retornar mapa vazio mas com log detalhado
+    console.error('❌ TODOS OS MÉTODOS FALHARAM - Retornando mapa vazio');
+    console.log('🔍 DIAGNÓSTICO FINAL: Nenhum método conseguiu buscar emails');
+    
+    toast.error('Erro ao buscar emails', {
+      description: 'Não foi possível carregar os emails dos usuários. Verifique as permissões.',
+      duration: 5000,
+    });
+
     return new Map<string, string>();
   };
 
@@ -103,25 +137,24 @@ export const useTokenMonitoring = () => {
       console.log('🔍 MONITORAMENTO: Iniciando busca de estatísticas de créditos...');
 
       // Buscar TODOS os usuários da tabela profiles
-      console.log('📊 MONITORAMENTO: Buscando todos os profiles...');
-      
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      console.log('📊 MONITORAMENTO: Query executada - Resultado:', { 
+      console.log('📊 PROFILES DATA:', { 
         profiles: profilesData?.length || 0, 
-        error: profilesError 
+        error: profilesError,
+        firstProfile: profilesData?.[0]
       });
 
       if (profilesError) {
-        console.error('❌ MONITORAMENTO: Erro ao buscar profiles:', profilesError);
+        console.error('❌ ERRO AO BUSCAR PROFILES:', profilesError);
         throw profilesError;
       }
 
       if (!profilesData || profilesData.length === 0) {
-        console.log('⚠️ MONITORAMENTO: Nenhum perfil encontrado');
+        console.log('⚠️ NENHUM PERFIL ENCONTRADO');
         setStats({
           totalUsers: 0,
           totalTokensUsed: 0,
@@ -134,21 +167,26 @@ export const useTokenMonitoring = () => {
         return;
       }
 
-      console.log('👥 MONITORAMENTO: Total de profiles encontrados:', profilesData.length);
+      console.log('👥 TOTAL DE PROFILES:', profilesData.length);
 
       // Buscar emails usando as funções disponíveis
       const userIds = profilesData.map(profile => profile.id);
+      console.log('🔍 IDS DOS USUÁRIOS PARA BUSCAR EMAILS:', userIds.slice(0, 3), '...e mais', userIds.length - 3);
+      
       const emailMap = await fetchUserEmails(userIds);
+      
+      console.log('📧 RESULTADO FINAL DO MAPEAMENTO DE EMAILS:', {
+        totalEmails: emailMap.size,
+        totalUsuarios: userIds.length,
+        percentualSucesso: ((emailMap.size / userIds.length) * 100).toFixed(1) + '%',
+        primeirosEmails: Array.from(emailMap.entries()).slice(0, 3)
+      });
 
-      console.log('📧 EMAILS: Mapa final de emails criado:', emailMap.size, 'usuários com email');
-
-      // Processar usuários
+      // Processar usuários com emails
       const processedUsers: UserTokenData[] = [];
       
       for (const profile of profilesData) {
         try {
-          console.log(`🔄 MONITORAMENTO: RPC para usuário ${profile.id.slice(0, 8)}...`);
-          
           // Usar a função RPC para obter dados corretos
           const { data: tokenData, error: tokenError } = await supabase
             .rpc('check_token_balance', { p_user_id: profile.id });
@@ -156,8 +194,17 @@ export const useTokenMonitoring = () => {
           // Buscar email do mapa
           const userEmail = emailMap.get(profile.id) || null;
 
+          if (profile.id === profilesData[0].id) {
+            console.log('📧 TESTE PRIMEIRO USUÁRIO:', {
+              id: profile.id.slice(0, 8),
+              nome: profile.full_name,
+              emailEncontrado: userEmail,
+              estavaNoMapa: emailMap.has(profile.id)
+            });
+          }
+
           if (tokenError) {
-            console.warn(`⚠️ MONITORAMENTO: Erro RPC para usuário ${profile.id.slice(0, 8)}:`, tokenError);
+            console.warn(`⚠️ RPC erro para usuário ${profile.id.slice(0, 8)}:`, tokenError);
             
             // Fallback para cálculo manual
             const totalAvailable = Math.max(0, 
@@ -181,13 +228,6 @@ export const useTokenMonitoring = () => {
             });
           } else if (tokenData && tokenData.length > 0) {
             const data = tokenData[0];
-            console.log(`✅ MONITORAMENTO: RPC sucesso para ${profile.id.slice(0, 8)}:`, {
-              totalAvailable: data.total_available,
-              monthlyTokens: data.monthly_tokens,
-              extraTokens: data.extra_tokens,
-              totalUsed: data.total_used,
-              email: userEmail
-            });
             
             const totalAvailable = data.total_available;
             const totalPossible = data.monthly_tokens + data.extra_tokens;
@@ -208,9 +248,11 @@ export const useTokenMonitoring = () => {
             });
           }
         } catch (userError) {
-          console.warn(`⚠️ MONITORAMENTO: Erro ao processar usuário ${profile.id.slice(0, 8)}:`, userError);
+          console.warn(`⚠️ Erro ao processar usuário ${profile.id.slice(0, 8)}:`, userError);
           
-          // Fallback para cálculo manual
+          // Fallback com email do mapa
+          const userEmail = emailMap.get(profile.id) || null;
+          
           const totalAvailable = Math.max(0, 
             (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) - (profile.total_tokens_used || 0)
           );
@@ -218,9 +260,6 @@ export const useTokenMonitoring = () => {
           const usagePercentage = (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) > 0 
             ? Math.round(((profile.total_tokens_used || 0) / ((profile.monthly_tokens || 0) + (profile.extra_tokens || 0))) * 100)
             : 0;
-
-          // Buscar email do mapa mesmo no fallback
-          const userEmail = emailMap.get(profile.id) || null;
 
           processedUsers.push({
             id: profile.id,
@@ -236,15 +275,15 @@ export const useTokenMonitoring = () => {
         }
       }
 
-      console.log('✅ MONITORAMENTO: Usuários processados:', processedUsers.length);
+      console.log('✅ USUÁRIOS PROCESSADOS:', processedUsers.length);
       console.log('📧 USUÁRIOS COM EMAIL:', processedUsers.filter(u => u.email).length);
-      console.log('📧 PRIMEIROS 3 USUÁRIOS:', processedUsers.slice(0, 3).map(u => ({
+      console.log('📧 PRIMEIROS 3 USUÁRIOS PROCESSADOS:', processedUsers.slice(0, 3).map(u => ({
         name: u.full_name,
         email: u.email,
         id: u.id.slice(0, 8)
       })));
 
-      // Calcular estatísticas usando dados corretos
+      // Calcular estatísticas
       const totalUsers = processedUsers.length;
       const totalTokensUsed = processedUsers.reduce((sum, u) => sum + u.total_tokens_used, 0);
       const totalTokensAvailable = processedUsers.reduce((sum, u) => sum + u.total_available, 0);
@@ -267,16 +306,26 @@ export const useTokenMonitoring = () => {
         usersOutOfTokens
       };
 
-      console.log('📈 MONITORAMENTO: Estatísticas calculadas:', calculatedStats);
+      console.log('📈 ESTATÍSTICAS CALCULADAS:', calculatedStats);
 
       // Definir os dados
       setStats(calculatedStats);
       setUserDetails(processedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
 
-      console.log('✅ MONITORAMENTO: Dados definidos com sucesso - Total de usuários:', processedUsers.length);
+      console.log('✅ DADOS DEFINIDOS COM SUCESSO');
+      
+      // Toast de sucesso com informações sobre emails
+      const emailInfo = emailMap.size > 0 ? 
+        ` • ${emailMap.size} emails carregados` : 
+        ' • Emails não disponíveis';
+
+      toast.success('📊 Dashboard atualizado!', {
+        description: `${processedUsers.length} usuários processados${emailInfo}`,
+        duration: 3000,
+      });
 
     } catch (err) {
-      console.error('❌ MONITORAMENTO: Erro ao buscar estatísticas de créditos:', err);
+      console.error('❌ ERRO GERAL:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       
       toast.error('Erro ao carregar dados', {
@@ -292,28 +341,15 @@ export const useTokenMonitoring = () => {
     try {
       console.log('📊 AUDITORIA: Iniciando busca de histórico de uso...');
 
-      // Buscar registros dos últimos 30 dias com logs detalhados
+      // Buscar registros dos últimos 30 dias
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      console.log('📅 AUDITORIA: Buscando registros desde:', thirtyDaysAgo.toISOString());
-
       const { data: usage, error: usageError } = await supabase
         .from('token_usage')
         .select('created_at, tokens_used, feature_used, user_id, prompt_tokens, completion_tokens, total_tokens')
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
-
-      console.log('📈 AUDITORIA: Histórico de uso encontrado:', {
-        registros: usage?.length || 0, 
-        error: usageError,
-        ultimosRegistros: usage?.slice(0, 3).map(r => ({
-          data: r.created_at,
-          tokens: r.tokens_used,
-          feature: r.feature_used,
-          total: r.total_tokens
-        }))
-      });
 
       if (usageError) {
         console.error('❌ AUDITORIA: Erro ao buscar histórico:', usageError);
@@ -349,22 +385,10 @@ export const useTokenMonitoring = () => {
       const dailyUsage: { [key: string]: TokenUsageHistory } = {};
       const uniqueUsers: { [key: string]: Set<string> } = {};
 
-      usage.forEach((record, index) => {
-        // Usar UTC para evitar problemas de timezone
+      usage.forEach((record) => {
         const date = new Date(record.created_at);
         const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
         const dateKey = utcDate.toISOString().split('T')[0];
-        
-        if (index < 5) { // Log apenas os primeiros 5 para debug
-          console.log(`📅 AUDITORIA: Processando registro ${index + 1}:`, {
-            originalDate: record.created_at,
-            processedDate: dateKey,
-            tokens: record.tokens_used,
-            totalTokens: record.total_tokens,
-            feature: record.feature_used,
-            userId: record.user_id?.slice(0, 8)
-          });
-        }
         
         if (!dailyUsage[dateKey]) {
           dailyUsage[dateKey] = {
@@ -376,7 +400,6 @@ export const useTokenMonitoring = () => {
           uniqueUsers[dateKey] = new Set();
         }
 
-        // Usar o campo mais apropriado para tokens
         const tokensToAdd = record.total_tokens || record.tokens_used || 0;
         dailyUsage[dateKey].total_tokens_used += tokensToAdd;
         uniqueUsers[dateKey].add(record.user_id);
@@ -397,44 +420,7 @@ export const useTokenMonitoring = () => {
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      console.log('📊 AUDITORIA: Histórico processado:', {
-        diasProcessados: historyArray.length,
-        totalTokensNoPeriodo: historyArray.reduce((sum, day) => sum + day.total_tokens_used, 0),
-        diasComMaisUso: historyArray.slice(0, 3).map(day => ({
-          data: day.date,
-          tokens: day.total_tokens_used,
-          usuarios: day.unique_users
-        })),
-        diasVazios: historyArray.filter(day => day.total_tokens_used === 0).length
-      });
-
-      // AUDITORIA: Verificar se há dias com muito pouco uso (possível perda de dados)
-      const suspiciouslyLowDays = historyArray.filter(day => 
-        day.total_tokens_used > 0 && day.total_tokens_used < 500
-      );
-
-      if (suspiciouslyLowDays.length > 0) {
-        console.warn('⚠️ AUDITORIA: Dias com uso suspeitosamente baixo:', {
-          quantidade: suspiciouslyLowDays.length,
-          exemplos: suspiciouslyLowDays.slice(0, 3).map(day => ({
-            data: day.date,
-            tokens: day.total_tokens_used,
-            usuarios: day.unique_users
-          }))
-        });
-      }
-
       setUsageHistory(historyArray.slice(0, 30));
-
-      // Toast de sucesso com informações de auditoria
-      const auditInfo = inconsistentRecords.length > 0 ? 
-        ` • ${inconsistentRecords.length} inconsistências detectadas` : 
-        ' • Dados consistentes';
-
-      toast.success('📊 Histórico atualizado!', {
-        description: `${historyArray.length} dias processados${auditInfo}`,
-        duration: 5000,
-      });
 
     } catch (err) {
       console.error('❌ AUDITORIA: Erro ao buscar histórico de uso:', err);
@@ -612,7 +598,7 @@ export const useTokenMonitoring = () => {
         ['Nome', 'Email', 'Créditos Mensais', 'Créditos Extra', 'Total Disponível', 'Créditos Usados', 'Uso (%)', 'Data Reset'],
         ...userDetails.map(user => [
           user.full_name || 'Sem nome',
-          user.email || 'Sem email',
+          user.email || 'Email não disponível',
           user.monthly_tokens,
           user.extra_tokens,
           user.total_available,
@@ -650,9 +636,9 @@ export const useTokenMonitoring = () => {
 
   // Função para refresh manual
   const forceRefresh = useCallback(async () => {
-    console.log('🔄 AUDITORIA: Refresh manual iniciado...');
-    toast.info('🔍 Auditando sistema...', {
-      description: 'Carregando dados mais recentes e verificando consistência',
+    console.log('🔄 FORCE REFRESH INICIADO - Limpando cache e recarregando...');
+    toast.info('🔍 Recarregando dados...', {
+      description: 'Verificando emails e atualizando informações',
       duration: 2000,
     });
     
@@ -663,7 +649,7 @@ export const useTokenMonitoring = () => {
   }, [fetchTokenStats, fetchUsageHistory]);
 
   useEffect(() => {
-    console.log('🚀 AUDITORIA: Iniciando carregamento do dashboard de monitoramento...');
+    console.log('🚀 INICIANDO DASHBOARD DE MONITORAMENTO...');
     fetchTokenStats();
     fetchUsageHistory();
   }, [fetchTokenStats, fetchUsageHistory]);

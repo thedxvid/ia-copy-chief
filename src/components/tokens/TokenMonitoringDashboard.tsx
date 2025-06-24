@@ -14,7 +14,9 @@ import {
   RefreshCw,
   Calendar,
   BarChart3,
-  Zap
+  Zap,
+  Mail,
+  MailX
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -88,20 +90,35 @@ export const TokenMonitoringDashboard = () => {
   };
 
   const formatUserDisplay = (user: any) => {
-    const name = user.full_name;
-    const email = user.email;
-    
-    // Priorizar exibição clara do email
-    if (name && email) {
-      return `${name} (${email})`;
-    } else if (email) {
-      return email;
-    } else if (name) {
-      return `${name} (sem email)`;
+    if (user.email) {
+      // Se tem email, priorizar a exibição do email
+      if (user.full_name) {
+        return `${user.full_name} (${user.email})`;
+      } else {
+        return user.email;
+      }
     } else {
-      return `Usuário ${user.id.slice(0, 8)}`;
+      // Se não tem email, mostrar nome ou fallback
+      if (user.full_name) {
+        return `${user.full_name} (email não disponível)`;
+      } else {
+        return `Usuário ${user.id.slice(0, 8)} (email não disponível)`;
+      }
     }
   };
+
+  const getUserEmailIcon = (user: any) => {
+    return user.email ? (
+      <Mail className="h-3 w-3 text-green-500" />
+    ) : (
+      <MailX className="h-3 w-3 text-red-500" />
+    );
+  };
+
+  // Estatísticas de emails
+  const usersWithEmail = userDetails.filter(u => u.email).length;
+  const usersWithoutEmail = userDetails.length - usersWithEmail;
+  const emailPercentage = userDetails.length > 0 ? ((usersWithEmail / userDetails.length) * 100).toFixed(1) : '0';
 
   return (
     <div className="space-y-6">
@@ -130,6 +147,32 @@ export const TokenMonitoringDashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Card de status dos emails */}
+      <Card className="bg-[#1E1E1E] border-[#4B5563]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Mail className="h-5 w-5" />
+            Status dos Emails
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-500">{usersWithEmail}</div>
+              <p className="text-sm text-gray-400">Com email</p>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-500">{usersWithoutEmail}</div>
+              <p className="text-sm text-gray-400">Sem email</p>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-500">{emailPercentage}%</div>
+              <p className="text-sm text-gray-400">Taxa de sucesso</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Cards de estatísticas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -258,28 +301,33 @@ export const TokenMonitoringDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Lista de usuários com emails destacados */}
+      {/* Lista de usuários com emails em destaque */}
       <Card className="bg-[#1E1E1E] border-[#4B5563]">
         <CardHeader>
           <CardTitle className="text-white">Detalhes dos Usuários</CardTitle>
           <CardDescription>
-            Lista de usuários ordenada por maior uso de créditos • {userDetails.filter(u => u.email).length} usuários com email identificado
+            Lista de usuários ordenada por maior uso de créditos • 
+            <span className="text-green-400">{usersWithEmail} com email</span> • 
+            <span className="text-red-400">{usersWithoutEmail} sem email</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {userDetails.slice(0, 20).map((user) => (
+            {userDetails.slice(0, 25).map((user) => (
               <div key={user.id} className="flex items-center justify-between p-3 border border-gray-600 rounded-lg bg-[#2A2A2A]">
                 <div className="flex-1">
-                  <p className="font-medium text-sm text-white">
-                    {formatUserDisplay(user)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {getUserEmailIcon(user)}
+                    <p className="font-medium text-sm text-white">
+                      {formatUserDisplay(user)}
+                    </p>
+                  </div>
                   {user.email && (
-                    <p className="text-xs text-blue-400 font-mono">
+                    <p className="text-xs text-blue-400 font-mono mt-1 pl-5">
                       📧 {user.email}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 pl-5">
                     {formatNumber(user.total_available)} créditos disponíveis • 
                     Usado: {formatNumber(user.total_tokens_used)} total
                   </p>
@@ -293,6 +341,12 @@ export const TokenMonitoringDashboard = () => {
               </div>
             ))}
           </div>
+          
+          {userDetails.length > 25 && (
+            <div className="mt-4 p-3 text-center text-gray-400 text-sm border-t border-gray-600">
+              Mostrando 25 de {userDetails.length} usuários • Use o botão "Exportar" para ver todos
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
