@@ -91,6 +91,7 @@ export const TokenMonitoringDashboard = () => {
     const name = user.full_name;
     const email = user.email;
     
+    // Priorizar exibição clara do email
     if (name && email) {
       return `${name} (${email})`;
     } else if (email) {
@@ -257,12 +258,12 @@ export const TokenMonitoringDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Lista de usuários */}
+      {/* Lista de usuários com emails destacados */}
       <Card className="bg-[#1E1E1E] border-[#4B5563]">
         <CardHeader>
           <CardTitle className="text-white">Detalhes dos Usuários</CardTitle>
           <CardDescription>
-            Lista de usuários ordenada por maior uso de créditos
+            Lista de usuários ordenada por maior uso de créditos • {userDetails.filter(u => u.email).length} usuários com email identificado
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -273,6 +274,11 @@ export const TokenMonitoringDashboard = () => {
                   <p className="font-medium text-sm text-white">
                     {formatUserDisplay(user)}
                   </p>
+                  {user.email && (
+                    <p className="text-xs text-blue-400 font-mono">
+                      📧 {user.email}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-400">
                     {formatNumber(user.total_available)} créditos disponíveis • 
                     Usado: {formatNumber(user.total_tokens_used)} total

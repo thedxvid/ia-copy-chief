@@ -30,24 +30,70 @@ interface TokenUsageHistory {
   feature_breakdown: { [key: string]: number };
 }
 
-// Tipagem para os dados de usuário do Supabase Auth
-interface AuthUser {
-  id: string;
-  email?: string;
-  [key: string]: any;
-}
-
-interface AuthUsersResponse {
-  users: AuthUser[];
-  [key: string]: any;
-}
-
 export const useTokenMonitoring = () => {
   const [stats, setStats] = useState<TokenStats | null>(null);
   const [userDetails, setUserDetails] = useState<UserTokenData[]>([]);
   const [usageHistory, setUsageHistory] = useState<TokenUsageHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchUserEmails = async (userIds: string[]): Promise<Map<string, string>> => {
+    try {
+      console.log('📧 EMAILS: Buscando emails para', userIds.length, 'usuários usando edge function...');
+      
+      // Tentar usar a edge function get-user-emails primeiro
+      const { data: emailsData, error: emailsError } = await supabase.functions.invoke('get-user-emails', {
+        body: { user_ids: userIds }
+      });
+
+      if (emailsError) {
+        console.warn('⚠️ EMAILS: Erro na edge function:', emailsError);
+        throw emailsError;
+      }
+
+      if (emailsData && Array.isArray(emailsData)) {
+        const emailMap = new Map<string, string>();
+        emailsData.forEach((user: { id: string; email: string }) => {
+          if (user.email) {
+            emailMap.set(user.id, user.email);
+          }
+        });
+        console.log('✅ EMAILS: Edge function retornou', emailMap.size, 'emails');
+        return emailMap;
+      }
+    } catch (edgeFunctionError) {
+      console.warn('⚠️ EMAILS: Edge function falhou, tentando RPC fallback:', edgeFunctionError);
+    }
+
+    // Fallback: usar a função RPC
+    try {
+      console.log('📧 EMAILS: Tentando RPC fallback...');
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_user_emails', { user_ids: userIds });
+
+      if (rpcError) {
+        console.warn('⚠️ EMAILS: Erro na função RPC:', rpcError);
+        throw rpcError;
+      }
+
+      if (rpcData && Array.isArray(rpcData)) {
+        const emailMap = new Map<string, string>();
+        rpcData.forEach((user: { id: string; email: string }) => {
+          if (user.email) {
+            emailMap.set(user.id, user.email);
+          }
+        });
+        console.log('✅ EMAILS: RPC retornou', emailMap.size, 'emails');
+        return emailMap;
+      }
+    } catch (rpcError) {
+      console.error('❌ EMAILS: Ambos os métodos falharam:', rpcError);
+    }
+
+    // Se tudo falhar, retornar mapa vazio
+    console.warn('⚠️ EMAILS: Não foi possível buscar emails, retornando mapa vazio');
+    return new Map<string, string>();
+  };
 
   const fetchTokenStats = useCallback(async () => {
     try {
@@ -90,37 +136,20 @@ export const useTokenMonitoring = () => {
 
       console.log('👥 MONITORAMENTO: Total de profiles encontrados:', profilesData.length);
 
-      // Buscar emails dos usuários usando auth.admin.listUsers
-      console.log('📧 MONITORAMENTO: Buscando emails dos usuários via admin API...');
-      
-      const { data: authUsersData, error: authError } = await supabase.auth.admin.listUsers();
-      
-      if (authError) {
-        console.warn('⚠️ ERRO MONITORAMENTO: Erro ao buscar emails via auth.admin:', authError);
-      }
+      // Buscar emails usando as funções disponíveis
+      const userIds = profilesData.map(profile => profile.id);
+      const emailMap = await fetchUserEmails(userIds);
 
-      console.log('📧 EMAILS ENCONTRADOS VIA AUTH.ADMIN:', authUsersData?.users?.length || 0);
+      console.log('📧 EMAILS: Mapa final de emails criado:', emailMap.size, 'usuários com email');
 
-      // Criar mapa de emails por user_id com tipagem correta
-      const emailMap = new Map<string, string>();
-      if (authUsersData?.users) {
-        (authUsersData as AuthUsersResponse).users.forEach((user: AuthUser) => {
-          if (user.email) {
-            emailMap.set(user.id, user.email);
-          }
-        });
-      }
-
-      console.log('📧 MAPA DE EMAILS CRIADO:', emailMap.size, 'usuários com email');
-
-      // Processar usuários usando a função RPC corrigida
+      // Processar usuários
       const processedUsers: UserTokenData[] = [];
       
       for (const profile of profilesData) {
         try {
           console.log(`🔄 MONITORAMENTO: RPC para usuário ${profile.id.slice(0, 8)}...`);
           
-          // Usar a função RPC corrigida para obter dados corretos
+          // Usar a função RPC para obter dados corretos
           const { data: tokenData, error: tokenError } = await supabase
             .rpc('check_token_balance', { p_user_id: profile.id });
 
@@ -130,7 +159,7 @@ export const useTokenMonitoring = () => {
           if (tokenError) {
             console.warn(`⚠️ MONITORAMENTO: Erro RPC para usuário ${profile.id.slice(0, 8)}:`, tokenError);
             
-            // Fallback para cálculo manual CORRIGIDO
+            // Fallback para cálculo manual
             const totalAvailable = Math.max(0, 
               (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) - (profile.total_tokens_used || 0)
             );
@@ -181,7 +210,7 @@ export const useTokenMonitoring = () => {
         } catch (userError) {
           console.warn(`⚠️ MONITORAMENTO: Erro ao processar usuário ${profile.id.slice(0, 8)}:`, userError);
           
-          // Fallback para cálculo manual CORRIGIDO
+          // Fallback para cálculo manual
           const totalAvailable = Math.max(0, 
             (profile.monthly_tokens || 0) + (profile.extra_tokens || 0) - (profile.total_tokens_used || 0)
           );
@@ -238,7 +267,7 @@ export const useTokenMonitoring = () => {
         usersOutOfTokens
       };
 
-      console.log('📈 MONITORAMENTO: Estatísticas calculadas CORRIGIDAS:', calculatedStats);
+      console.log('📈 MONITORAMENTO: Estatísticas calculadas:', calculatedStats);
 
       // Definir os dados
       setStats(calculatedStats);
