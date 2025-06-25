@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles, Clock, Zap } from 'lucide-react';
@@ -9,10 +8,6 @@ export function CTASection() {
     {
       icon: Clock,
       text: 'Setup em menos de 5 minutos'
-    },
-    {
-      icon: null,
-      text: '30 dias de garantia total'
     },
     {
       icon: Zap,
@@ -45,7 +40,7 @@ export function CTASection() {
         <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-6 mb-8 sm:mb-12 animate-fade-in-up animate-stagger-2">
           {urgencyFeatures.map((feature, index) => (
             <div key={index} className="flex items-center justify-center gap-2 bg-[#FFFFFF]/10 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2 sm:py-3">
-              {feature.icon && <feature.icon className="w-4 sm:w-5 h-4 sm:h-5 text-[#FFFFFF] flex-shrink-0" />}
+              <feature.icon className="w-4 sm:w-5 h-4 sm:h-5 text-[#FFFFFF] flex-shrink-0" />
               <span className="text-[#FFFFFF] font-medium text-sm sm:text-base">{feature.text}</span>
             </div>
           ))}
