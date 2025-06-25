@@ -8,6 +8,7 @@ import { OfferSection } from '@/components/home/OfferSection';
 import { CTASection } from '@/components/home/CTASection';
 import { FadeInSection } from '@/components/ui/fade-in-section';
 import Footer from '@/components/layout/Footer';
+import { WhatsAppFloat } from '@/components/ui/WhatsAppFloat';
 
 const Index = () => {
   return (
@@ -33,6 +34,9 @@ const Index = () => {
       </FadeInSection>
 
       <Footer />
+      
+      {/* WhatsApp Float Button */}
+      <WhatsAppFloat phoneNumber="15053066284" />
     </div>
   );
 };
