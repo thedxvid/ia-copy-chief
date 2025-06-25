@@ -9,12 +9,10 @@ import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LoginFormProps {
-  onSwitchToSignUp?: () => void;
   onSwitchToForgot?: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ 
-  onSwitchToSignUp, 
   onSwitchToForgot 
 }) => {
   const [email, setEmail] = useState('');
@@ -114,22 +112,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           >
             Esqueci minha senha
           </Button>
-        </div>
-      )}
-
-      {onSwitchToSignUp && (
-        <div className="text-center">
-          <p className="text-gray-400">
-            Não tem uma conta?{' '}
-            <Button
-              type="button"
-              variant="link"
-              onClick={onSwitchToSignUp}
-              className="text-[#3B82F6] hover:text-[#2563EB] p-0"
-            >
-              Criar conta
-            </Button>
-          </p>
         </div>
       )}
     </form>

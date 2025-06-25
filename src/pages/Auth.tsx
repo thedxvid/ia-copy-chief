@@ -2,17 +2,17 @@
 import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { LoginForm } from '@/components/auth/LoginForm';
-import { SignUpForm } from '@/components/auth/SignUpForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Navigate, useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ExternalLink } from 'lucide-react';
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
-  const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
+  const [authMode, setAuthMode] = useState<'login' | 'forgot'>('login');
   const { user, loading: authLoading, isFirstLogin } = useAuth();
   const { subscription, loading: subscriptionLoading, isSubscriptionActive } = useSubscription();
 
@@ -55,6 +55,10 @@ const Auth = () => {
     return <Navigate to="/checkout" replace />;
   }
 
+  const handleGetAccess = () => {
+    window.open('https://clkdmg.site/subscribe/iacopychief-assinatura-mensal', '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-[#121212]">
       <Header />
@@ -64,27 +68,65 @@ const Auth = () => {
           <div className="text-center">
             <h1 className="text-3xl font-bold text-white mb-2">
               {authMode === 'login' && 'Entrar'}
-              {authMode === 'signup' && 'Criar Conta'}
               {authMode === 'forgot' && 'Recuperar Senha'}
             </h1>
             <p className="text-[#CCCCCC]">
               {authMode === 'login' && 'Entre em sua conta para continuar'}
-              {authMode === 'signup' && 'Crie sua conta para começar'}
               {authMode === 'forgot' && 'Digite seu email para recuperar a senha'}
             </p>
           </div>
 
           {authMode === 'login' && (
             <LoginForm 
-              onSwitchToSignUp={() => setAuthMode('signup')}
               onSwitchToForgot={() => setAuthMode('forgot')}
             />
           )}
-          {authMode === 'signup' && (
-            <SignUpForm />
-          )}
           {authMode === 'forgot' && (
             <ForgotPasswordForm onBackToLogin={() => setAuthMode('login')} />
+          )}
+
+          {authMode === 'login' && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-600" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-[#121212] px-2 text-gray-400">
+                    Novo por aqui?
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="text-sm text-gray-400 mb-4">
+                    Para ter acesso à plataforma, você precisa fazer sua assinatura primeiro.
+                    Após o pagamento, sua conta será criada automaticamente e você receberá
+                    as credenciais por email.
+                  </p>
+                  
+                  <Button
+                    onClick={handleGetAccess}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Assinar Agora
+                  </Button>
+                  
+                  <p className="text-xs text-gray-500 mt-3">
+                    Ao assinar, você concorda com nossos{" "}
+                    <a href="/terms" className="underline hover:text-gray-400">
+                      Termos de Serviço
+                    </a>{" "}
+                    e{" "}
+                    <a href="/privacy" className="underline hover:text-gray-400">
+                      Política de Privacidade
+                    </a>.
+                  </p>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

@@ -100,10 +100,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
+  // Mantém função signUp apenas para uso interno (webhook)
   const signUp = async (email: string, password: string, fullName?: string, checkoutUrl?: string) => {
-    console.log('📝 Attempting sign up for:', email);
+    console.log('📝 Internal sign up for:', email);
     
-    // Usar a URL de produção para confirmação de email
     const redirectUrl = `${window.location.origin}/email-confirmed`;
     
     const { error } = await supabase.auth.signUp({
@@ -159,7 +159,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     console.log('🔑 Initiating password reset for:', email);
     
-    // URL de redirecionamento simplificada
     const redirectUrl = `${window.location.origin}/auth/reset-password`;
     
     console.log('🔗 Reset password redirect URL:', redirectUrl);
