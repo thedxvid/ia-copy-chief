@@ -142,7 +142,7 @@ export function OfferSection() {
                 {/* CTA Button */}
                 <ModernButton size="lg" className="w-full bg-gradient-to-r from-[#3B82F6] to-[#2563EB] text-white text-lg sm:text-xl font-bold py-4 sm:py-6 rounded-full hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-[#3B82F6]/30 mb-4 sm:mb-6" asChild>
                   <a 
-                    href="https://clkdmg.site/pay/100-mil-tokens" 
+                    href="https://clkdmg.site/subscribe/iacopychief-assinatura-mensal" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-3"

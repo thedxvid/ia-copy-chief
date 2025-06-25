@@ -9,7 +9,7 @@ export const HeroSection = () => {
   const typewriterText = useTypewriter(['copies que convertem', 'conteúdo envolvente', 'anúncios persuasivos', 'emails que vendem'], 2000);
 
   const handleGetAccess = () => {
-    window.open('https://clkdmg.site/pay/100-mil-tokens', '_blank');
+    window.open('https://clkdmg.site/subscribe/iacopychief-assinatura-mensal', '_blank');
   };
 
   return (

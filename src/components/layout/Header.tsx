@@ -23,7 +23,7 @@ export const Header = () => {
   };
 
   const handleGetAccess = () => {
-    window.open('https://clkdmg.site/pay/100-mil-tokens', '_blank');
+    window.open('https://clkdmg.site/subscribe/iacopychief-assinatura-mensal', '_blank');
     setIsMenuOpen(false);
   };
 
