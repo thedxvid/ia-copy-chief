@@ -5,6 +5,7 @@ import { AppSidebar } from './AppSidebar';
 import { TokenWidget } from '@/components/tokens/TokenWidget';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialOverlay } from '@/components/tutorial/TutorialOverlay';
+import { WhatsAppFloat } from '@/components/ui/WhatsAppFloat';
 import { Bot } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -74,6 +75,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         </div>
         
         <TutorialOverlay />
+        
+        {/* WhatsApp Float Button */}
+        <WhatsAppFloat phoneNumber="15053066284" />
       </SidebarProvider>
     </TutorialProvider>
   );
