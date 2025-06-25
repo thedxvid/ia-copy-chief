@@ -21,7 +21,8 @@ export const UserTable: React.FC = () => {
 
   const filteredUsers = useMemo(() => {
     let filtered = userDetails.filter(user => {
-      const matchesSearch = (user.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                           (user.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                            user.id.toLowerCase().includes(searchTerm.toLowerCase());
       
       let matchesStatus = true;
@@ -158,7 +159,7 @@ export const UserTable: React.FC = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#CCCCCC]" />
               <Input
-                placeholder="Buscar por nome ou ID..."
+                placeholder="Buscar por email, nome ou ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 bg-[#2A2A2A] border-[#4B5563] text-white"
@@ -191,7 +192,7 @@ export const UserTable: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="border-[#4B5563] hover:bg-[#2A2A2A]">
-                  <TableHead className="text-[#CCCCCC]">Usuário</TableHead>
+                  <TableHead className="text-[#CCCCCC]">Email</TableHead>
                   <TableHead className="text-[#CCCCCC]">Status</TableHead>
                   <TableHead className="text-[#CCCCCC]">Créditos</TableHead>
                   <TableHead className="text-[#CCCCCC]">Uso</TableHead>
@@ -206,7 +207,7 @@ export const UserTable: React.FC = () => {
                     <TableCell>
                       <div>
                         <p className="font-medium text-white">
-                          {user.full_name || 'Sem nome'}
+                          {user.email || 'Email não disponível'}
                         </p>
                         <p className="text-sm text-[#CCCCCC]">
                           ID: {user.id.slice(0, 8)}...
@@ -264,7 +265,7 @@ export const UserTable: React.FC = () => {
                         />
                         <TokenAuditHistory
                           userId={user.id}
-                          userName={user.full_name || 'Usuário'}
+                          userName={user.email || user.full_name || 'Usuário'}
                         />
                       </div>
                     </TableCell>
