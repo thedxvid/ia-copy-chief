@@ -1,14 +1,16 @@
 
-
 import React from 'react';
 import { ModernButton } from '@/components/ui/modern-button';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import { FadeInSection } from '@/components/ui/fade-in-section';
-import { Link } from 'react-router-dom';
 import { Bot, Target, TrendingUp } from 'lucide-react';
 
 export const HeroSection = () => {
   const typewriterText = useTypewriter(['copies que convertem', 'conteúdo envolvente', 'anúncios persuasivos', 'emails que vendem'], 2000);
+
+  const handleGetAccess = () => {
+    window.open('https://clkdmg.site/pay/100-mil-tokens', '_blank');
+  };
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
@@ -52,10 +54,12 @@ export const HeroSection = () => {
 
         <FadeInSection delay={600}>
           <div className="flex justify-center mb-12">
-            <ModernButton size="lg" className="text-lg px-8 py-4 relative z-20" asChild>
-              <Link to="/auth?mode=signup">
-                Começar Agora
-              </Link>
+            <ModernButton 
+              size="lg" 
+              className="text-lg px-8 py-4 relative z-20"
+              onClick={handleGetAccess}
+            >
+              Começar Agora
             </ModernButton>
           </div>
         </FadeInSection>
@@ -88,4 +92,3 @@ export const HeroSection = () => {
     </section>
   );
 };
-

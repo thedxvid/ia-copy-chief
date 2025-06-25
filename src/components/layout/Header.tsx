@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bot, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const {
@@ -10,6 +12,7 @@ export const Header = () => {
     signOut
   } = useAuth();
   const navigate = useNavigate();
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -18,6 +21,12 @@ export const Header = () => {
       console.error('Error signing out:', error);
     }
   };
+
+  const handleGetAccess = () => {
+    window.open('https://clkdmg.site/pay/100-mil-tokens', '_blank');
+    setIsMenuOpen(false);
+  };
+
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -27,7 +36,9 @@ export const Header = () => {
     }
     setIsMenuOpen(false);
   };
-  return <header className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/95 backdrop-blur-sm border-b border-[#4B5563]/20">
+
+  return (
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/95 backdrop-blur-sm border-b border-[#4B5563]/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -59,7 +70,8 @@ export const Header = () => {
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            {user ? <div className="flex items-center space-x-4">
+            {user ? (
+              <div className="flex items-center space-x-4">
                 <Link to="/dashboard">
                   <Button variant="ghost" className="text-white hover:bg-[#3B82F6]/20">
                     Dashboard
@@ -68,16 +80,22 @@ export const Header = () => {
                 <Button onClick={handleSignOut} variant="outline" className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white">
                   Sair
                 </Button>
-              </div> : <div className="flex items-center space-x-4">
+              </div>
+            ) : (
+              <div className="flex items-center space-x-4">
                 <Link to="/auth">
                   <Button variant="ghost" className="text-white hover:bg-[#3B82F6]/20">
                     Entrar
                   </Button>
                 </Link>
-                <Link to="/auth?mode=signup">
-                  <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">Começar Agora</Button>
-                </Link>
-              </div>}
+                <Button 
+                  onClick={handleGetAccess}
+                  className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                >
+                  Começar Agora
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -87,7 +105,8 @@ export const Header = () => {
         </div>
 
         {/* Mobile Navigation */}
-        {isMenuOpen && <div className="md:hidden absolute top-16 left-0 right-0 bg-[#121212] border-b border-[#4B5563]/20">
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-16 left-0 right-0 bg-[#121212] border-b border-[#4B5563]/20">
             <nav className="px-4 py-4 space-y-4">
               <Link to="/" className="block text-[#CCCCCC] hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>
                 Home
@@ -106,33 +125,40 @@ export const Header = () => {
               </Link>
               
               <div className="pt-4 border-t border-[#4B5563]/20">
-                {user ? <div className="space-y-2">
+                {user ? (
+                  <div className="space-y-2">
                     <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="ghost" className="w-full text-white hover:bg-[#3B82F6]/20">
                         Dashboard
                       </Button>
                     </Link>
                     <Button onClick={() => {
-                handleSignOut();
-                setIsMenuOpen(false);
-              }} variant="outline" className="w-full border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white">
+                      handleSignOut();
+                      setIsMenuOpen(false);
+                    }} variant="outline" className="w-full border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white">
                       Sair
                     </Button>
-                  </div> : <div className="space-y-2">
+                  </div>
+                ) : (
+                  <div className="space-y-2">
                     <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="ghost" className="w-full text-white hover:bg-[#3B82F6]/20">
                         Entrar
                       </Button>
                     </Link>
-                    <Link to="/auth?mode=signup" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white">
-                        Começar Grátis
-                      </Button>
-                    </Link>
-                  </div>}
+                    <Button 
+                      onClick={handleGetAccess}
+                      className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                    >
+                      Começar Agora
+                    </Button>
+                  </div>
+                )}
               </div>
             </nav>
-          </div>}
+          </div>
+        )}
       </div>
-    </header>;
+    </header>
+  );
 };
