@@ -15,7 +15,8 @@ import {
   Settings,
   Shield,
   Coins,
-  Plus
+  Plus,
+  PlayCircle
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
@@ -53,6 +54,7 @@ import { TokenPurchaseModal } from '@/components/tokens/TokenPurchaseModal';
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Tutorial", url: "/tutorial", icon: PlayCircle },
   { title: "Produtos", url: "/products", icon: Package },
   { title: "Chat IA", url: "/chat", icon: MessageSquare },
   { title: "Agentes", url: "/agents", icon: Bot },

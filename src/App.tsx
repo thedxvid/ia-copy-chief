@@ -13,6 +13,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Tutorial from "./pages/Tutorial";
 import Products from "./pages/Products";
 import History from "./pages/History";
 import Chat from "./pages/Chat";
@@ -67,6 +68,12 @@ function App() {
                   <Route path="/dashboard" element={
                     <ProtectedRoute>
                       <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/tutorial" element={
+                    <ProtectedRoute>
+                      <Tutorial />
                     </ProtectedRoute>
                   } />
                   
