@@ -202,75 +202,80 @@ export const UserTable: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedUsers.map((user) => (
-                  <TableRow key={user.id} className="border-[#4B5563] hover:bg-[#2A2A2A]">
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-white">
-                          {user.email || 'Email não disponível'}
-                        </p>
-                        <p className="text-sm text-[#CCCCCC]">
-                          ID: {user.id.slice(0, 8)}...
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(user)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="text-white font-mono">
-                          {user.total_available.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-[#CCCCCC]">
-                          Mensal: {user.monthly_tokens.toLocaleString()} | 
-                          Extra: {user.extra_tokens.toLocaleString()}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Progress
-                            value={Math.min(100, user.usage_percentage)}
-                            className="w-16"
-                          />
-                          <span className="text-sm text-white font-mono">
-                            {user.usage_percentage}%
-                          </span>
+                {paginatedUsers.map((user) => {
+                  // DEBUG: Log para verificar se email está chegando
+                  console.log('[UserTable]', user);
+                  
+                  return (
+                    <TableRow key={user.id} className="border-[#4B5563] hover:bg-[#2A2A2A]">
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-white">
+                            {user.email || 'Email não disponível'}
+                          </div>
+                          <div className="text-xs text-[#CCCCCC]">
+                            ID: {user.id?.slice(0, 8)}...
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-[#CCCCCC]">
-                        {new Date(user.tokens_reset_date).toLocaleDateString('pt-BR')}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-white font-mono">
-                        {user.total_tokens_used.toLocaleString()}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <TokenEditor
-                          user={{
-                            id: user.id,
-                            full_name: user.full_name,
-                            monthly_tokens: user.monthly_tokens,
-                            extra_tokens: user.extra_tokens,
-                            total_available: user.total_available
-                          }}
-                          onTokensUpdated={refreshData}
-                        />
-                        <TokenAuditHistory
-                          userId={user.id}
-                          userName={user.email || user.full_name || 'Usuário'}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(user)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="text-white font-mono">
+                            {user.total_available.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-[#CCCCCC]">
+                            Mensal: {user.monthly_tokens.toLocaleString()} | 
+                            Extra: {user.extra_tokens.toLocaleString()}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Progress
+                              value={Math.min(100, user.usage_percentage)}
+                              className="w-16"
+                            />
+                            <span className="text-sm text-white font-mono">
+                              {user.usage_percentage}%
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm text-[#CCCCCC]">
+                          {new Date(user.tokens_reset_date).toLocaleDateString('pt-BR')}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-white font-mono">
+                          {user.total_tokens_used.toLocaleString()}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <TokenEditor
+                            user={{
+                              id: user.id,
+                              full_name: user.full_name,
+                              monthly_tokens: user.monthly_tokens,
+                              extra_tokens: user.extra_tokens,
+                              total_available: user.total_available
+                            }}
+                            onTokensUpdated={refreshData}
+                          />
+                          <TokenAuditHistory
+                            userId={user.id}
+                            userName={user.email || user.full_name || 'Usuário'}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
