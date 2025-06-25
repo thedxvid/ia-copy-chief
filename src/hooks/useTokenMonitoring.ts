@@ -212,14 +212,15 @@ export const useTokenMonitoring = () => {
           // Buscar email do mapa
           const userEmail = emailMap.get(profile.id) || null;
 
-          if (profile.id === profilesData[0].id) {
-            console.log('📧 HOOK - TESTE PRIMEIRO USUÁRIO:', {
+          console.log(`📧 HOOK - PROCESSANDO USUÁRIO ${profile.id.slice(0, 8)}:`, {
+            nome: profile.full_name,
+            emailEncontrado: userEmail,
+            estavaNoMapa: emailMap.has(profile.id),
+            profileData: {
               id: profile.id.slice(0, 8),
-              nome: profile.full_name,
-              emailEncontrado: userEmail,
-              estavaNoMapa: emailMap.has(profile.id)
-            });
-          }
+              full_name: profile.full_name
+            }
+          });
 
           if (tokenError) {
             console.warn(`⚠️ RPC erro para usuário ${profile.id.slice(0, 8)}:`, tokenError);
@@ -233,7 +234,7 @@ export const useTokenMonitoring = () => {
               ? Math.round(((profile.total_tokens_used || 0) / ((profile.monthly_tokens || 0) + (profile.extra_tokens || 0))) * 100)
               : 0;
 
-            processedUsers.push({
+            const processedUser = {
               id: profile.id,
               full_name: profile.full_name,
               email: userEmail,
@@ -243,7 +244,15 @@ export const useTokenMonitoring = () => {
               tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
               total_available: totalAvailable,
               usage_percentage: Math.max(0, Math.min(100, usagePercentage))
+            };
+            
+            console.log(`📧 HOOK - USUÁRIO PROCESSADO (fallback) ${profile.id.slice(0, 8)}:`, {
+              email: processedUser.email,
+              full_name: processedUser.full_name,
+              hasEmail: !!processedUser.email
             });
+            
+            processedUsers.push(processedUser);
           } else if (tokenData && tokenData.length > 0) {
             const data = tokenData[0];
             
@@ -253,7 +262,7 @@ export const useTokenMonitoring = () => {
               ? Math.round((data.total_used / totalPossible) * 100)
               : 0;
 
-            processedUsers.push({
+            const processedUser = {
               id: profile.id,
               full_name: profile.full_name,
               email: userEmail,
@@ -263,7 +272,15 @@ export const useTokenMonitoring = () => {
               tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
               total_available: totalAvailable,
               usage_percentage: Math.max(0, Math.min(100, usagePercentage))
+            };
+            
+            console.log(`📧 HOOK - USUÁRIO PROCESSADO (RPC) ${profile.id.slice(0, 8)}:`, {
+              email: processedUser.email,
+              full_name: processedUser.full_name,
+              hasEmail: !!processedUser.email
             });
+            
+            processedUsers.push(processedUser);
           }
         } catch (userError) {
           console.warn(`⚠️ Erro ao processar usuário ${profile.id.slice(0, 8)}:`, userError);
@@ -279,7 +296,7 @@ export const useTokenMonitoring = () => {
             ? Math.round(((profile.total_tokens_used || 0) / ((profile.monthly_tokens || 0) + (profile.extra_tokens || 0))) * 100)
             : 0;
 
-          processedUsers.push({
+          const processedUser = {
             id: profile.id,
             full_name: profile.full_name,
             email: userEmail,
@@ -289,7 +306,15 @@ export const useTokenMonitoring = () => {
             tokens_reset_date: profile.tokens_reset_date || new Date().toISOString().split('T')[0],
             total_available: totalAvailable,
             usage_percentage: Math.max(0, Math.min(100, usagePercentage))
+          };
+          
+          console.log(`📧 HOOK - USUÁRIO PROCESSADO (error fallback) ${profile.id.slice(0, 8)}:`, {
+            email: processedUser.email,
+            full_name: processedUser.full_name,
+            hasEmail: !!processedUser.email
           });
+          
+          processedUsers.push(processedUser);
         }
       }
 
@@ -623,10 +648,10 @@ export const useTokenMonitoring = () => {
 
     try {
       const csvData = [
-        ['Nome', 'Email', 'Créditos Mensais', 'Créditos Extra', 'Total Disponível', 'Créditos Usados', 'Uso (%)', 'Data Reset'],
+        ['Email', 'Nome', 'Créditos Mensais', 'Créditos Extra', 'Total Disponível', 'Créditos Usados', 'Uso (%)', 'Data Reset'],
         ...userDetails.map(user => [
-          user.full_name || 'Sem nome',
           user.email || 'Email não disponível',
+          user.full_name || 'Sem nome',
           user.monthly_tokens,
           user.extra_tokens,
           user.total_available,

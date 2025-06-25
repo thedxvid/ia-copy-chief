@@ -106,6 +106,7 @@ export const TokenMonitoringDashboard = () => {
     return <Badge variant="default">Normal</Badge>;
   };
 
+  // Função simplificada para exibir usuário - prioriza email
   const formatUserDisplay = (user: any) => {
     console.log('🎯 FORMATO DEBUG: Formatando usuário:', {
       id: user.id.slice(0, 8),
@@ -114,21 +115,18 @@ export const TokenMonitoringDashboard = () => {
       hasEmail: !!user.email
     });
 
+    // Priorizar email se disponível
     if (user.email) {
-      // Se tem email, priorizar a exibição do email
-      if (user.full_name) {
-        return `${user.full_name} (${user.email})`;
-      } else {
-        return user.email;
-      }
-    } else {
-      // Se não tem email, mostrar nome ou fallback
-      if (user.full_name) {
-        return `${user.full_name} (email não disponível)`;
-      } else {
-        return `Usuário ${user.id.slice(0, 8)} (email não disponível)`;
-      }
+      return user.email;
     }
+    
+    // Fallback para nome se não tem email
+    if (user.full_name) {
+      return `${user.full_name} (sem email)`;
+    }
+    
+    // Último fallback com ID
+    return `Usuário ${user.id.slice(0, 8)} (sem email)`;
   };
 
   const getUserEmailIcon = (user: any) => {
@@ -348,7 +346,7 @@ export const TokenMonitoringDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Lista de usuários com emails em destaque */}
+      {/* Lista de usuários - agora com emails em destaque */}
       <Card className="bg-[#1E1E1E] border-[#4B5563]">
         <CardHeader>
           <CardTitle className="text-white">Detalhes dos Usuários</CardTitle>
@@ -378,12 +376,8 @@ export const TokenMonitoringDashboard = () => {
                         {formatUserDisplay(user)}
                       </p>
                     </div>
-                    {user.email && (
-                      <p className="text-xs text-blue-400 font-mono mt-1 pl-5">
-                        📧 {user.email}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400 pl-5">
+                    {/* Informações adicionais do usuário */}
+                    <p className="text-xs text-gray-400 pl-5 mt-1">
                       {formatNumber(user.total_available)} créditos disponíveis • 
                       Usado: {formatNumber(user.total_tokens_used)} total
                     </p>
