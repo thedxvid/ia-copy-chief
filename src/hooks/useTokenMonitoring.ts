@@ -38,7 +38,7 @@ export const useTokenMonitoring = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserEmails = async (userIds: string[]): Promise<Map<string, string>> => {
-    console.log('🔍 DIAGNÓSTICO: Iniciando busca de emails para', userIds.length, 'usuários');
+    console.log('🔍 EMAIL FETCH: Iniciando busca de emails para', userIds.length, 'usuários');
     
     // Método 1: Tentar edge function primeiro
     try {
@@ -48,12 +48,13 @@ export const useTokenMonitoring = () => {
         body: { user_ids: userIds }
       });
 
-      console.log('📧 EDGE FUNCTION RESPONSE:', {
+      console.log('📧 EDGE FUNCTION RESPONSE DETALHADA:', {
         data: emailsData,
         error: emailsError,
         dataType: typeof emailsData,
         isArray: Array.isArray(emailsData),
-        dataLength: emailsData?.length
+        dataLength: emailsData?.length,
+        primeiros3: emailsData?.slice(0, 3)
       });
 
       if (emailsError) {
@@ -64,13 +65,21 @@ export const useTokenMonitoring = () => {
       if (emailsData && Array.isArray(emailsData) && emailsData.length > 0) {
         const emailMap = new Map<string, string>();
         emailsData.forEach((user: { id: string; email: string }) => {
-          console.log('📧 PROCESSANDO USUÁRIO DA EDGE FUNCTION:', { id: user.id?.slice(0, 8), email: user.email });
+          console.log('📧 PROCESSANDO USUÁRIO DA EDGE FUNCTION:', { 
+            id: user.id?.slice(0, 8), 
+            email: user.email,
+            temEmail: !!user.email
+          });
           if (user.email) {
             emailMap.set(user.id, user.email);
           }
         });
-        console.log('✅ EDGE FUNCTION SUCESSO:', emailMap.size, 'emails encontrados');
-        console.log('📧 EMAILS MAPEADOS:', Array.from(emailMap.entries()).slice(0, 3));
+        console.log('✅ EDGE FUNCTION SUCESSO:', {
+          emailsEncontrados: emailMap.size,
+          totalUsuarios: userIds.length,
+          percentual: ((emailMap.size / userIds.length) * 100).toFixed(1) + '%',
+          primeirosEmails: Array.from(emailMap.entries()).slice(0, 3)
+        });
         return emailMap;
       } else {
         console.warn('⚠️ EDGE FUNCTION: Dados vazios ou inválidos:', emailsData);
@@ -86,12 +95,13 @@ export const useTokenMonitoring = () => {
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('get_user_emails', { user_ids: userIds });
 
-      console.log('📧 RPC RESPONSE:', {
+      console.log('📧 RPC RESPONSE DETALHADA:', {
         data: rpcData,
         error: rpcError,
         dataType: typeof rpcData,
         isArray: Array.isArray(rpcData),
-        dataLength: rpcData?.length
+        dataLength: rpcData?.length,
+        primeiros3: rpcData?.slice(0, 3)
       });
 
       if (rpcError) {
@@ -102,13 +112,21 @@ export const useTokenMonitoring = () => {
       if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
         const emailMap = new Map<string, string>();
         rpcData.forEach((user: { id: string; email: string }) => {
-          console.log('📧 PROCESSANDO USUÁRIO DO RPC:', { id: user.id?.slice(0, 8), email: user.email });
+          console.log('📧 PROCESSANDO USUÁRIO DO RPC:', { 
+            id: user.id?.slice(0, 8), 
+            email: user.email,
+            temEmail: !!user.email
+          });
           if (user.email) {
             emailMap.set(user.id, user.email);
           }
         });
-        console.log('✅ RPC SUCESSO:', emailMap.size, 'emails encontrados');
-        console.log('📧 EMAILS MAPEADOS:', Array.from(emailMap.entries()).slice(0, 3));
+        console.log('✅ RPC SUCESSO:', {
+          emailsEncontrados: emailMap.size,
+          totalUsuarios: userIds.length,
+          percentual: ((emailMap.size / userIds.length) * 100).toFixed(1) + '%',
+          primeirosEmails: Array.from(emailMap.entries()).slice(0, 3)
+        });
         return emailMap;
       } else {
         console.warn('⚠️ RPC: Dados vazios ou inválidos:', rpcData);
@@ -134,7 +152,7 @@ export const useTokenMonitoring = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 MONITORAMENTO: Iniciando busca de estatísticas de créditos...');
+      console.log('🔍 HOOK: Iniciando busca de estatísticas de créditos...');
 
       // Buscar TODOS os usuários da tabela profiles
       const { data: profilesData, error: profilesError } = await supabase
@@ -195,7 +213,7 @@ export const useTokenMonitoring = () => {
           const userEmail = emailMap.get(profile.id) || null;
 
           if (profile.id === profilesData[0].id) {
-            console.log('📧 TESTE PRIMEIRO USUÁRIO:', {
+            console.log('📧 HOOK - TESTE PRIMEIRO USUÁRIO:', {
               id: profile.id.slice(0, 8),
               nome: profile.full_name,
               emailEncontrado: userEmail,
@@ -275,12 +293,13 @@ export const useTokenMonitoring = () => {
         }
       }
 
-      console.log('✅ USUÁRIOS PROCESSADOS:', processedUsers.length);
-      console.log('📧 USUÁRIOS COM EMAIL:', processedUsers.filter(u => u.email).length);
-      console.log('📧 PRIMEIROS 3 USUÁRIOS PROCESSADOS:', processedUsers.slice(0, 3).map(u => ({
+      console.log('✅ HOOK - USUÁRIOS PROCESSADOS:', processedUsers.length);
+      console.log('📧 HOOK - USUÁRIOS COM EMAIL:', processedUsers.filter(u => u.email).length);
+      console.log('📧 HOOK - PRIMEIROS 3 USUÁRIOS PROCESSADOS:', processedUsers.slice(0, 3).map(u => ({
         name: u.full_name,
         email: u.email,
-        id: u.id.slice(0, 8)
+        id: u.id.slice(0, 8),
+        hasEmail: !!u.email
       })));
 
       // Calcular estatísticas
@@ -306,13 +325,22 @@ export const useTokenMonitoring = () => {
         usersOutOfTokens
       };
 
-      console.log('📈 ESTATÍSTICAS CALCULADAS:', calculatedStats);
+      console.log('📈 HOOK - ESTATÍSTICAS CALCULADAS:', calculatedStats);
 
       // Definir os dados
       setStats(calculatedStats);
       setUserDetails(processedUsers.sort((a, b) => b.total_tokens_used - a.total_tokens_used));
 
-      console.log('✅ DADOS DEFINIDOS COM SUCESSO');
+      console.log('✅ HOOK - DADOS DEFINIDOS COM SUCESSO');
+      console.log('🎯 HOOK - VERIFICAÇÃO FINAL USERDETAILS:', {
+        length: processedUsers.length,
+        comEmail: processedUsers.filter(u => u.email).length,
+        primeiro: processedUsers[0] ? {
+          name: processedUsers[0].full_name,
+          email: processedUsers[0].email,
+          hasEmail: !!processedUsers[0].email
+        } : null
+      });
       
       // Toast de sucesso com informações sobre emails
       const emailInfo = emailMap.size > 0 ? 

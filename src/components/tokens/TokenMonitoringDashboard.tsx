@@ -33,6 +33,23 @@ export const TokenMonitoringDashboard = () => {
     exportTokenReport 
   } = useTokenMonitoring();
 
+  // 🔍 DEBUG: Log dos dados recebidos no componente
+  React.useEffect(() => {
+    console.log('🎯 COMPONENTE DEBUG: userDetails recebidos:', {
+      length: userDetails.length,
+      primeiro3: userDetails.slice(0, 3).map(u => ({
+        id: u.id.slice(0, 8),
+        name: u.full_name,
+        email: u.email,
+        hasEmail: !!u.email
+      }))
+    });
+    
+    if (userDetails.length > 0) {
+      console.log('🔍 COMPONENTE DEBUG: Exemplo completo do primeiro usuário:', userDetails[0]);
+    }
+  }, [userDetails]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -90,6 +107,13 @@ export const TokenMonitoringDashboard = () => {
   };
 
   const formatUserDisplay = (user: any) => {
+    console.log('🎯 FORMATO DEBUG: Formatando usuário:', {
+      id: user.id.slice(0, 8),
+      name: user.full_name,
+      email: user.email,
+      hasEmail: !!user.email
+    });
+
     if (user.email) {
       // Se tem email, priorizar a exibição do email
       if (user.full_name) {
@@ -120,6 +144,15 @@ export const TokenMonitoringDashboard = () => {
   const usersWithoutEmail = userDetails.length - usersWithEmail;
   const emailPercentage = userDetails.length > 0 ? ((usersWithEmail / userDetails.length) * 100).toFixed(1) : '0';
 
+  // 🔍 DEBUG: Log das estatísticas de email
+  console.log('📧 ESTATÍSTICAS EMAIL DEBUG:', {
+    totalUsers: userDetails.length,
+    usersWithEmail,
+    usersWithoutEmail,
+    emailPercentage,
+    exemploUsuarios: userDetails.slice(0, 3).map(u => ({ name: u.full_name, email: u.email }))
+  });
+
   return (
     <div className="space-y-6">
       {/* Header com ações */}
@@ -148,16 +181,20 @@ export const TokenMonitoringDashboard = () => {
         </div>
       </div>
 
-      {/* Card de status dos emails */}
+      {/* Debug Card - Mostrando informações sobre emails */}
       <Card className="bg-[#1E1E1E] border-[#4B5563]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <Mail className="h-5 w-5" />
-            Status dos Emails
+            Status dos Emails (Debug)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-500">{userDetails.length}</div>
+              <p className="text-sm text-gray-400">Total usuários</p>
+            </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-500">{usersWithEmail}</div>
               <p className="text-sm text-gray-400">Com email</p>
@@ -170,6 +207,16 @@ export const TokenMonitoringDashboard = () => {
               <div className="text-2xl font-bold text-blue-500">{emailPercentage}%</div>
               <p className="text-sm text-gray-400">Taxa de sucesso</p>
             </div>
+          </div>
+          
+          {/* Exemplo de 3 primeiros usuários para debug */}
+          <div className="mt-4 p-3 bg-[#2A2A2A] rounded-lg">
+            <p className="text-xs text-gray-400 mb-2">Debug - Primeiros 3 usuários:</p>
+            {userDetails.slice(0, 3).map((user, index) => (
+              <div key={user.id} className="text-xs text-gray-300 mb-1">
+                {index + 1}. {user.full_name} - Email: {user.email || 'NENHUM'} - Tem email: {user.email ? 'SIM' : 'NÃO'}
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -313,33 +360,43 @@ export const TokenMonitoringDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {userDetails.slice(0, 25).map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-3 border border-gray-600 rounded-lg bg-[#2A2A2A]">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {getUserEmailIcon(user)}
-                    <p className="font-medium text-sm text-white">
-                      {formatUserDisplay(user)}
+            {userDetails.slice(0, 25).map((user, index) => {
+              console.log(`🎯 RENDER DEBUG usuário ${index + 1}:`, {
+                id: user.id.slice(0, 8),
+                name: user.full_name,
+                email: user.email,
+                hasEmail: !!user.email,
+                formatResult: formatUserDisplay(user)
+              });
+
+              return (
+                <div key={user.id} className="flex items-center justify-between p-3 border border-gray-600 rounded-lg bg-[#2A2A2A]">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {getUserEmailIcon(user)}
+                      <p className="font-medium text-sm text-white">
+                        {formatUserDisplay(user)}
+                      </p>
+                    </div>
+                    {user.email && (
+                      <p className="text-xs text-blue-400 font-mono mt-1 pl-5">
+                        📧 {user.email}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 pl-5">
+                      {formatNumber(user.total_available)} créditos disponíveis • 
+                      Usado: {formatNumber(user.total_tokens_used)} total
                     </p>
                   </div>
-                  {user.email && (
-                    <p className="text-xs text-blue-400 font-mono mt-1 pl-5">
-                      📧 {user.email}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400 pl-5">
-                    {formatNumber(user.total_available)} créditos disponíveis • 
-                    Usado: {formatNumber(user.total_tokens_used)} total
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-white">
+                      {user.usage_percentage}%
+                    </span>
+                    {getStatusBadge(user.usage_percentage)}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-white">
-                    {user.usage_percentage}%
-                  </span>
-                  {getStatusBadge(user.usage_percentage)}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           {userDetails.length > 25 && (
