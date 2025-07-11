@@ -46,7 +46,7 @@ export const Header = () => {
             <div className="w-8 h-8 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] flex items-center justify-center rounded-xl">
               <Bot className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-white">CopyChief</span>
+            <span className="text-xl font-bold text-white">IA CopyChief</span>
           </Link>
 
           {/* Desktop Navigation */}

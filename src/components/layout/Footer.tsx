@@ -24,7 +24,7 @@ const Footer = () => {
               <div className="w-8 h-8 bg-gradient-to-r from-[#3B82F6] to-[#2563EB] rounded-lg flex items-center justify-center">
                 <Bot className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-white">CopyChief</span>
+              <span className="text-xl font-bold text-white">IA CopyChief</span>
             </button>
             <p className="text-sm">
               Revolucione suas vendas com a inteligência artificial mais avançada para copywriting.

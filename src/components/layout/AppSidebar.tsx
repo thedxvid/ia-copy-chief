@@ -109,7 +109,7 @@ export function AppSidebar() {
               <Bot className="w-5 h-5 text-white" />
             </div>
             {!isCollapsed && (
-              <span className="text-xl font-bold text-white">CopyChief</span>
+              <span className="text-xl font-bold text-white">IA CopyChief</span>
             )}
           </div>
         </SidebarHeader>

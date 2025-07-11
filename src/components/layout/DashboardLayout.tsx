@@ -48,7 +48,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-base font-bold text-white">CopyChief</h1>
+                    <h1 className="text-base font-bold text-white">IA CopyChief</h1>
                   </div>
                 </div>
               </div>
