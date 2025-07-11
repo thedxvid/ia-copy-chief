@@ -491,7 +491,23 @@ export const ChatInterface = () => {
         
         <AgentSelector
           selectedAgent={selectedAgent}
-          onAgentChange={setSelectedAgent}
+          onAgentChange={(agent) => {
+            // Salvar posição do scroll antes de trocar agente
+            console.log('🔄 Trocando agente, preservando scroll...');
+            saveScrollPosition();
+            setPreserveOnNextRender();
+            
+            // Trocar agente
+            setSelectedAgent(agent);
+            
+            // Restaurar posição após render
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                restoreScrollPosition();
+                console.log('✅ Scroll restaurado após troca de agente');
+              });
+            });
+          }}
           onManageAgents={handleManageAgents}
         />
         
