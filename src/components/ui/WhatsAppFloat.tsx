@@ -1,11 +1,18 @@
 
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 
 interface WhatsAppFloatProps {
   phoneNumber: string;
 }
 
 export const WhatsAppFloat: React.FC<WhatsAppFloatProps> = ({ phoneNumber }) => {
+  const location = useLocation();
+  
+  // Não mostrar o botão WhatsApp na página de chat
+  if (location.pathname === '/chat') {
+    return null;
+  }
   const handleClick = () => {
     window.open(`https://wa.me/${phoneNumber}`, '_blank', 'noopener,noreferrer');
   };
