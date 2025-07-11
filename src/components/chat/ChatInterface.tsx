@@ -30,6 +30,7 @@ export const ChatInterface = () => {
   const lastMessageCountRef = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
   const isAutoScrollingRef = useRef(false);
+  const forceScrollToBottomRef = useRef(false);
   
   const { products } = useProducts();
   const { tokens, refreshTokens } = useTokens();
@@ -105,7 +106,7 @@ export const ChatInterface = () => {
     return scrollHeight - scrollTop - clientHeight <= threshold;
   }, []);
 
-  // NOVA ESTRATÉGIA DE ENVIO COM PRESERVAÇÃO INTELIGENTE
+  // ESTRATÉGIA AGRESSIVA DE PRESERVAÇÃO DE SCROLL
   const handleSendMessage = useCallback(async (message: string) => {
     // Detectar se está no final ANTES de enviar
     const wasAtBottom = isAtBottom();
@@ -115,11 +116,14 @@ export const ChatInterface = () => {
       timestamp: new Date().toLocaleTimeString()
     });
     
-    // Se está no final, configurar para manter no final
+    // Se está no final, ativar modo de força para manter no final
     if (wasAtBottom) {
       isAutoScrollingRef.current = true;
+      forceScrollToBottomRef.current = true;
+      console.log('🔥 ATIVANDO modo força scroll para final');
     } else {
-      saveScrollPosition(); // Salvar posição atual se não estiver no final
+      saveScrollPosition();
+      console.log('💾 Salvando posição atual para restaurar');
     }
 
     // Verificar tokens
@@ -133,21 +137,32 @@ export const ChatInterface = () => {
       await sendMessage(message);
       flushSync(() => {}); // Forçar sincronização do DOM
       
-      // Aplicar estratégia baseada no estado inicial
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (wasAtBottom) {
-            // Se estava no final, IR PARA O FINAL IMEDIATAMENTE
-            messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-            isAutoScrollingRef.current = true;
-            console.log('🚀 Mantendo no final após envio');
-          } else {
-            // Se não estava no final, restaurar posição
-            restoreScrollPosition();
-            console.log('🔒 Restaurando posição após envio');
+      // ESTRATÉGIA MÚLTIPLA para garantir scroll
+      if (wasAtBottom) {
+        // Múltiplas tentativas de scroll para o final
+        const scrollToEnd = () => {
+          if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+            console.log('🚀 Executando scroll forçado para o final');
           }
+        };
+        
+        // Executar scroll em múltiplos momentos
+        scrollToEnd(); // Imediato
+        requestAnimationFrame(scrollToEnd); // Próximo frame
+        requestAnimationFrame(() => requestAnimationFrame(scrollToEnd)); // Frame seguinte
+        
+        // Também depois de um pequeno delay
+        setTimeout(scrollToEnd, 100);
+        setTimeout(scrollToEnd, 200);
+        setTimeout(scrollToEnd, 500);
+      } else {
+        // Restaurar posição se não estava no final
+        requestAnimationFrame(() => {
+          restoreScrollPosition();
+          console.log('🔒 Restaurando posição salva');
         });
-      });
+      }
       
       await refreshTokens();
       
@@ -162,12 +177,13 @@ export const ChatInterface = () => {
     }
   }, [sendMessage, tokens, refreshTokens, isAtBottom, saveScrollPosition, restoreScrollPosition]);
 
-  // Monitorar scroll e interceptar scroll indesejado para o topo
+  // INTERCEPTADOR AGRESSIVO DE SCROLL INDESEJADO
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
     let scrollTimeout: NodeJS.Timeout;
+    let lastScrollTop = container.scrollTop;
     
     const handleScroll = () => {
       clearTimeout(scrollTimeout);
@@ -180,35 +196,60 @@ export const ChatInterface = () => {
       }, 100);
     };
 
-    // INTERCEPTADOR DE SCROLL INDESEJADO
+    // INTERCEPTADOR SUPER AGRESSIVO
     const handleScrollChange = () => {
-      setTimeout(() => {
-        const currentScrollTop = container.scrollTop;
-        const { scrollHeight, clientHeight } = container;
+      const currentScrollTop = container.scrollTop;
+      const { scrollHeight, clientHeight } = container;
+      
+      // Se deve estar forçando o scroll para o final
+      if (forceScrollToBottomRef.current) {
+        const isAtEnd = scrollHeight - currentScrollTop - clientHeight <= 50;
         
-        // Detectar scroll indesejado para o topo
-        if (currentScrollTop === 0 && scrollHeight > clientHeight + 100) {
-          // Se deveria estar no final, forçar volta ao final
-          if (isAutoScrollingRef.current && messagesEndRef.current) {
-            console.log('🔄 Interceptando scroll indesejado, voltando ao final');
-            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
-          }
+        if (!isAtEnd) {
+          console.log('🔄 INTERCEPTANDO scroll indesejado, FORÇANDO volta ao final');
+          container.scrollTop = scrollHeight - clientHeight;
         }
-      }, 50);
+      }
+      
+      // Detectar qualquer scroll para o topo durante auto-scrolling
+      if (isAutoScrollingRef.current && currentScrollTop === 0 && scrollHeight > clientHeight + 100) {
+        console.log('🚨 DETECTADO scroll para topo durante auto-scroll, CORRIGINDO');
+        container.scrollTop = scrollHeight - clientHeight;
+      }
+      
+      lastScrollTop = currentScrollTop;
     };
 
+    // Adicionar múltiplos listeners para capturar todos os scrolls
     container.addEventListener('scroll', handleScroll, { passive: true });
-    container.addEventListener('scroll', handleScrollChange, { passive: true });
+    container.addEventListener('scroll', handleScrollChange, { passive: false });
+    
+    // Observer para mudanças no DOM que podem causar scroll
+    const observer = new MutationObserver(() => {
+      if (forceScrollToBottomRef.current && messagesEndRef.current) {
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        });
+      }
+    });
+    
+    observer.observe(container, { 
+      childList: true, 
+      subtree: true, 
+      attributes: false 
+    });
+    
     handleScroll();
     
     return () => {
       clearTimeout(scrollTimeout);
       container.removeEventListener('scroll', handleScroll);
       container.removeEventListener('scroll', handleScrollChange);
+      observer.disconnect();
     };
-  }, [activeSession?.id, isAtBottom]);
+  }, [activeSession?.id, scrollIsAtBottom]);
 
-  // LÓGICA DE AUTO-SCROLL INTELIGENTE
+  // AUTO-SCROLL AGRESSIVO PARA RESPOSTAS
   useLayoutEffect(() => {
     if (!activeSession?.messages.length) {
       lastMessageCountRef.current = 0;
@@ -218,7 +259,6 @@ export const ChatInterface = () => {
     const currentMessageCount = activeSession.messages.length;
     const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
     
-    // Se não há nova mensagem, apenas atualizar contador
     if (!hasNewMessages) {
       lastMessageCountRef.current = currentMessageCount;
       return;
@@ -233,25 +273,40 @@ export const ChatInterface = () => {
       isFromAssistant,
       isFromUser,
       autoScrolling: isAutoScrollingRef.current,
-      messageCount: currentMessageCount,
-      preview: lastMessage?.content?.substring(0, 50) + '...'
+      forceScroll: forceScrollToBottomRef.current,
+      messageCount: currentMessageCount
     });
     
-    // DIFERENCIAÇÃO ENTRE MENSAGENS DO USUÁRIO E DO ASSISTANT
     if (isFromUser) {
-      // Para mensagens do usuário, já foi tratado no handleSendMessage
-      console.log('📝 Mensagem do usuário - scroll já tratado no envio');
+      console.log('📝 Mensagem do usuário - mantendo configuração de força');
+      // Manter a configuração de força ativa para a resposta que virá
     } else if (isFromAssistant) {
-      // Para respostas do assistant, só scroll se estava configurado para auto-scroll
-      if (isAutoScrollingRef.current && messagesEndRef.current) {
-        console.log('🚀 Auto-scrolling para resposta do assistant');
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        console.log('🔒 Não fazendo auto-scroll - usuário não estava no final');
+      if (forceScrollToBottomRef.current && messagesEndRef.current) {
+        console.log('🚀 FORÇA MÁXIMA: Scrolling para resposta do assistant');
+        
+        // Múltiplas tentativas agressivas
+        const forceScroll = () => {
+          if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+          }
+        };
+        
+        forceScroll();
+        requestAnimationFrame(forceScroll);
+        requestAnimationFrame(() => requestAnimationFrame(forceScroll));
+        setTimeout(forceScroll, 100);
+        setTimeout(forceScroll, 200);
+        setTimeout(forceScroll, 500);
+        
+        // Desativar modo força após 1 segundo
+        setTimeout(() => {
+          forceScrollToBottomRef.current = false;
+          isAutoScrollingRef.current = false;
+          console.log('✅ Desativando modo força scroll');
+        }, 1000);
       }
     }
     
-    // Atualizar contador por último
     lastMessageCountRef.current = currentMessageCount;
   }, [activeSession?.messages]);
 
