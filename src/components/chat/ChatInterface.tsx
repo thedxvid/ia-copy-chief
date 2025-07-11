@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { AgentSelector } from './AgentSelector';
@@ -23,8 +23,11 @@ export const ChatInterface = () => {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showTokenUpgrade, setShowTokenUpgrade] = useState(false);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
+  const [documentHidden, setDocumentHidden] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageCountRef = useRef(0);
   const { products } = useProducts();
   const { tokens, refreshTokens } = useTokens();
   const isMobile = useIsMobile();
@@ -45,6 +48,16 @@ export const ChatInterface = () => {
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
+  // Detectar quando a página é minimizada/maximizada
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setDocumentHidden(document.hidden);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   // Verificar se há um sessionId no state da navegação
   useEffect(() => {
     if (location.state?.sessionId && sessions.length > 0) {
@@ -57,47 +70,83 @@ export const ChatInterface = () => {
   }, [location.state, sessions, selectSession]);
 
   // Função para verificar se está no final do scroll
-  const checkIfAtBottom = () => {
+  const checkIfAtBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return true;
     
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const threshold = 50; // Reduzir threshold para ser mais preciso
+    const threshold = 20; // Threshold menor para ser mais preciso
     return scrollHeight - scrollTop - clientHeight <= threshold;
-  };
+  }, []);
 
   // Monitorar scroll para mostrar/ocultar botão
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
+    let scrollTimeout: NodeJS.Timeout;
+    
     const handleScroll = () => {
-      const isCurrentlyAtBottom = checkIfAtBottom();
-      setIsAtBottom(isCurrentlyAtBottom);
-      
-      // Mostrar botão APENAS se:
-      // 1. NÃO estiver no final
-      // 2. Houver conteúdo suficiente para scroll
-      const { scrollHeight, clientHeight } = container;
-      const hasScrollableContent = scrollHeight > clientHeight + 100;
-      
-      setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent);
+      // Debounce para evitar muitas execuções
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const isCurrentlyAtBottom = checkIfAtBottom();
+        setIsAtBottom(isCurrentlyAtBottom);
+        
+        // Detectar se o usuário fez scroll manual para cima
+        if (!isCurrentlyAtBottom) {
+          setUserScrolledUp(true);
+        } else {
+          setUserScrolledUp(false);
+        }
+        
+        // Mostrar botão APENAS se:
+        // 1. NÃO estiver no final
+        // 2. Houver conteúdo suficiente para scroll
+        const { scrollHeight, clientHeight } = container;
+        const hasScrollableContent = scrollHeight > clientHeight + 100;
+        
+        setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent);
+      }, 50);
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     // Verificar estado inicial
     handleScroll();
     
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [activeSession]);
+    return () => {
+      clearTimeout(scrollTimeout);
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [activeSession, checkIfAtBottom]);
 
-  // Scroll automático apenas quando necessário (usuário está no final)
+  // Scroll automático apenas quando necessário
   useEffect(() => {
-    if (messagesEndRef.current && activeSession && isAtBottom) {
-      // Só fazer scroll automático se o usuário estava no final
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (!activeSession || !messagesEndRef.current) return;
+    
+    const currentMessageCount = activeSession.messages.length;
+    const hadMessages = lastMessageCountRef.current > 0;
+    const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
+    
+    // Atualizar referência do contador
+    lastMessageCountRef.current = currentMessageCount;
+    
+    // Condições para auto-scroll:
+    // 1. Novas mensagens foram adicionadas
+    // 2. Usuário estava no final ANTES da nova mensagem
+    // 3. Página não foi minimizada/maximizada recentemente
+    // 4. Usuário não fez scroll manual para cima
+    if (hasNewMessages && 
+        isAtBottom && 
+        !documentHidden && 
+        !userScrolledUp &&
+        hadMessages) {
+      
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
-  }, [activeSession?.messages, isAtBottom]);
+  }, [activeSession?.messages, isAtBottom, documentHidden, userScrolledUp]);
 
   // Função customizada para envio de mensagem com verificação de tokens
   const handleSendMessage = async (message: string) => {
@@ -132,6 +181,7 @@ export const ChatInterface = () => {
 
   // Função para scroll suave até o final
   const scrollToBottom = () => {
+    setUserScrolledUp(false); // Reset do estado quando usuário clica para ir ao final
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
