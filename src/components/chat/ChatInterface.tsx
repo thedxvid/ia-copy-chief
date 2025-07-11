@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AgentEditor } from '@/components/agents/AgentEditor';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
+import { useScrollPreservation } from '@/hooks/useScrollPreservation';
 import { MarkdownText } from '@/components/ui/markdown-text';
 import { TokenUpgradeModal } from '@/components/tokens/TokenUpgradeModal';
 import { useTokens } from '@/hooks/useTokens';
@@ -22,18 +23,23 @@ export const ChatInterface = () => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [isAgentEditorOpen, setIsAgentEditorOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const [showTokenUpgrade, setShowTokenUpgrade] = useState(false);
-  const [userScrolledUp, setUserScrolledUp] = useState(false);
-  const [documentHidden, setDocumentHidden] = useState(false);
-  const [isProcessingMessage, setIsProcessingMessage] = useState(false);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [isUpdatingSession, setIsUpdatingSession] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
-  const lastScrollPositionRef = useRef(0);
+  const sessionIdRef = useRef<string | null>(null);
+  
   const { products } = useProducts();
   const { tokens, refreshTokens } = useTokens();
+  const {
+    saveScrollPosition,
+    restoreScrollPosition,
+    setPreserveOnNextRender,
+    shouldPreserve,
+    setContainerRef,
+    isAtBottom: scrollIsAtBottom
+  } = useScrollPreservation();
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
@@ -52,15 +58,28 @@ export const ChatInterface = () => {
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
-  // Detectar quando a página é minimizada/maximizada
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      setDocumentHidden(document.hidden);
-    };
+  // Hook para preservar scroll após mudanças de sessão
+  useLayoutEffect(() => {
+    if (messagesContainerRef.current) {
+      setContainerRef(messagesContainerRef.current);
+    }
+  }, [setContainerRef]);
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+  // Detectar mudança de sessão e preservar scroll
+  useEffect(() => {
+    const currentSessionId = activeSession?.id;
+    
+    if (sessionIdRef.current && currentSessionId !== sessionIdRef.current) {
+      console.log('🔄 Session changed, checking scroll preservation');
+      
+      // Se devemos preservar, restaurar posição
+      if (shouldPreserve() && messagesContainerRef.current) {
+        restoreScrollPosition(messagesContainerRef.current);
+      }
+    }
+    
+    sessionIdRef.current = currentSessionId || null;
+  }, [activeSession?.id, shouldPreserve, restoreScrollPosition]);
 
   // Verificar se há um sessionId no state da navegação
   useEffect(() => {
@@ -94,107 +113,15 @@ export const ChatInterface = () => {
     return isAtBottom;
   }, []);
 
-  // Monitorar scroll para mostrar/ocultar botão
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    let scrollTimeout: NodeJS.Timeout;
-    
-    const handleScroll = () => {
-      // Debounce para evitar muitas execuções
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        const isCurrentlyAtBottom = checkIfAtBottom();
-        setIsAtBottom(isCurrentlyAtBottom);
-        
-        // Detectar se o usuário fez scroll manual para cima
-        if (!isCurrentlyAtBottom) {
-          setUserScrolledUp(true);
-        } else {
-          setUserScrolledUp(false);
-        }
-        
-        // Mostrar botão APENAS se:
-        // 1. NÃO estiver no final
-        // 2. Houver conteúdo suficiente para scroll
-        const { scrollHeight, clientHeight } = container;
-        const hasScrollableContent = scrollHeight > clientHeight + 100;
-        
-        setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent);
-      }, 50);
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    // Verificar estado inicial
-    handleScroll();
-    
-    return () => {
-      clearTimeout(scrollTimeout);
-      container.removeEventListener('scroll', handleScroll);
-    };
-  }, [activeSession, checkIfAtBottom]);
-
-  // Scroll automático inteligente - VERSÃO CORRIGIDA
-  useEffect(() => {
-    if (!activeSession || !messagesEndRef.current) return;
-    
-    const currentMessageCount = activeSession.messages.length;
-    const hadMessages = lastMessageCountRef.current > 0;
-    const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
-    
-    console.log('📊 Scroll Effect - Trigger:', {
-      currentMessageCount,
-      lastMessageCount: lastMessageCountRef.current,
-      hasNewMessages,
-      hadMessages,
-      isAtBottom,
-      userScrolledUp,
-      documentHidden
-    });
-    
-    // Atualizar referência do contador
-    lastMessageCountRef.current = currentMessageCount;
-    
-    // CONDIÇÃO CRÍTICA: Só fazer scroll se:
-    // 1. Realmente há uma nova mensagem DO ASSISTANT
-    // 2. O usuário estava no final ANTES da nova mensagem
-    // 3. Não é o carregamento inicial das mensagens
-    if (hasNewMessages && hadMessages && currentMessageCount >= 2) {
-      const lastMessage = activeSession.messages[activeSession.messages.length - 1];
-      
-      console.log('🎯 New message analysis:', {
-        messageRole: lastMessage?.role,
-        messageContent: lastMessage?.content?.substring(0, 50) + '...',
-        isAssistantMessage: lastMessage?.role === 'assistant',
-        userWasAtBottom: isAtBottom,
-        shouldScroll: lastMessage?.role === 'assistant' && isAtBottom && !userScrolledUp
-      });
-      
-      // CRÍTICO: Só fazer scroll para mensagens do ASSISTANT quando o usuário estava no final
-      if (lastMessage?.role === 'assistant' && 
-          isAtBottom && 
-          !userScrolledUp && 
-          !documentHidden) {
-        
-        console.log('🚀 Executando auto-scroll para resposta do assistant');
-        
-        // Usar setTimeout mais longo para garantir que o DOM seja atualizado
-        setTimeout(() => {
-          if (messagesEndRef.current && !userScrolledUp) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 200);
-      } else {
-        console.log('⛔ Auto-scroll bloqueado - condições não atendidas');
-      }
-    } else {
-      console.log('⛔ Sem scroll - não é nova mensagem válida');
+  // NOVA LÓGICA DE SCROLL - PRESERVAÇÃO E AUTO-SCROLL INTELIGENTE
+  const handleSendMessage = useCallback(async (message: string) => {
+    // Preservar posição do scroll antes do envio
+    if (messagesContainerRef.current) {
+      saveScrollPosition(messagesContainerRef.current);
+      setPreserveOnNextRender();
+      console.log('📌 Scroll position saved before sending message');
     }
-  }, [activeSession?.messages.length]);
 
-  // Função customizada para envio de mensagem com verificação de tokens
-  const handleSendMessage = async (message: string) => {
     // Verificar se há tokens suficientes antes de enviar
     if (!tokens || tokens.total_available <= 0) {
       setShowTokenUpgrade(true);
@@ -203,20 +130,90 @@ export const ChatInterface = () => {
 
     try {
       await sendMessage(message);
-      // Atualizar tokens após envio bem-sucedido
       await refreshTokens();
     } catch (error: any) {
-      // Se o erro for relacionado a tokens insuficientes, mostrar modal
       if (error?.message?.includes('créditos') || 
           error?.message?.includes('tokens') ||
           error?.status === 402) {
         setShowTokenUpgrade(true);
       } else {
-        // Para outros erros, deixar o tratamento padrão
         throw error;
       }
     }
-  };
+  }, [sendMessage, tokens, refreshTokens, saveScrollPosition, setPreserveOnNextRender]);
+
+  // Monitorar scroll para botão "ir ao final"
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    let scrollTimeout: NodeJS.Timeout;
+    
+    const handleScroll = () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const isCurrentlyAtBottom = scrollIsAtBottom(container);
+        const { scrollHeight, clientHeight } = container;
+        const hasScrollableContent = scrollHeight > clientHeight + 100;
+        
+        setShowScrollButton(!isCurrentlyAtBottom && hasScrollableContent);
+      }, 100);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    
+    return () => {
+      clearTimeout(scrollTimeout);
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [activeSession, scrollIsAtBottom]);
+
+  // AUTO-SCROLL INTELIGENTE - Para novas mensagens do assistant
+  useEffect(() => {
+    if (!activeSession?.messages.length || !messagesEndRef.current) return;
+    
+    const currentMessageCount = activeSession.messages.length;
+    const hadMessages = lastMessageCountRef.current > 0;
+    const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
+    
+    // Atualizar contador
+    lastMessageCountRef.current = currentMessageCount;
+    
+    // Se não há nova mensagem, não fazer nada
+    if (!hasNewMessages || !hadMessages) return;
+    
+    const lastMessage = activeSession.messages[activeSession.messages.length - 1];
+    const isFromAssistant = lastMessage?.role === 'assistant';
+    
+    console.log('🎯 Nova mensagem detectada:', {
+      messageRole: lastMessage?.role,
+      isFromAssistant,
+      messageCount: currentMessageCount,
+      preview: lastMessage?.content?.substring(0, 50) + '...'
+    });
+    
+    // REGRA CRÍTICA: Só fazer scroll automático para respostas do assistant
+    if (isFromAssistant && messagesContainerRef.current) {
+      const wasAtBottom = scrollIsAtBottom(messagesContainerRef.current);
+      
+      console.log('🔍 Verificando auto-scroll:', {
+        wasAtBottom,
+        shouldAutoScroll: wasAtBottom
+      });
+      
+      if (wasAtBottom) {
+        // Pequeno delay para garantir que o DOM foi atualizado
+        setTimeout(() => {
+          if (messagesEndRef.current) {
+            console.log('🚀 Auto-scrolling para nova resposta do assistant');
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+      }
+    }
+  }, [activeSession?.messages.length, scrollIsAtBottom]);
+
 
   // Função para fechar modal e atualizar tokens
   const handleCloseTokenUpgrade = async () => {
@@ -226,8 +223,9 @@ export const ChatInterface = () => {
 
   // Função para scroll suave até o final
   const scrollToBottom = () => {
-    setUserScrolledUp(false); // Reset do estado quando usuário clica para ir ao final
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // Função para fechar sidebar no mobile ao selecionar sessão

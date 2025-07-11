@@ -255,6 +255,7 @@ export const useChatAgent = (selectedProductId?: string) => {
 
     console.log('📤 Enviando mensagem do usuário:', userMessageId);
 
+    // OTIMIZAÇÃO: Atualizar apenas a sessão ativa sem recarregar todas
     const updatedSession = {
       ...activeSession,
       messages: [...activeSession.messages, userMessage],
@@ -265,12 +266,16 @@ export const useChatAgent = (selectedProductId?: string) => {
         : activeSession.title
     };
     
+    // OTIMIZAÇÃO: Atualizar localmente sem recarregar da base
     setActiveSession(updatedSession);
     setSessions(prev => prev.map(s => s.id === activeSession.id ? updatedSession : s));
     
+    // Salvar no Supabase em background
     if (user) {
-      await saveMessageToSupabase(activeSession.id, userMessage);
-      await saveSessionToSupabase(updatedSession);
+      console.log('💾 Salvando mensagem em background...');
+      // Não esperar essas operações para não bloquear a UI
+      saveMessageToSupabase(activeSession.id, userMessage).catch(console.error);
+      saveSessionToSupabase(updatedSession).catch(console.error);
     }
     
     setIsLoading(true);
@@ -477,6 +482,7 @@ INSTRUÇÕES IMPORTANTES:
         contextPreserved: data.contextPreserved
       });
 
+      // OTIMIZAÇÃO: Atualizar localmente sem recarregar
       const finalSession = {
         ...updatedSession,
         messages: [...updatedSession.messages, assistantMessage]
@@ -485,9 +491,11 @@ INSTRUÇÕES IMPORTANTES:
       setActiveSession(finalSession);
       setSessions(prev => prev.map(s => s.id === activeSession.id ? finalSession : s));
 
+      // Salvar no Supabase em background sem bloquear UI
       if (user) {
-        await saveMessageToSupabase(activeSession.id, assistantMessage);
-        await saveSessionToSupabase(finalSession);
+        console.log('💾 Salvando resposta do assistant em background...');
+        saveMessageToSupabase(activeSession.id, assistantMessage).catch(console.error);
+        saveSessionToSupabase(finalSession).catch(console.error);
       }
 
       // Toast de sucesso otimizado
