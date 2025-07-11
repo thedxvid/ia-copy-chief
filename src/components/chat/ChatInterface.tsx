@@ -29,6 +29,7 @@ export const ChatInterface = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
+  const isAutoScrollingRef = useRef(false);
   
   const { products } = useProducts();
   const { tokens, refreshTokens } = useTokens();
@@ -95,46 +96,30 @@ export const ChatInterface = () => {
   }, [location.state, sessions, selectSession]);
 
   // Função para verificar se está no final do scroll
-  const checkIfAtBottom = useCallback(() => {
+  const isAtBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return true;
     
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const threshold = 50; // Threshold maior para ser mais tolerante
-    const isAtBottom = scrollHeight - scrollTop - clientHeight <= threshold;
-    
-    console.log('🔍 CheckIfAtBottom:', {
-      scrollTop,
-      scrollHeight,
-      clientHeight,
-      threshold,
-      isAtBottom,
-      difference: scrollHeight - scrollTop - clientHeight
-    });
-    
-    return isAtBottom;
+    const threshold = 50;
+    return scrollHeight - scrollTop - clientHeight <= threshold;
   }, []);
 
-  // PRESERVAÇÃO DE SCROLL CRÍTICA
+  // NOVA ESTRATÉGIA DE ENVIO COM PRESERVAÇÃO INTELIGENTE
   const handleSendMessage = useCallback(async (message: string) => {
-    const container = messagesContainerRef.current;
+    // Detectar se está no final ANTES de enviar
+    const wasAtBottom = isAtBottom();
     
-    // Capturar estado atual do scroll ANTES de enviar
-    let wasAtBottom = false;
-    let savedScrollTop = 0;
+    console.log('📌 ANTES de enviar - Estado do scroll:', {
+      wasAtBottom,
+      timestamp: new Date().toLocaleTimeString()
+    });
     
-    if (container) {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      wasAtBottom = scrollHeight - scrollTop - clientHeight <= 100;
-      savedScrollTop = scrollTop;
-      
-      console.log('📌 ANTES de enviar - Estado do scroll:', {
-        scrollTop,
-        scrollHeight,
-        clientHeight,
-        wasAtBottom,
-        distanceFromBottom: scrollHeight - scrollTop - clientHeight
-      });
+    // Se está no final, configurar para manter no final
+    if (wasAtBottom) {
+      isAutoScrollingRef.current = true;
+    } else {
+      saveScrollPosition(); // Salvar posição atual se não estiver no final
     }
 
     // Verificar tokens
@@ -146,15 +131,25 @@ export const ChatInterface = () => {
     try {
       // Enviar mensagem
       await sendMessage(message);
-      await refreshTokens();
+      flushSync(() => {}); // Forçar sincronização do DOM
       
-      // PRESERVAR SCROLL: Se não estava no final, manter posição exata
-      if (container && !wasAtBottom) {
-        console.log('🔒 Preservando scroll - não estava no final, mantendo posição:', savedScrollTop);
-        // Forçar posição sem animação
-        container.scrollTop = savedScrollTop;
-      }
-      // Se estava no final, o auto-scroll cuidará do resto
+      // Aplicar estratégia baseada no estado inicial
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (wasAtBottom) {
+            // Se estava no final, IR PARA O FINAL IMEDIATAMENTE
+            messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+            isAutoScrollingRef.current = true;
+            console.log('🚀 Mantendo no final após envio');
+          } else {
+            // Se não estava no final, restaurar posição
+            restoreScrollPosition();
+            console.log('🔒 Restaurando posição após envio');
+          }
+        });
+      });
+      
+      await refreshTokens();
       
     } catch (error: any) {
       if (error?.message?.includes('créditos') || 
@@ -165,9 +160,9 @@ export const ChatInterface = () => {
         throw error;
       }
     }
-  }, [sendMessage, tokens, refreshTokens]);
+  }, [sendMessage, tokens, refreshTokens, isAtBottom, saveScrollPosition, restoreScrollPosition]);
 
-  // Monitorar scroll para botão "ir ao final"
+  // Monitorar scroll e interceptar scroll indesejado para o topo
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -185,16 +180,35 @@ export const ChatInterface = () => {
       }, 100);
     };
 
+    // INTERCEPTADOR DE SCROLL INDESEJADO
+    const handleScrollChange = () => {
+      setTimeout(() => {
+        const currentScrollTop = container.scrollTop;
+        const { scrollHeight, clientHeight } = container;
+        
+        // Detectar scroll indesejado para o topo
+        if (currentScrollTop === 0 && scrollHeight > clientHeight + 100) {
+          // Se deveria estar no final, forçar volta ao final
+          if (isAutoScrollingRef.current && messagesEndRef.current) {
+            console.log('🔄 Interceptando scroll indesejado, voltando ao final');
+            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+          }
+        }
+      }, 50);
+    };
+
     container.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener('scroll', handleScrollChange, { passive: true });
     handleScroll();
     
     return () => {
       clearTimeout(scrollTimeout);
       container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('scroll', handleScrollChange);
     };
-  }, [activeSession, scrollIsAtBottom]);
+  }, [activeSession?.id, isAtBottom]);
 
-  // AUTO-SCROLL INTELIGENTE - Para novas mensagens do assistant
+  // LÓGICA DE AUTO-SCROLL INTELIGENTE
   useLayoutEffect(() => {
     if (!activeSession?.messages.length) {
       lastMessageCountRef.current = 0;
@@ -202,7 +216,6 @@ export const ChatInterface = () => {
     }
     
     const currentMessageCount = activeSession.messages.length;
-    const hadMessages = lastMessageCountRef.current > 0;
     const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
     
     // Se não há nova mensagem, apenas atualizar contador
@@ -213,33 +226,28 @@ export const ChatInterface = () => {
     
     const lastMessage = activeSession.messages[activeSession.messages.length - 1];
     const isFromAssistant = lastMessage?.role === 'assistant';
+    const isFromUser = lastMessage?.role === 'user';
     
     console.log('🎯 Nova mensagem detectada:', {
       messageRole: lastMessage?.role,
       isFromAssistant,
+      isFromUser,
+      autoScrolling: isAutoScrollingRef.current,
       messageCount: currentMessageCount,
       preview: lastMessage?.content?.substring(0, 50) + '...'
     });
     
-    // REGRA CRÍTICA: Só fazer scroll automático para respostas do assistant
-    // E apenas se o usuário estava próximo ao final
-    if (isFromAssistant && messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight <= 150;
-      
-      console.log('🔍 Verificando auto-scroll:', {
-        scrollTop,
-        scrollHeight, 
-        clientHeight,
-        distanceFromBottom: scrollHeight - scrollTop - clientHeight,
-        isNearBottom,
-        shouldAutoScroll: isNearBottom
-      });
-      
-      if (isNearBottom && messagesEndRef.current) {
-        console.log('🚀 Auto-scrolling para nova resposta do assistant');
+    // DIFERENCIAÇÃO ENTRE MENSAGENS DO USUÁRIO E DO ASSISTANT
+    if (isFromUser) {
+      // Para mensagens do usuário, já foi tratado no handleSendMessage
+      console.log('📝 Mensagem do usuário - scroll já tratado no envio');
+    } else if (isFromAssistant) {
+      // Para respostas do assistant, só scroll se estava configurado para auto-scroll
+      if (isAutoScrollingRef.current && messagesEndRef.current) {
+        console.log('🚀 Auto-scrolling para resposta do assistant');
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        console.log('🔒 Não fazendo auto-scroll - usuário não estava no final');
       }
     }
     
