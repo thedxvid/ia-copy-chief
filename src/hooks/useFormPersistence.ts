@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useToast } from '@/hooks/use-toast';
 
 interface UseFormPersistenceOptions {
   key: string;
@@ -7,34 +6,41 @@ interface UseFormPersistenceOptions {
   debounceMs?: number;
 }
 
+interface SavedData {
+  value: string;
+  timestamp: number;
+}
+
 export function useFormPersistence({ 
   key, 
   initialValue, 
-  debounceMs = 500 
+  debounceMs = 300 
 }: UseFormPersistenceOptions) {
   const [value, setValue] = useState(initialValue);
   const [isRestored, setIsRestored] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
-  const { toast } = useToast();
 
   // Restore data from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(key);
       if (stored) {
-        const parsedData = JSON.parse(stored);
-        setValue(parsedData.value || initialValue);
-        setIsRestored(true);
+        const parsedData: SavedData = JSON.parse(stored);
+        const isExpired = Date.now() - parsedData.timestamp > 7 * 24 * 60 * 60 * 1000; // 7 days
         
-        toast({
-          title: "Rascunho recuperado",
-          description: "Dados do formulário foram restaurados automaticamente.",
-        });
+        if (!isExpired && parsedData.value && parsedData.value !== initialValue) {
+          setValue(parsedData.value);
+          setIsRestored(true);
+        } else if (isExpired) {
+          localStorage.removeItem(key);
+        }
       }
     } catch (error) {
       console.warn('Erro ao recuperar dados salvos:', error);
+      localStorage.removeItem(key);
     }
-  }, [key, initialValue, toast]);
+  }, [key, initialValue]);
 
   // Debounced save to localStorage
   const debouncedSave = useCallback((newValue: string) => {
@@ -44,11 +50,15 @@ export function useFormPersistence({
     
     timeoutRef.current = setTimeout(() => {
       try {
-        const dataToStore = {
-          value: newValue,
-          timestamp: Date.now()
-        };
-        localStorage.setItem(key, JSON.stringify(dataToStore));
+        if (newValue.trim()) {
+          const dataToStore: SavedData = {
+            value: newValue,
+            timestamp: Date.now()
+          };
+          localStorage.setItem(key, JSON.stringify(dataToStore));
+        } else {
+          localStorage.removeItem(key);
+        }
       } catch (error) {
         console.warn('Erro ao salvar no localStorage:', error);
       }
@@ -58,6 +68,8 @@ export function useFormPersistence({
   // Update value and save to localStorage
   const updateValue = useCallback((newValue: string) => {
     setValue(newValue);
+    setHasChanges(true);
+    setIsRestored(false);
     debouncedSave(newValue);
   }, [debouncedSave]);
 
@@ -66,6 +78,7 @@ export function useFormPersistence({
     try {
       localStorage.removeItem(key);
       setIsRestored(false);
+      setHasChanges(false);
     } catch (error) {
       console.warn('Erro ao limpar dados salvos:', error);
     }
@@ -90,8 +103,8 @@ export function useFormPersistence({
 
 // Hook for managing multiple form fields at once
 export function useFormStatePersistence(productId: string | null = null) {
-  const sessionId = useRef(Date.now().toString()).current;
-  const keyPrefix = `product-form-${productId || 'new'}-${sessionId}`;
+  // Create stable key prefix without sessionId to persist across sessions
+  const keyPrefix = `product-form-${productId || 'new'}`;
   
   // Basic Info
   const name = useFormPersistence({ key: `${keyPrefix}-name`, initialValue: '' });

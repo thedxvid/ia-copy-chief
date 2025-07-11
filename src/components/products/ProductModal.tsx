@@ -95,37 +95,32 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         offer: offerResult.data
       });
 
-      // Carregar dados de estratégia
+      // Carregar dados de estratégia - só sobrescreve se o campo estiver vazio (prioriza dados salvos)
       if (strategyResult.data) {
         const strategy = strategyResult.data;
         const targetAudienceData = strategy.target_audience as TargetAudience | null;
         
-        targetAudience.setValue(targetAudienceData?.description || '');
-        marketPositioning.setValue(strategy.market_positioning || '');
-        valueProposition.setValue(strategy.value_proposition || '');
+        if (!targetAudience.value) targetAudience.setValue(targetAudienceData?.description || '');
+        if (!marketPositioning.value) marketPositioning.setValue(strategy.market_positioning || '');
+        if (!valueProposition.value) valueProposition.setValue(strategy.value_proposition || '');
         
         console.log('✅ Estratégia carregada:', {
           targetAudience: targetAudienceData?.description || '',
           marketPositioning: strategy.market_positioning || '',
           valueProposition: strategy.value_proposition || ''
         });
-      } else {
-        console.log('⚠️ Nenhum dado de estratégia encontrado');
-        targetAudience.setValue('');
-        marketPositioning.setValue('');
-        valueProposition.setValue('');
       }
 
-      // Carregar dados de copy
+      // Carregar dados de copy - só sobrescreve se o campo estiver vazio
       if (copyResult.data) {
         const copy = copyResult.data;
         const landingPageCopy = copy.landing_page_copy as LandingPageCopy | null;
         
-        vslScript.setValue(copy.vsl_script || '');
-        headline.setValue(landingPageCopy?.headline || '');
-        subtitle.setValue(landingPageCopy?.subtitle || '');
-        benefits.setValue(landingPageCopy?.benefits || '');
-        socialProof.setValue(landingPageCopy?.social_proof || '');
+        if (!vslScript.value) vslScript.setValue(copy.vsl_script || '');
+        if (!headline.value) headline.setValue(landingPageCopy?.headline || '');
+        if (!subtitle.value) subtitle.setValue(landingPageCopy?.subtitle || '');
+        if (!benefits.value) benefits.setValue(landingPageCopy?.benefits || '');
+        if (!socialProof.value) socialProof.setValue(landingPageCopy?.social_proof || '');
         
         console.log('✅ Copy carregado:', {
           vslScript: copy.vsl_script || '',
@@ -134,34 +129,22 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           benefits: landingPageCopy?.benefits || '',
           socialProof: landingPageCopy?.social_proof || ''
         });
-      } else {
-        console.log('⚠️ Nenhum dado de copy encontrado');
-        vslScript.setValue('');
-        headline.setValue('');
-        subtitle.setValue('');
-        benefits.setValue('');
-        socialProof.setValue('');
       }
 
-      // Carregar dados de oferta
+      // Carregar dados de oferta - só sobrescreve se o campo estiver vazio
       if (offerResult.data) {
         const offer = offerResult.data;
         const mainOffer = offer.main_offer as MainOffer | null;
         
-        mainOfferPromise.setValue(mainOffer?.promise || '');
-        mainOfferDescription.setValue(mainOffer?.description || '');
-        mainOfferPrice.setValue(mainOffer?.price || '');
+        if (!mainOfferPromise.value) mainOfferPromise.setValue(mainOffer?.promise || '');
+        if (!mainOfferDescription.value) mainOfferDescription.setValue(mainOffer?.description || '');
+        if (!mainOfferPrice.value) mainOfferPrice.setValue(mainOffer?.price || '');
         
         console.log('✅ Oferta carregada:', {
           promise: mainOffer?.promise || '',
           description: mainOffer?.description || '',
           price: mainOffer?.price || ''
         });
-      } else {
-        console.log('⚠️ Nenhum dado de oferta encontrado');
-        mainOfferPromise.setValue('');
-        mainOfferDescription.setValue('');
-        mainOfferPrice.setValue('');
       }
     } catch (error) {
       console.error('❌ Erro ao carregar dados existentes:', error);
@@ -178,16 +161,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   useEffect(() => {
     if (product) {
       console.log('🔄 Produto selecionado para edição:', product);
-      name.setValue(product.name);
-      niche.setValue(product.niche);
-      subNiche.setValue(product.sub_niche || '');
-      status.setValue(product.status);
+      // Para produtos existentes, só carrega dados básicos se os campos estiverem vazios
+      if (!name.value) name.setValue(product.name);
+      if (!niche.value) niche.setValue(product.niche);
+      if (!subNiche.value) subNiche.setValue(product.sub_niche || '');
+      if (!status.value || status.value === 'draft') status.setValue(product.status);
       
       // Carregar dados relacionados
       loadExistingData(product.id);
     } else {
-      console.log('🆕 Criando novo produto - resetando formulário');
-      // Reset form only if no restored data
+      console.log('🆕 Criando novo produto - mantendo dados restaurados se existirem');
+      // Para produtos novos, só limpa se não há dados restaurados
       if (!hasRestoredData) {
         name.setValue('');
         niche.setValue('');
@@ -347,6 +331,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       });
 
       onSuccess();
+      onClose();
     } catch (error) {
       console.error('❌ Erro no processo de salvamento:', error);
       toast({
@@ -359,13 +344,24 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
   };
 
+  const handleClose = () => {
+    clearAllSaved();
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-[#1A1A1A] border-[#2A2A2A] text-white">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-white">
             {product ? 'Editar Produto' : 'Novo Produto'}
           </DialogTitle>
+          {hasRestoredData && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+              <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
+              Dados restaurados automaticamente
+            </div>
+          )}
         </DialogHeader>
 
         {loadingExistingData && (
@@ -602,7 +598,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         <div className="flex justify-end gap-3 pt-6 border-t border-[#2A2A2A]">
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={handleClose}
             className="bg-transparent border-[#4B5563] text-white hover:bg-[#2A2A2A]"
           >
             Cancelar
