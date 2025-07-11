@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { AgentSelector } from './AgentSelector';
@@ -25,9 +26,12 @@ export const ChatInterface = () => {
   const [showTokenUpgrade, setShowTokenUpgrade] = useState(false);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const [documentHidden, setDocumentHidden] = useState(false);
+  const [isProcessingMessage, setIsProcessingMessage] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
+  const lastScrollPositionRef = useRef(0);
   const { products } = useProducts();
   const { tokens, refreshTokens } = useTokens();
   const isMobile = useIsMobile();
@@ -75,8 +79,19 @@ export const ChatInterface = () => {
     if (!container) return true;
     
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const threshold = 20; // Threshold menor para ser mais preciso
-    return scrollHeight - scrollTop - clientHeight <= threshold;
+    const threshold = 50; // Threshold maior para ser mais tolerante
+    const isAtBottom = scrollHeight - scrollTop - clientHeight <= threshold;
+    
+    console.log('🔍 CheckIfAtBottom:', {
+      scrollTop,
+      scrollHeight,
+      clientHeight,
+      threshold,
+      isAtBottom,
+      difference: scrollHeight - scrollTop - clientHeight
+    });
+    
+    return isAtBottom;
   }, []);
 
   // Monitorar scroll para mostrar/ocultar botão
@@ -120,7 +135,7 @@ export const ChatInterface = () => {
     };
   }, [activeSession, checkIfAtBottom]);
 
-  // Scroll automático apenas quando necessário
+  // Scroll automático inteligente - NOVA VERSÃO
   useEffect(() => {
     if (!activeSession || !messagesEndRef.current) return;
     
@@ -128,25 +143,46 @@ export const ChatInterface = () => {
     const hadMessages = lastMessageCountRef.current > 0;
     const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
     
+    console.log('📊 Scroll Effect Triggered:', {
+      currentMessageCount,
+      lastMessageCount: lastMessageCountRef.current,
+      hasNewMessages,
+      hadMessages,
+      isAtBottom,
+      userScrolledUp,
+      documentHidden,
+      isProcessingMessage,
+      shouldAutoScroll
+    });
+    
     // Atualizar referência do contador
     lastMessageCountRef.current = currentMessageCount;
     
-    // Condições para auto-scroll:
-    // 1. Novas mensagens foram adicionadas
-    // 2. Usuário estava no final ANTES da nova mensagem
-    // 3. Página não foi minimizada/maximizada recentemente
-    // 4. Usuário não fez scroll manual para cima
-    if (hasNewMessages && 
-        isAtBottom && 
-        !documentHidden && 
-        !userScrolledUp &&
-        hadMessages) {
+    // NOVA LÓGICA: Só fazer scroll se realmente houver uma nova mensagem DO ASSISTANT
+    if (hasNewMessages && hadMessages) {
+      const lastMessage = activeSession.messages[activeSession.messages.length - 1];
+      const wasUserAtBottom = isAtBottom;
       
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      console.log('🎯 New message detected:', {
+        messageRole: lastMessage?.role,
+        wasUserAtBottom,
+        shouldTriggerScroll: lastMessage?.role === 'assistant' && wasUserAtBottom && shouldAutoScroll
+      });
+      
+      // Só fazer scroll automático para mensagens do assistant E se o usuário estava no final
+      if (lastMessage?.role === 'assistant' && wasUserAtBottom && shouldAutoScroll && !documentHidden) {
+        // Usar requestAnimationFrame para garantir que o DOM seja atualizado
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (messagesEndRef.current) {
+              console.log('🚀 Executing auto-scroll');
+              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
+          });
+        });
+      }
     }
-  }, [activeSession?.messages, isAtBottom, documentHidden, userScrolledUp]);
+  }, [activeSession?.messages.length, activeSession?.messages]);
 
   // Função customizada para envio de mensagem com verificação de tokens
   const handleSendMessage = async (message: string) => {
