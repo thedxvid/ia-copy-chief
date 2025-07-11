@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useFormStatePersistence } from '@/hooks/useFormPersistence';
 
 interface Product {
   id: string;
@@ -64,28 +65,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [loadingExistingData, setLoadingExistingData] = useState(false);
   
-  // Basic Info
-  const [name, setName] = useState('');
-  const [niche, setNiche] = useState('');
-  const [subNiche, setSubNiche] = useState('');
-  const [status, setStatus] = useState<'draft' | 'active' | 'paused' | 'archived'>('draft');
+  // Use persistent form state
+  const { fields, clearAllSaved, hasRestoredData } = useFormStatePersistence(product?.id);
   
-  // Strategy
-  const [targetAudience, setTargetAudience] = useState('');
-  const [marketPositioning, setMarketPositioning] = useState('');
-  const [valueProposition, setValueProposition] = useState('');
-  
-  // Copy
-  const [vslScript, setVslScript] = useState('');
-  const [headline, setHeadline] = useState('');
-  const [subtitle, setSubtitle] = useState('');
-  const [benefits, setBenefits] = useState('');
-  const [socialProof, setSocialProof] = useState('');
-  
-  // Offer
-  const [mainOfferPromise, setMainOfferPromise] = useState('');
-  const [mainOfferDescription, setMainOfferDescription] = useState('');
-  const [mainOfferPrice, setMainOfferPrice] = useState('');
+  // Destructure persistent fields for easier access
+  const {
+    name, niche, subNiche, status,
+    targetAudience, marketPositioning, valueProposition,
+    vslScript, headline, subtitle, benefits, socialProof,
+    mainOfferPromise, mainOfferDescription, mainOfferPrice
+  } = fields;
 
   // Load existing data when editing
   const loadExistingData = async (productId: string) => {
@@ -111,9 +100,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         const strategy = strategyResult.data;
         const targetAudienceData = strategy.target_audience as TargetAudience | null;
         
-        setTargetAudience(targetAudienceData?.description || '');
-        setMarketPositioning(strategy.market_positioning || '');
-        setValueProposition(strategy.value_proposition || '');
+        targetAudience.setValue(targetAudienceData?.description || '');
+        marketPositioning.setValue(strategy.market_positioning || '');
+        valueProposition.setValue(strategy.value_proposition || '');
         
         console.log('✅ Estratégia carregada:', {
           targetAudience: targetAudienceData?.description || '',
@@ -122,9 +111,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         });
       } else {
         console.log('⚠️ Nenhum dado de estratégia encontrado');
-        setTargetAudience('');
-        setMarketPositioning('');
-        setValueProposition('');
+        targetAudience.setValue('');
+        marketPositioning.setValue('');
+        valueProposition.setValue('');
       }
 
       // Carregar dados de copy
@@ -132,11 +121,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         const copy = copyResult.data;
         const landingPageCopy = copy.landing_page_copy as LandingPageCopy | null;
         
-        setVslScript(copy.vsl_script || '');
-        setHeadline(landingPageCopy?.headline || '');
-        setSubtitle(landingPageCopy?.subtitle || '');
-        setBenefits(landingPageCopy?.benefits || '');
-        setSocialProof(landingPageCopy?.social_proof || '');
+        vslScript.setValue(copy.vsl_script || '');
+        headline.setValue(landingPageCopy?.headline || '');
+        subtitle.setValue(landingPageCopy?.subtitle || '');
+        benefits.setValue(landingPageCopy?.benefits || '');
+        socialProof.setValue(landingPageCopy?.social_proof || '');
         
         console.log('✅ Copy carregado:', {
           vslScript: copy.vsl_script || '',
@@ -147,11 +136,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         });
       } else {
         console.log('⚠️ Nenhum dado de copy encontrado');
-        setVslScript('');
-        setHeadline('');
-        setSubtitle('');
-        setBenefits('');
-        setSocialProof('');
+        vslScript.setValue('');
+        headline.setValue('');
+        subtitle.setValue('');
+        benefits.setValue('');
+        socialProof.setValue('');
       }
 
       // Carregar dados de oferta
@@ -159,9 +148,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         const offer = offerResult.data;
         const mainOffer = offer.main_offer as MainOffer | null;
         
-        setMainOfferPromise(mainOffer?.promise || '');
-        setMainOfferDescription(mainOffer?.description || '');
-        setMainOfferPrice(mainOffer?.price || '');
+        mainOfferPromise.setValue(mainOffer?.promise || '');
+        mainOfferDescription.setValue(mainOffer?.description || '');
+        mainOfferPrice.setValue(mainOffer?.price || '');
         
         console.log('✅ Oferta carregada:', {
           promise: mainOffer?.promise || '',
@@ -170,9 +159,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         });
       } else {
         console.log('⚠️ Nenhum dado de oferta encontrado');
-        setMainOfferPromise('');
-        setMainOfferDescription('');
-        setMainOfferPrice('');
+        mainOfferPromise.setValue('');
+        mainOfferDescription.setValue('');
+        mainOfferPrice.setValue('');
       }
     } catch (error) {
       console.error('❌ Erro ao carregar dados existentes:', error);
@@ -189,36 +178,38 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   useEffect(() => {
     if (product) {
       console.log('🔄 Produto selecionado para edição:', product);
-      setName(product.name);
-      setNiche(product.niche);
-      setSubNiche(product.sub_niche || '');
-      setStatus(product.status);
+      name.setValue(product.name);
+      niche.setValue(product.niche);
+      subNiche.setValue(product.sub_niche || '');
+      status.setValue(product.status);
       
       // Carregar dados relacionados
       loadExistingData(product.id);
     } else {
       console.log('🆕 Criando novo produto - resetando formulário');
-      // Reset form
-      setName('');
-      setNiche('');
-      setSubNiche('');
-      setStatus('draft');
-      setTargetAudience('');
-      setMarketPositioning('');
-      setValueProposition('');
-      setVslScript('');
-      setHeadline('');
-      setSubtitle('');
-      setBenefits('');
-      setSocialProof('');
-      setMainOfferPromise('');
-      setMainOfferDescription('');
-      setMainOfferPrice('');
+      // Reset form only if no restored data
+      if (!hasRestoredData) {
+        name.setValue('');
+        niche.setValue('');
+        subNiche.setValue('');
+        status.setValue('draft');
+        targetAudience.setValue('');
+        marketPositioning.setValue('');
+        valueProposition.setValue('');
+        vslScript.setValue('');
+        headline.setValue('');
+        subtitle.setValue('');
+        benefits.setValue('');
+        socialProof.setValue('');
+        mainOfferPromise.setValue('');
+        mainOfferDescription.setValue('');
+        mainOfferPrice.setValue('');
+      }
     }
-  }, [product]);
+  }, [product, hasRestoredData]);
 
   const handleSave = async () => {
-    if (!user || !name.trim() || !niche.trim()) {
+    if (!user || !name.value.trim() || !niche.value.trim()) {
       toast({
         title: "Erro",
         description: "Nome e nicho são obrigatórios.",
@@ -239,10 +230,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         const { error } = await supabase
           .from('products')
           .update({
-            name: name.trim(),
-            niche: niche.trim(),
-            sub_niche: subNiche.trim() || null,
-            status,
+            name: name.value.trim(),
+            niche: niche.value.trim(),
+            sub_niche: subNiche.value.trim() || null,
+            status: status.value as any,
           })
           .eq('id', product.id);
 
@@ -254,10 +245,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           .from('products')
           .insert({
             user_id: user.id,
-            name: name.trim(),
-            niche: niche.trim(),
-            sub_niche: subNiche.trim() || null,
-            status,
+            name: name.value.trim(),
+            niche: niche.value.trim(),
+            sub_niche: subNiche.value.trim() || null,
+            status: status.value as any,
           })
           .select()
           .single();
@@ -270,28 +261,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       // Preparar dados para salvar
       const strategyData = {
         product_id: productId,
-        target_audience: { description: targetAudience || '' },
-        market_positioning: marketPositioning || '',
-        value_proposition: valueProposition || '',
+        target_audience: { description: targetAudience.value || '' },
+        market_positioning: marketPositioning.value || '',
+        value_proposition: valueProposition.value || '',
       };
 
       const copyData = {
         product_id: productId,
-        vsl_script: vslScript || '',
+        vsl_script: vslScript.value || '',
         landing_page_copy: {
-          headline: headline || '',
-          subtitle: subtitle || '',
-          benefits: benefits || '',
-          social_proof: socialProof || '',
+          headline: headline.value || '',
+          subtitle: subtitle.value || '',
+          benefits: benefits.value || '',
+          social_proof: socialProof.value || '',
         },
       };
 
       const offerData = {
         product_id: productId,
         main_offer: {
-          promise: mainOfferPromise || '',
-          description: mainOfferDescription || '',
-          price: mainOfferPrice || '',
+          promise: mainOfferPromise.value || '',
+          description: mainOfferDescription.value || '',
+          price: mainOfferPrice.value || '',
         },
       };
 
@@ -344,6 +335,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       console.log('✅ Oferta salva com sucesso');
 
       console.log('🎉 Todos os dados salvos com sucesso!');
+
+      // Clear saved data after successful save
+      clearAllSaved();
 
       toast({
         title: product ? "Produto atualizado" : "Produto criado",
@@ -407,8 +401,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="name" className="text-white">Nome do Produto *</Label>
                   <Input
                     id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={name.value}
+                    onChange={(e) => name.setValue(e.target.value)}
                     placeholder="Ex: Curso de Marketing Digital"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -419,8 +413,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <Label htmlFor="niche" className="text-white">Nicho *</Label>
                     <Input
                       id="niche"
-                      value={niche}
-                      onChange={(e) => setNiche(e.target.value)}
+                      value={niche.value}
+                      onChange={(e) => niche.setValue(e.target.value)}
                       placeholder="Ex: Marketing Digital"
                       className="bg-[#1A1A1A] border-[#4B5563] text-white"
                     />
@@ -430,8 +424,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <Label htmlFor="subNiche" className="text-white">Sub-nicho</Label>
                     <Input
                       id="subNiche"
-                      value={subNiche}
-                      onChange={(e) => setSubNiche(e.target.value)}
+                      value={subNiche.value}
+                      onChange={(e) => subNiche.setValue(e.target.value)}
                       placeholder="Ex: Tráfego Pago"
                       className="bg-[#1A1A1A] border-[#4B5563] text-white"
                     />
@@ -440,7 +434,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
                 <div className="space-y-2">
                   <Label htmlFor="status" className="text-white">Status</Label>
-                  <Select value={status} onValueChange={(value: any) => setStatus(value)}>
+                  <Select value={status.value} onValueChange={(value: any) => status.setValue(value)}>
                     <SelectTrigger className="bg-[#1A1A1A] border-[#4B5563] text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -466,8 +460,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="targetAudience" className="text-white">Público-alvo</Label>
                   <Textarea
                     id="targetAudience"
-                    value={targetAudience}
-                    onChange={(e) => setTargetAudience(e.target.value)}
+                    value={targetAudience.value}
+                    onChange={(e) => targetAudience.setValue(e.target.value)}
                     placeholder="Descreva seu público-alvo, suas dores e desejos..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -477,8 +471,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="marketPositioning" className="text-white">Posicionamento de Mercado</Label>
                   <Textarea
                     id="marketPositioning"
-                    value={marketPositioning}
-                    onChange={(e) => setMarketPositioning(e.target.value)}
+                    value={marketPositioning.value}
+                    onChange={(e) => marketPositioning.setValue(e.target.value)}
                     placeholder="Como você se posiciona no mercado..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -488,8 +482,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="valueProposition" className="text-white">Proposta de Valor</Label>
                   <Textarea
                     id="valueProposition"
-                    value={valueProposition}
-                    onChange={(e) => setValueProposition(e.target.value)}
+                    value={valueProposition.value}
+                    onChange={(e) => valueProposition.setValue(e.target.value)}
                     placeholder="Qual é a sua proposta de valor única..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -508,8 +502,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="headline" className="text-white">Headline Principal</Label>
                   <Input
                     id="headline"
-                    value={headline}
-                    onChange={(e) => setHeadline(e.target.value)}
+                    value={headline.value}
+                    onChange={(e) => headline.setValue(e.target.value)}
                     placeholder="Ex: Descubra Como Ganhar R$ 10k/mês com Marketing Digital"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -519,8 +513,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="subtitle" className="text-white">Subtítulo</Label>
                   <Input
                     id="subtitle"
-                    value={subtitle}
-                    onChange={(e) => setSubtitle(e.target.value)}
+                    value={subtitle.value}
+                    onChange={(e) => subtitle.setValue(e.target.value)}
                     placeholder="Método comprovado por mais de 1000 alunos"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -530,8 +524,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="benefits" className="text-white">Benefícios</Label>
                   <Textarea
                     id="benefits"
-                    value={benefits}
-                    onChange={(e) => setBenefits(e.target.value)}
+                    value={benefits.value}
+                    onChange={(e) => benefits.setValue(e.target.value)}
                     placeholder="Liste os principais benefícios..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -541,8 +535,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="socialProof" className="text-white">Prova Social</Label>
                   <Textarea
                     id="socialProof"
-                    value={socialProof}
-                    onChange={(e) => setSocialProof(e.target.value)}
+                    value={socialProof.value}
+                    onChange={(e) => socialProof.setValue(e.target.value)}
                     placeholder="Depoimentos, números, casos de sucesso..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -552,8 +546,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="vslScript" className="text-white">Script VSL</Label>
                   <Textarea
                     id="vslScript"
-                    value={vslScript}
-                    onChange={(e) => setVslScript(e.target.value)}
+                    value={vslScript.value}
+                    onChange={(e) => vslScript.setValue(e.target.value)}
                     placeholder="Script completo do vídeo de vendas..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[200px]"
                   />
@@ -572,8 +566,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="mainOfferPromise" className="text-white">Promessa Principal</Label>
                   <Input
                     id="mainOfferPromise"
-                    value={mainOfferPromise}
-                    onChange={(e) => setMainOfferPromise(e.target.value)}
+                    value={mainOfferPromise.value}
+                    onChange={(e) => mainOfferPromise.setValue(e.target.value)}
                     placeholder="Ex: Ganhe R$ 10k/mês em 90 dias ou seu dinheiro de volta"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -583,8 +577,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="mainOfferDescription" className="text-white">Descrição da Oferta</Label>
                   <Textarea
                     id="mainOfferDescription"
-                    value={mainOfferDescription}
-                    onChange={(e) => setMainOfferDescription(e.target.value)}
+                    value={mainOfferDescription.value}
+                    onChange={(e) => mainOfferDescription.setValue(e.target.value)}
                     placeholder="Descreva o que está incluído na oferta principal..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -594,8 +588,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="mainOfferPrice" className="text-white">Preço</Label>
                   <Input
                     id="mainOfferPrice"
-                    value={mainOfferPrice}
-                    onChange={(e) => setMainOfferPrice(e.target.value)}
+                    value={mainOfferPrice.value}
+                    onChange={(e) => mainOfferPrice.setValue(e.target.value)}
                     placeholder="Ex: R$ 497,00"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -615,7 +609,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isLoading || loadingExistingData || !name.trim() || !niche.trim()}
+            disabled={isLoading || loadingExistingData || !name.value.trim() || !niche.value.trim()}
             className="bg-[#3B82F6] hover:bg-[#2563EB] text-white gap-2"
           >
             {isLoading ? (
