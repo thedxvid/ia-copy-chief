@@ -65,21 +65,23 @@ export const ChatInterface = () => {
     }
   }, [setContainerRef]);
 
-  // Detectar mudança de sessão e preservar scroll
+  // CONTROLE DE MUDANÇA DE SESSÃO SEM RESET DE SCROLL
   useEffect(() => {
     const currentSessionId = activeSession?.id;
     
+    // Apenas logar mudanças, SEM forçar scroll
     if (sessionIdRef.current && currentSessionId !== sessionIdRef.current) {
-      console.log('🔄 Session changed, checking scroll preservation');
+      console.log('🔄 Session changed:', {
+        from: sessionIdRef.current,
+        to: currentSessionId,
+        preserveFlag: shouldPreserve()
+      });
       
-      // Se devemos preservar, restaurar posição
-      if (shouldPreserve() && messagesContainerRef.current) {
-        restoreScrollPosition(messagesContainerRef.current);
-      }
+      // NUNCA forçar restauração aqui - deixar o componente natural
     }
     
     sessionIdRef.current = currentSessionId || null;
-  }, [activeSession?.id, shouldPreserve, restoreScrollPosition]);
+  }, [activeSession?.id]);
 
   // Verificar se há um sessionId no state da navegação
   useEffect(() => {
@@ -113,24 +115,47 @@ export const ChatInterface = () => {
     return isAtBottom;
   }, []);
 
-  // NOVA LÓGICA DE SCROLL - PRESERVAÇÃO E AUTO-SCROLL INTELIGENTE
+  // PRESERVAÇÃO DE SCROLL CRÍTICA
   const handleSendMessage = useCallback(async (message: string) => {
-    // Preservar posição do scroll antes do envio
-    if (messagesContainerRef.current) {
-      saveScrollPosition(messagesContainerRef.current);
-      setPreserveOnNextRender();
-      console.log('📌 Scroll position saved before sending message');
+    const container = messagesContainerRef.current;
+    
+    // Capturar estado atual do scroll ANTES de enviar
+    let wasAtBottom = false;
+    let savedScrollTop = 0;
+    
+    if (container) {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      wasAtBottom = scrollHeight - scrollTop - clientHeight <= 100;
+      savedScrollTop = scrollTop;
+      
+      console.log('📌 ANTES de enviar - Estado do scroll:', {
+        scrollTop,
+        scrollHeight,
+        clientHeight,
+        wasAtBottom,
+        distanceFromBottom: scrollHeight - scrollTop - clientHeight
+      });
     }
 
-    // Verificar se há tokens suficientes antes de enviar
+    // Verificar tokens
     if (!tokens || tokens.total_available <= 0) {
       setShowTokenUpgrade(true);
       return;
     }
 
     try {
+      // Enviar mensagem
       await sendMessage(message);
       await refreshTokens();
+      
+      // PRESERVAR SCROLL: Se não estava no final, manter posição exata
+      if (container && !wasAtBottom) {
+        console.log('🔒 Preservando scroll - não estava no final, mantendo posição:', savedScrollTop);
+        // Forçar posição sem animação
+        container.scrollTop = savedScrollTop;
+      }
+      // Se estava no final, o auto-scroll cuidará do resto
+      
     } catch (error: any) {
       if (error?.message?.includes('créditos') || 
           error?.message?.includes('tokens') ||
@@ -140,7 +165,7 @@ export const ChatInterface = () => {
         throw error;
       }
     }
-  }, [sendMessage, tokens, refreshTokens, saveScrollPosition, setPreserveOnNextRender]);
+  }, [sendMessage, tokens, refreshTokens]);
 
   // Monitorar scroll para botão "ir ao final"
   useEffect(() => {
@@ -170,18 +195,21 @@ export const ChatInterface = () => {
   }, [activeSession, scrollIsAtBottom]);
 
   // AUTO-SCROLL INTELIGENTE - Para novas mensagens do assistant
-  useEffect(() => {
-    if (!activeSession?.messages.length || !messagesEndRef.current) return;
+  useLayoutEffect(() => {
+    if (!activeSession?.messages.length) {
+      lastMessageCountRef.current = 0;
+      return;
+    }
     
     const currentMessageCount = activeSession.messages.length;
     const hadMessages = lastMessageCountRef.current > 0;
     const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
     
-    // Atualizar contador
-    lastMessageCountRef.current = currentMessageCount;
-    
-    // Se não há nova mensagem, não fazer nada
-    if (!hasNewMessages || !hadMessages) return;
+    // Se não há nova mensagem, apenas atualizar contador
+    if (!hasNewMessages) {
+      lastMessageCountRef.current = currentMessageCount;
+      return;
+    }
     
     const lastMessage = activeSession.messages[activeSession.messages.length - 1];
     const isFromAssistant = lastMessage?.role === 'assistant';
@@ -194,25 +222,30 @@ export const ChatInterface = () => {
     });
     
     // REGRA CRÍTICA: Só fazer scroll automático para respostas do assistant
+    // E apenas se o usuário estava próximo ao final
     if (isFromAssistant && messagesContainerRef.current) {
-      const wasAtBottom = scrollIsAtBottom(messagesContainerRef.current);
+      const container = messagesContainerRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight <= 150;
       
       console.log('🔍 Verificando auto-scroll:', {
-        wasAtBottom,
-        shouldAutoScroll: wasAtBottom
+        scrollTop,
+        scrollHeight, 
+        clientHeight,
+        distanceFromBottom: scrollHeight - scrollTop - clientHeight,
+        isNearBottom,
+        shouldAutoScroll: isNearBottom
       });
       
-      if (wasAtBottom) {
-        // Pequeno delay para garantir que o DOM foi atualizado
-        setTimeout(() => {
-          if (messagesEndRef.current) {
-            console.log('🚀 Auto-scrolling para nova resposta do assistant');
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 100);
+      if (isNearBottom && messagesEndRef.current) {
+        console.log('🚀 Auto-scrolling para nova resposta do assistant');
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }
-  }, [activeSession?.messages.length, scrollIsAtBottom]);
+    
+    // Atualizar contador por último
+    lastMessageCountRef.current = currentMessageCount;
+  }, [activeSession?.messages]);
 
 
   // Função para fechar modal e atualizar tokens
@@ -249,7 +282,9 @@ export const ChatInterface = () => {
     navigate('/agents');
   };
 
-  // Create a custom ChatMessages component that receives messages directly
+  // COMPONENTE ESTÁVEL DE MENSAGENS - Key fixa para evitar re-mount
+  const messagesListKey = `messages-${activeSession?.id || 'empty'}`;
+  
   const ChatMessagesWithData = () => {
     if (!activeSession) {
       return (
@@ -264,8 +299,10 @@ export const ChatInterface = () => {
 
     return (
       <div 
+        key={messagesListKey}
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-6 space-y-4"
+        style={{ scrollBehavior: 'auto' }}
       >
         {activeSession.messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
@@ -277,51 +314,53 @@ export const ChatInterface = () => {
           </div>
         ) : (
           <>
-            {activeSession.messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex items-start space-x-3 ${
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                {message.role === 'assistant' && (
-                  <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
-                    <span className="text-white text-sm">🤖</span>
-                  </div>
-                )}
-                
+            <div key={`messages-list-${activeSession.id}`}>
+              {activeSession.messages.map((message) => (
                 <div
-                  className={`max-w-[80%] p-4 rounded-2xl ${
-                    message.role === 'user'
-                      ? 'bg-[#3B82F6] text-white'
-                      : 'bg-[#1E1E1E] text-white border border-[#4B5563]'
+                  key={`${message.id}-${message.timestamp.getTime()}`}
+                  className={`flex items-start space-x-3 mb-4 ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  {message.role === 'assistant' ? (
-                    <MarkdownText className="whitespace-pre-wrap">
-                      {message.content}
-                    </MarkdownText>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  {message.role === 'assistant' && (
+                    <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
+                      <span className="text-white text-sm">🤖</span>
+                    </div>
                   )}
-                  <div className="text-xs opacity-70 mt-2">
-                    {message.timestamp.toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                  
+                  <div
+                    className={`max-w-[80%] p-4 rounded-2xl ${
+                      message.role === 'user'
+                        ? 'bg-[#3B82F6] text-white'
+                        : 'bg-[#1E1E1E] text-white border border-[#4B5563]'
+                    }`}
+                  >
+                    {message.role === 'assistant' ? (
+                      <MarkdownText className="whitespace-pre-wrap">
+                        {message.content}
+                      </MarkdownText>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    )}
+                    <div className="text-xs opacity-70 mt-2">
+                      {message.timestamp.toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                {message.role === 'user' && (
-                  <div className="flex-shrink-0 w-8 h-8 bg-[#4B5563] rounded-2xl flex items-center justify-center">
-                    <span className="text-white text-sm">👤</span>
-                  </div>
-                )}
-              </div>
-            ))}
+                  {message.role === 'user' && (
+                    <div className="flex-shrink-0 w-8 h-8 bg-[#4B5563] rounded-2xl flex items-center justify-center">
+                      <span className="text-white text-sm">👤</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
             
             {isLoading && (
-              <div className="flex items-start space-x-3">
+              <div className="flex items-start space-x-3 mb-4">
                 <div className="flex-shrink-0 w-8 h-8 bg-[#3B82F6] rounded-2xl flex items-center justify-center">
                   <span className="text-white text-sm">🤖</span>
                 </div>
