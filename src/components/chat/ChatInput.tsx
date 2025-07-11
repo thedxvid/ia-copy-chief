@@ -19,6 +19,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleSend = () => {
     if (input.trim() && !isLoading && !disabled) {
+      console.log('🎯 ChatInput: Enviando mensagem');
       onSendMessage(input.trim());
       setInput('');
     }
@@ -27,6 +28,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      console.log('🎯 ChatInput: Enter pressionado');
       handleSend();
     }
   };

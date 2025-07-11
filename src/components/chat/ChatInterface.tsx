@@ -135,7 +135,7 @@ export const ChatInterface = () => {
     };
   }, [activeSession, checkIfAtBottom]);
 
-  // Scroll automático inteligente - NOVA VERSÃO
+  // Scroll automático inteligente - VERSÃO CORRIGIDA
   useEffect(() => {
     if (!activeSession || !messagesEndRef.current) return;
     
@@ -143,46 +143,55 @@ export const ChatInterface = () => {
     const hadMessages = lastMessageCountRef.current > 0;
     const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
     
-    console.log('📊 Scroll Effect Triggered:', {
+    console.log('📊 Scroll Effect - Trigger:', {
       currentMessageCount,
       lastMessageCount: lastMessageCountRef.current,
       hasNewMessages,
       hadMessages,
       isAtBottom,
       userScrolledUp,
-      documentHidden,
-      isProcessingMessage,
-      shouldAutoScroll
+      documentHidden
     });
     
     // Atualizar referência do contador
     lastMessageCountRef.current = currentMessageCount;
     
-    // NOVA LÓGICA: Só fazer scroll se realmente houver uma nova mensagem DO ASSISTANT
-    if (hasNewMessages && hadMessages) {
+    // CONDIÇÃO CRÍTICA: Só fazer scroll se:
+    // 1. Realmente há uma nova mensagem DO ASSISTANT
+    // 2. O usuário estava no final ANTES da nova mensagem
+    // 3. Não é o carregamento inicial das mensagens
+    if (hasNewMessages && hadMessages && currentMessageCount >= 2) {
       const lastMessage = activeSession.messages[activeSession.messages.length - 1];
-      const wasUserAtBottom = isAtBottom;
       
-      console.log('🎯 New message detected:', {
+      console.log('🎯 New message analysis:', {
         messageRole: lastMessage?.role,
-        wasUserAtBottom,
-        shouldTriggerScroll: lastMessage?.role === 'assistant' && wasUserAtBottom && shouldAutoScroll
+        messageContent: lastMessage?.content?.substring(0, 50) + '...',
+        isAssistantMessage: lastMessage?.role === 'assistant',
+        userWasAtBottom: isAtBottom,
+        shouldScroll: lastMessage?.role === 'assistant' && isAtBottom && !userScrolledUp
       });
       
-      // Só fazer scroll automático para mensagens do assistant E se o usuário estava no final
-      if (lastMessage?.role === 'assistant' && wasUserAtBottom && shouldAutoScroll && !documentHidden) {
-        // Usar requestAnimationFrame para garantir que o DOM seja atualizado
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (messagesEndRef.current) {
-              console.log('🚀 Executing auto-scroll');
-              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-            }
-          });
-        });
+      // CRÍTICO: Só fazer scroll para mensagens do ASSISTANT quando o usuário estava no final
+      if (lastMessage?.role === 'assistant' && 
+          isAtBottom && 
+          !userScrolledUp && 
+          !documentHidden) {
+        
+        console.log('🚀 Executando auto-scroll para resposta do assistant');
+        
+        // Usar setTimeout mais longo para garantir que o DOM seja atualizado
+        setTimeout(() => {
+          if (messagesEndRef.current && !userScrolledUp) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 200);
+      } else {
+        console.log('⛔ Auto-scroll bloqueado - condições não atendidas');
       }
+    } else {
+      console.log('⛔ Sem scroll - não é nova mensagem válida');
     }
-  }, [activeSession?.messages.length, activeSession?.messages]);
+  }, [activeSession?.messages.length]);
 
   // Função customizada para envio de mensagem com verificação de tokens
   const handleSendMessage = async (message: string) => {
