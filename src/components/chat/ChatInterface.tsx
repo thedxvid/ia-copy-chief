@@ -40,7 +40,9 @@ export const ChatInterface = () => {
     setPreserveOnNextRender,
     shouldPreserve,
     setContainerRef,
-    isAtBottom: scrollIsAtBottom
+    isAtBottom: scrollIsAtBottom,
+    setChangingAgent,
+    isChangingAgent
   } = useScrollPreservation();
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -196,8 +198,14 @@ export const ChatInterface = () => {
       }, 100);
     };
 
-    // INTERCEPTADOR SUPER AGRESSIVO
+    // INTERCEPTADOR SUPER AGRESSIVO (pausado durante mudança de agente)
     const handleScrollChange = () => {
+      // Pausar interceptadores durante mudança de agente
+      if (isChangingAgent()) {
+        console.log('⏸️ Interceptadores pausados - mudando agente');
+        return;
+      }
+      
       const currentScrollTop = container.scrollTop;
       const { scrollHeight, clientHeight } = container;
       
@@ -224,8 +232,14 @@ export const ChatInterface = () => {
     container.addEventListener('scroll', handleScroll, { passive: true });
     container.addEventListener('scroll', handleScrollChange, { passive: false });
     
-    // Observer para mudanças no DOM que podem causar scroll
+    // Observer para mudanças no DOM que podem causar scroll (pausado durante mudança de agente)
     const observer = new MutationObserver(() => {
+      // Pausar observer durante mudança de agente
+      if (isChangingAgent()) {
+        console.log('⏸️ Observer pausado - mudando agente');
+        return;
+      }
+      
       if (forceScrollToBottomRef.current && messagesEndRef.current) {
         requestAnimationFrame(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
@@ -492,19 +506,25 @@ export const ChatInterface = () => {
         <AgentSelector
           selectedAgent={selectedAgent}
           onAgentChange={(agent) => {
-            // Salvar posição do scroll antes de trocar agente
-            console.log('🔄 Trocando agente, preservando scroll...');
+            console.log('🔄 Iniciando troca de agente, preservando scroll...');
+            
+            // 1. Marcar que está mudando agente (pausa interceptadores)
+            setChangingAgent(true);
+            
+            // 2. Salvar posição atual do scroll
             saveScrollPosition();
             setPreserveOnNextRender();
             
-            // Trocar agente
+            // 3. Trocar agente
             setSelectedAgent(agent);
             
-            // Restaurar posição após render
+            // 4. Aguardar múltiplos renders e restaurar posição
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
-                restoreScrollPosition();
-                console.log('✅ Scroll restaurado após troca de agente');
+                setTimeout(() => {
+                  restoreScrollPosition();
+                  console.log('✅ Troca de agente concluída');
+                }, 100);
               });
             });
           }}

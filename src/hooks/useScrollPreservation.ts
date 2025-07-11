@@ -12,6 +12,7 @@ export const useScrollPreservation = () => {
   const scrollStateRef = useRef<ScrollState | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
   const preserveOnNextRender = useRef(false);
+  const isChangingAgentRef = useRef(false);
   
   const saveScrollPosition = useCallback((container?: HTMLElement) => {
     const element = container || containerRef.current;
@@ -34,27 +35,53 @@ export const useScrollPreservation = () => {
     });
   }, []);
   
-  const restoreScrollPosition = useCallback((container?: HTMLElement) => {
+  const restoreScrollPosition = useCallback((container?: HTMLElement, attempts = 0) => {
     const element = container || containerRef.current;
     const savedState = scrollStateRef.current;
     
     if (!element || !savedState) return false;
+
+    const maxAttempts = 5;
     
-    // Se estava no final, manter no final
-    if (savedState.isAtBottom) {
-      element.scrollTop = element.scrollHeight - element.clientHeight;
-      console.log('🔄 Restored to bottom');
-    } else {
-      // Se não estava no final, restaurar posição exata
-      element.scrollTop = savedState.scrollTop;
-      console.log('🔄 Restored to position:', savedState.scrollTop);
-    }
-    
-    // Limpar estado salvo após uso
-    scrollStateRef.current = null;
-    preserveOnNextRender.current = false;
-    
-    return true;
+    const tryRestore = () => {
+      const targetPosition = savedState.isAtBottom 
+        ? element.scrollHeight - element.clientHeight 
+        : savedState.scrollTop;
+      
+      element.scrollTop = targetPosition;
+      
+      // Verificar se a restauração foi bem-sucedida
+      const tolerance = 10;
+      const actualPosition = element.scrollTop;
+      const isSuccessful = Math.abs(actualPosition - targetPosition) <= tolerance;
+      
+      if (isSuccessful) {
+        console.log('🔄 Scroll position successfully restored:', {
+          target: targetPosition,
+          actual: actualPosition,
+          isAtBottom: savedState.isAtBottom
+        });
+        
+        // Limpar estado apenas quando bem-sucedido
+        scrollStateRef.current = null;
+        preserveOnNextRender.current = false;
+        isChangingAgentRef.current = false;
+        
+        return true;
+      } else if (attempts < maxAttempts) {
+        console.log(`🔄 Retry scroll restoration (${attempts + 1}/${maxAttempts})`);
+        requestAnimationFrame(() => restoreScrollPosition(container, attempts + 1));
+      } else {
+        console.warn('❌ Failed to restore scroll position after max attempts');
+        scrollStateRef.current = null;
+        preserveOnNextRender.current = false;
+        isChangingAgentRef.current = false;
+      }
+      
+      return false;
+    };
+
+    return tryRestore();
   }, []);
   
   const setPreserveOnNextRender = useCallback(() => {
@@ -75,6 +102,15 @@ export const useScrollPreservation = () => {
     
     return element.scrollTop + element.clientHeight >= element.scrollHeight - 5;
   }, []);
+
+  const setChangingAgent = useCallback((isChanging: boolean) => {
+    isChangingAgentRef.current = isChanging;
+    console.log('🔄 Agent changing state:', isChanging);
+  }, []);
+
+  const isChangingAgent = useCallback(() => {
+    return isChangingAgentRef.current;
+  }, []);
   
   return {
     saveScrollPosition,
@@ -82,6 +118,8 @@ export const useScrollPreservation = () => {
     setPreserveOnNextRender,
     shouldPreserve,
     setContainerRef,
-    isAtBottom
+    isAtBottom,
+    setChangingAgent,
+    isChangingAgent
   };
 };
