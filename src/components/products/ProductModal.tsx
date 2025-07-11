@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import {
@@ -17,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useFormStatePersistence } from '@/hooks/useFormPersistence';
+import { useProductFormDraft } from '@/hooks/useProductFormDraft';
 
 interface Product {
   id: string;
@@ -65,16 +64,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [loadingExistingData, setLoadingExistingData] = useState(false);
   
-  // Use persistent form state
-  const { fields, clearAllSaved, hasRestoredData } = useFormStatePersistence(product?.id);
-  
-  // Destructure persistent fields for easier access
-  const {
-    name, niche, subNiche, status,
-    targetAudience, marketPositioning, valueProposition,
-    vslScript, headline, subtitle, benefits, socialProof,
-    mainOfferPromise, mainOfferDescription, mainOfferPrice
-  } = fields;
+  // Use product form draft with auto-save
+  const isEditMode = !!product;
+  const { formData, setFormData, fields, clearDraft, hasRestoredData, autoSaveActive } = useProductFormDraft(isEditMode);
 
   // Load existing data when editing
   const loadExistingData = async (productId: string) => {
@@ -95,14 +87,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         offer: offerResult.data
       });
 
-      // Carregar dados de estratégia - só sobrescreve se o campo estiver vazio (prioriza dados salvos)
+      // Preparar dados para atualizar o formulário
+      const updateData: any = {};
+
+      // Carregar dados de estratégia
       if (strategyResult.data) {
         const strategy = strategyResult.data;
         const targetAudienceData = strategy.target_audience as TargetAudience | null;
         
-        if (!targetAudience.value) targetAudience.setValue(targetAudienceData?.description || '');
-        if (!marketPositioning.value) marketPositioning.setValue(strategy.market_positioning || '');
-        if (!valueProposition.value) valueProposition.setValue(strategy.value_proposition || '');
+        if (!formData.targetAudience) updateData.targetAudience = targetAudienceData?.description || '';
+        if (!formData.marketPositioning) updateData.marketPositioning = strategy.market_positioning || '';
+        if (!formData.valueProposition) updateData.valueProposition = strategy.value_proposition || '';
         
         console.log('✅ Estratégia carregada:', {
           targetAudience: targetAudienceData?.description || '',
@@ -111,16 +106,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         });
       }
 
-      // Carregar dados de copy - só sobrescreve se o campo estiver vazio
+      // Carregar dados de copy
       if (copyResult.data) {
         const copy = copyResult.data;
         const landingPageCopy = copy.landing_page_copy as LandingPageCopy | null;
         
-        if (!vslScript.value) vslScript.setValue(copy.vsl_script || '');
-        if (!headline.value) headline.setValue(landingPageCopy?.headline || '');
-        if (!subtitle.value) subtitle.setValue(landingPageCopy?.subtitle || '');
-        if (!benefits.value) benefits.setValue(landingPageCopy?.benefits || '');
-        if (!socialProof.value) socialProof.setValue(landingPageCopy?.social_proof || '');
+        if (!formData.vslScript) updateData.vslScript = copy.vsl_script || '';
+        if (!formData.headline) updateData.headline = landingPageCopy?.headline || '';
+        if (!formData.subtitle) updateData.subtitle = landingPageCopy?.subtitle || '';
+        if (!formData.benefits) updateData.benefits = landingPageCopy?.benefits || '';
+        if (!formData.socialProof) updateData.socialProof = landingPageCopy?.social_proof || '';
         
         console.log('✅ Copy carregado:', {
           vslScript: copy.vsl_script || '',
@@ -131,14 +126,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         });
       }
 
-      // Carregar dados de oferta - só sobrescreve se o campo estiver vazio
+      // Carregar dados de oferta
       if (offerResult.data) {
         const offer = offerResult.data;
         const mainOffer = offer.main_offer as MainOffer | null;
         
-        if (!mainOfferPromise.value) mainOfferPromise.setValue(mainOffer?.promise || '');
-        if (!mainOfferDescription.value) mainOfferDescription.setValue(mainOffer?.description || '');
-        if (!mainOfferPrice.value) mainOfferPrice.setValue(mainOffer?.price || '');
+        if (!formData.mainOfferPromise) updateData.mainOfferPromise = mainOffer?.promise || '';
+        if (!formData.mainOfferDescription) updateData.mainOfferDescription = mainOffer?.description || '';
+        if (!formData.mainOfferPrice) updateData.mainOfferPrice = mainOffer?.price || '';
         
         console.log('✅ Oferta carregada:', {
           promise: mainOffer?.promise || '',
@@ -146,6 +141,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           price: mainOffer?.price || ''
         });
       }
+
+      // Atualizar o formulário com os dados carregados
+      if (Object.keys(updateData).length > 0) {
+        setFormData(updateData);
+      }
+
     } catch (error) {
       console.error('❌ Erro ao carregar dados existentes:', error);
       toast({
@@ -161,39 +162,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   useEffect(() => {
     if (product) {
       console.log('🔄 Produto selecionado para edição:', product);
-      // Para produtos existentes, só carrega dados básicos se os campos estiverem vazios
-      if (!name.value) name.setValue(product.name);
-      if (!niche.value) niche.setValue(product.niche);
-      if (!subNiche.value) subNiche.setValue(product.sub_niche || '');
-      if (!status.value || status.value === 'draft') status.setValue(product.status);
+      // Para produtos existentes, carrega dados básicos e dados relacionados
+      setFormData({
+        name: product.name,
+        niche: product.niche,
+        subNiche: product.sub_niche || '',
+        status: product.status,
+      });
       
       // Carregar dados relacionados
       loadExistingData(product.id);
-    } else {
-      console.log('🆕 Criando novo produto - mantendo dados restaurados se existirem');
-      // Para produtos novos, só limpa se não há dados restaurados
-      if (!hasRestoredData) {
-        name.setValue('');
-        niche.setValue('');
-        subNiche.setValue('');
-        status.setValue('draft');
-        targetAudience.setValue('');
-        marketPositioning.setValue('');
-        valueProposition.setValue('');
-        vslScript.setValue('');
-        headline.setValue('');
-        subtitle.setValue('');
-        benefits.setValue('');
-        socialProof.setValue('');
-        mainOfferPromise.setValue('');
-        mainOfferDescription.setValue('');
-        mainOfferPrice.setValue('');
-      }
     }
-  }, [product, hasRestoredData]);
+  }, [product]);
 
   const handleSave = async () => {
-    if (!user || !name.value.trim() || !niche.value.trim()) {
+    if (!user || !formData.name.trim() || !formData.niche.trim()) {
       toast({
         title: "Erro",
         description: "Nome e nicho são obrigatórios.",
@@ -214,10 +197,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         const { error } = await supabase
           .from('products')
           .update({
-            name: name.value.trim(),
-            niche: niche.value.trim(),
-            sub_niche: subNiche.value.trim() || null,
-            status: status.value as any,
+            name: formData.name.trim(),
+            niche: formData.niche.trim(),
+            sub_niche: formData.subNiche.trim() || null,
+            status: formData.status,
           })
           .eq('id', product.id);
 
@@ -229,10 +212,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           .from('products')
           .insert({
             user_id: user.id,
-            name: name.value.trim(),
-            niche: niche.value.trim(),
-            sub_niche: subNiche.value.trim() || null,
-            status: status.value as any,
+            name: formData.name.trim(),
+            niche: formData.niche.trim(),
+            sub_niche: formData.subNiche.trim() || null,
+            status: formData.status,
           })
           .select()
           .single();
@@ -245,28 +228,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       // Preparar dados para salvar
       const strategyData = {
         product_id: productId,
-        target_audience: { description: targetAudience.value || '' },
-        market_positioning: marketPositioning.value || '',
-        value_proposition: valueProposition.value || '',
+        target_audience: { description: formData.targetAudience || '' },
+        market_positioning: formData.marketPositioning || '',
+        value_proposition: formData.valueProposition || '',
       };
 
       const copyData = {
         product_id: productId,
-        vsl_script: vslScript.value || '',
+        vsl_script: formData.vslScript || '',
         landing_page_copy: {
-          headline: headline.value || '',
-          subtitle: subtitle.value || '',
-          benefits: benefits.value || '',
-          social_proof: socialProof.value || '',
+          headline: formData.headline || '',
+          subtitle: formData.subtitle || '',
+          benefits: formData.benefits || '',
+          social_proof: formData.socialProof || '',
         },
       };
 
       const offerData = {
         product_id: productId,
         main_offer: {
-          promise: mainOfferPromise.value || '',
-          description: mainOfferDescription.value || '',
-          price: mainOfferPrice.value || '',
+          promise: formData.mainOfferPromise || '',
+          description: formData.mainOfferDescription || '',
+          price: formData.mainOfferPrice || '',
         },
       };
 
@@ -321,7 +304,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       console.log('🎉 Todos os dados salvos com sucesso!');
 
       // Clear saved data after successful save
-      clearAllSaved();
+      clearDraft();
 
       toast({
         title: product ? "Produto atualizado" : "Produto criado",
@@ -345,7 +328,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   };
 
   const handleClose = () => {
-    clearAllSaved();
+    if (!isEditMode) {
+      // Para novos produtos, perguntar se quer descartar rascunho
+      if (hasRestoredData || Object.values(formData).some(value => value.trim() !== '')) {
+        const shouldDiscard = window.confirm(
+          'Você tem dados não salvos. Deseja descartar o rascunho?'
+        );
+        if (shouldDiscard) {
+          clearDraft();
+        }
+      }
+    }
     onClose();
   };
 
@@ -353,10 +346,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-[#1A1A1A] border-[#2A2A2A] text-white">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-white">
+          <DialogTitle className="text-xl font-semibold text-white flex items-center gap-2">
             {product ? 'Editar Produto' : 'Novo Produto'}
+            {autoSaveActive && !isEditMode && (
+              <span className="text-sm text-blue-400 font-normal">💾 Salvamento automático</span>
+            )}
           </DialogTitle>
-          {hasRestoredData && (
+          {hasRestoredData && !isEditMode && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
               <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
               Dados restaurados automaticamente
@@ -397,8 +393,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="name" className="text-white">Nome do Produto *</Label>
                   <Input
                     id="name"
-                    value={name.value}
-                    onChange={(e) => name.setValue(e.target.value)}
+                    value={fields.name.value}
+                    onChange={(e) => fields.name.onChange(e.target.value)}
                     placeholder="Ex: Curso de Marketing Digital"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -409,8 +405,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <Label htmlFor="niche" className="text-white">Nicho *</Label>
                     <Input
                       id="niche"
-                      value={niche.value}
-                      onChange={(e) => niche.setValue(e.target.value)}
+                      value={fields.niche.value}
+                      onChange={(e) => fields.niche.onChange(e.target.value)}
                       placeholder="Ex: Marketing Digital"
                       className="bg-[#1A1A1A] border-[#4B5563] text-white"
                     />
@@ -420,8 +416,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <Label htmlFor="subNiche" className="text-white">Sub-nicho</Label>
                     <Input
                       id="subNiche"
-                      value={subNiche.value}
-                      onChange={(e) => subNiche.setValue(e.target.value)}
+                      value={fields.subNiche.value}
+                      onChange={(e) => fields.subNiche.onChange(e.target.value)}
                       placeholder="Ex: Tráfego Pago"
                       className="bg-[#1A1A1A] border-[#4B5563] text-white"
                     />
@@ -430,7 +426,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
                 <div className="space-y-2">
                   <Label htmlFor="status" className="text-white">Status</Label>
-                  <Select value={status.value} onValueChange={(value: any) => status.setValue(value)}>
+                  <Select value={fields.status.value} onValueChange={fields.status.onChange}>
                     <SelectTrigger className="bg-[#1A1A1A] border-[#4B5563] text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -456,8 +452,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="targetAudience" className="text-white">Público-alvo</Label>
                   <Textarea
                     id="targetAudience"
-                    value={targetAudience.value}
-                    onChange={(e) => targetAudience.setValue(e.target.value)}
+                    value={fields.targetAudience.value}
+                    onChange={(e) => fields.targetAudience.onChange(e.target.value)}
                     placeholder="Descreva seu público-alvo, suas dores e desejos..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -467,8 +463,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="marketPositioning" className="text-white">Posicionamento de Mercado</Label>
                   <Textarea
                     id="marketPositioning"
-                    value={marketPositioning.value}
-                    onChange={(e) => marketPositioning.setValue(e.target.value)}
+                    value={fields.marketPositioning.value}
+                    onChange={(e) => fields.marketPositioning.onChange(e.target.value)}
                     placeholder="Como você se posiciona no mercado..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -478,8 +474,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="valueProposition" className="text-white">Proposta de Valor</Label>
                   <Textarea
                     id="valueProposition"
-                    value={valueProposition.value}
-                    onChange={(e) => valueProposition.setValue(e.target.value)}
+                    value={fields.valueProposition.value}
+                    onChange={(e) => fields.valueProposition.onChange(e.target.value)}
                     placeholder="Qual é a sua proposta de valor única..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -498,8 +494,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="headline" className="text-white">Headline Principal</Label>
                   <Input
                     id="headline"
-                    value={headline.value}
-                    onChange={(e) => headline.setValue(e.target.value)}
+                    value={fields.headline.value}
+                    onChange={(e) => fields.headline.onChange(e.target.value)}
                     placeholder="Ex: Descubra Como Ganhar R$ 10k/mês com Marketing Digital"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -509,8 +505,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="subtitle" className="text-white">Subtítulo</Label>
                   <Input
                     id="subtitle"
-                    value={subtitle.value}
-                    onChange={(e) => subtitle.setValue(e.target.value)}
+                    value={fields.subtitle.value}
+                    onChange={(e) => fields.subtitle.onChange(e.target.value)}
                     placeholder="Método comprovado por mais de 1000 alunos"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -520,8 +516,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="benefits" className="text-white">Benefícios</Label>
                   <Textarea
                     id="benefits"
-                    value={benefits.value}
-                    onChange={(e) => benefits.setValue(e.target.value)}
+                    value={fields.benefits.value}
+                    onChange={(e) => fields.benefits.onChange(e.target.value)}
                     placeholder="Liste os principais benefícios..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -531,8 +527,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="socialProof" className="text-white">Prova Social</Label>
                   <Textarea
                     id="socialProof"
-                    value={socialProof.value}
-                    onChange={(e) => socialProof.setValue(e.target.value)}
+                    value={fields.socialProof.value}
+                    onChange={(e) => fields.socialProof.onChange(e.target.value)}
                     placeholder="Depoimentos, números, casos de sucesso..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -542,8 +538,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="vslScript" className="text-white">Script VSL</Label>
                   <Textarea
                     id="vslScript"
-                    value={vslScript.value}
-                    onChange={(e) => vslScript.setValue(e.target.value)}
+                    value={fields.vslScript.value}
+                    onChange={(e) => fields.vslScript.onChange(e.target.value)}
                     placeholder="Script completo do vídeo de vendas..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[200px]"
                   />
@@ -562,8 +558,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="mainOfferPromise" className="text-white">Promessa Principal</Label>
                   <Input
                     id="mainOfferPromise"
-                    value={mainOfferPromise.value}
-                    onChange={(e) => mainOfferPromise.setValue(e.target.value)}
+                    value={fields.mainOfferPromise.value}
+                    onChange={(e) => fields.mainOfferPromise.onChange(e.target.value)}
                     placeholder="Ex: Ganhe R$ 10k/mês em 90 dias ou seu dinheiro de volta"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -573,8 +569,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="mainOfferDescription" className="text-white">Descrição da Oferta</Label>
                   <Textarea
                     id="mainOfferDescription"
-                    value={mainOfferDescription.value}
-                    onChange={(e) => mainOfferDescription.setValue(e.target.value)}
+                    value={fields.mainOfferDescription.value}
+                    onChange={(e) => fields.mainOfferDescription.onChange(e.target.value)}
                     placeholder="Descreva o que está incluído na oferta principal..."
                     className="bg-[#1A1A1A] border-[#4B5563] text-white min-h-[100px]"
                   />
@@ -584,8 +580,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <Label htmlFor="mainOfferPrice" className="text-white">Preço</Label>
                   <Input
                     id="mainOfferPrice"
-                    value={mainOfferPrice.value}
-                    onChange={(e) => mainOfferPrice.setValue(e.target.value)}
+                    value={fields.mainOfferPrice.value}
+                    onChange={(e) => fields.mainOfferPrice.onChange(e.target.value)}
                     placeholder="Ex: R$ 497,00"
                     className="bg-[#1A1A1A] border-[#4B5563] text-white"
                   />
@@ -605,7 +601,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isLoading || loadingExistingData || !name.value.trim() || !niche.value.trim()}
+            disabled={isLoading || loadingExistingData || !formData.name.trim() || !formData.niche.trim()}
             className="bg-[#3B82F6] hover:bg-[#2563EB] text-white gap-2"
           >
             {isLoading ? (
