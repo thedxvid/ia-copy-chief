@@ -150,11 +150,9 @@ export const useSubscription = () => {
   const isSubscriptionActive = () => {
     if (!subscription) return false;
     
+    // Se o status é 'active', considerar como ativo independente da data de expiração
+    // Isso resolve o problema de renovações que não atualizam a data de expiração
     if (subscription.subscription_status === 'active') {
-      // Verificar se não expirou
-      if (subscription.subscription_expires_at) {
-        return new Date(subscription.subscription_expires_at) > new Date();
-      }
       return true;
     }
     
