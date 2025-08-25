@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -1039,27 +1039,27 @@ export type Database = {
     Functions: {
       admin_update_user_tokens: {
         Args: {
-          p_target_user_id: string
           p_action_type: string
-          p_value: number
           p_reason?: string
+          p_target_user_id: string
+          p_value: number
         }
         Returns: boolean
       }
       check_rate_limit: {
         Args: {
-          user_id: string
           action_type: string
           max_requests?: number
           time_window?: unknown
+          user_id: string
         }
         Returns: boolean
       }
       check_token_balance: {
         Args: { p_user_id: string }
         Returns: {
-          monthly_tokens: number
           extra_tokens: number
+          monthly_tokens: number
           total_available: number
           total_used: number
         }[]
@@ -1070,23 +1070,23 @@ export type Database = {
       }
       consume_tokens: {
         Args: {
-          p_user_id: string
-          p_tokens_used: number
+          p_completion_tokens?: number
           p_feature_used: string
           p_prompt_tokens?: number
-          p_completion_tokens?: number
+          p_tokens_used: number
+          p_user_id: string
         }
         Returns: boolean
       }
       detect_suspicious_activity: {
-        Args: { p_user_id: string; p_action: string; p_threshold?: number }
+        Args: { p_action: string; p_threshold?: number; p_user_id: string }
         Returns: boolean
       }
       enhanced_rate_limit_check: {
         Args: {
-          p_user_id: string
           p_action: string
           p_max_requests?: number
+          p_user_id: string
           p_window_minutes?: number
         }
         Returns: boolean
@@ -1094,8 +1094,8 @@ export type Database = {
       get_available_tokens: {
         Args: { p_user_id: string }
         Returns: {
-          monthly_tokens: number
           extra_tokens: number
+          monthly_tokens: number
           total_available: number
           total_used: number
         }[]
@@ -1103,8 +1103,8 @@ export type Database = {
       get_user_emails: {
         Args: { user_ids: string[] }
         Returns: {
-          id: string
           email: string
+          id: string
         }[]
       }
       is_admin: {
@@ -1120,7 +1120,7 @@ export type Database = {
         Returns: boolean
       }
       refund_tokens: {
-        Args: { p_user_id: string; p_amount: number; p_reason?: string }
+        Args: { p_amount: number; p_reason?: string; p_user_id: string }
         Returns: boolean
       }
       reset_monthly_tokens: {
@@ -1128,7 +1128,7 @@ export type Database = {
         Returns: undefined
       }
       secure_deduct_tokens: {
-        Args: { p_user_id: string; p_amount: number; p_feature_used?: string }
+        Args: { p_amount: number; p_feature_used?: string; p_user_id: string }
         Returns: boolean
       }
     }
