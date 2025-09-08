@@ -610,6 +610,8 @@ export type Database = {
           notified_90: boolean | null
           payment_approved_at: string | null
           subscription_expires_at: string | null
+          subscription_plan_id: string | null
+          subscription_plan_name: string | null
           subscription_status: string | null
           tokens_reset_date: string | null
           total_tokens_used: number | null
@@ -634,6 +636,8 @@ export type Database = {
           notified_90?: boolean | null
           payment_approved_at?: string | null
           subscription_expires_at?: string | null
+          subscription_plan_id?: string | null
+          subscription_plan_name?: string | null
           subscription_status?: string | null
           tokens_reset_date?: string | null
           total_tokens_used?: number | null
@@ -658,6 +662,8 @@ export type Database = {
           notified_90?: boolean | null
           payment_approved_at?: string | null
           subscription_expires_at?: string | null
+          subscription_plan_id?: string | null
+          subscription_plan_name?: string | null
           subscription_status?: string | null
           tokens_reset_date?: string | null
           total_tokens_used?: number | null
@@ -666,7 +672,15 @@ export type Database = {
           tutorial_step?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "token_packages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_copies: {
         Row: {
@@ -856,6 +870,57 @@ export type Database = {
           },
         ]
       }
+      subscription_changes: {
+        Row: {
+          change_type: string
+          created_at: string
+          id: string
+          new_plan_id: string | null
+          new_plan_name: string | null
+          old_plan_id: string | null
+          old_plan_name: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          id?: string
+          new_plan_id?: string | null
+          new_plan_name?: string | null
+          old_plan_id?: string | null
+          old_plan_name?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          id?: string
+          new_plan_id?: string | null
+          new_plan_name?: string | null
+          old_plan_id?: string | null
+          old_plan_name?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_changes_new_plan_id_fkey"
+            columns: ["new_plan_id"]
+            isOneToOne: false
+            referencedRelation: "token_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_old_plan_id_fkey"
+            columns: ["old_plan_id"]
+            isOneToOne: false
+            referencedRelation: "token_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_audit_logs: {
         Row: {
           action_type: string
@@ -940,7 +1005,9 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_recurring: boolean
           name: string
+          package_type: string
           price_brl: number
           tokens_amount: number
           updated_at: string
@@ -951,7 +1018,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_recurring?: boolean
           name: string
+          package_type?: string
           price_brl: number
           tokens_amount: number
           updated_at?: string
@@ -962,7 +1031,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_recurring?: boolean
           name?: string
+          package_type?: string
           price_brl?: number
           tokens_amount?: number
           updated_at?: string
@@ -1117,6 +1188,14 @@ export type Database = {
       }
       is_user_admin_by_profile: {
         Args: { p_user_id: string }
+        Returns: boolean
+      }
+      process_subscription_plan: {
+        Args: {
+          p_digital_guru_order_id?: string
+          p_plan_name: string
+          p_user_id: string
+        }
         Returns: boolean
       }
       refund_tokens: {

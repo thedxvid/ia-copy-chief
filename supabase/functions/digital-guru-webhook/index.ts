@@ -173,6 +173,30 @@ serve(async (req) => {
     console.log('  - Webhook Type:', webhookType);
     console.log('  - Subscription Status:', subscriptionStatus);
 
+    // Determine if this is a subscription plan or additional tokens
+    const isSubscriptionPlan = body.checkout_url && (
+      body.checkout_url.includes('/iacopychief-start') ||
+      body.checkout_url.includes('/iacopychief-gold') ||
+      body.checkout_url.includes('/iacopychief-diamond')
+    );
+
+    let planName = null;
+    if (isSubscriptionPlan) {
+      if (body.checkout_url.includes('/iacopychief-start')) {
+        planName = 'Start';
+      } else if (body.checkout_url.includes('/iacopychief-gold')) {
+        planName = 'Gold';
+      } else if (body.checkout_url.includes('/iacopychief-diamond')) {
+        planName = 'Diamond';
+      }
+    }
+
+    console.log('🔍 TIPO DE COMPRA:', {
+      isSubscriptionPlan,
+      planName,
+      checkoutUrl: body.checkout_url
+    });
+
     // Validações obrigatórias
     const validationErrors = [];
     
@@ -254,31 +278,58 @@ serve(async (req) => {
       const targetUser = users.users.find(u => u.email === subscriberEmail);
 
       if (targetUser) {
-        // FLUXO EXISTENTE: Usuário já existe, ativar assinatura
+        // FLUXO EXISTENTE: Usuário já existe
         console.log('👤 Usuário existente encontrado:', targetUser.id);
-        console.log('📝 Ativando assinatura para usuário existente...');
         
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            subscription_status: 'active',
-            payment_approved_at: new Date().toISOString(),
-            subscription_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-          })
-          .eq('id', targetUser.id);
+        if (isSubscriptionPlan && planName) {
+          // Process subscription plan
+          console.log('📋 Processando plano de assinatura para usuário existente:', planName);
+          
+          const { data: processResult, error: processError } = await supabase
+            .rpc('process_subscription_plan', {
+              p_user_id: targetUser.id,
+              p_plan_name: planName,
+              p_digital_guru_order_id: subscriptionId
+            });
 
-        if (profileError) {
-          console.error('❌ Erro ao atualizar perfil existente:', profileError);
-          return new Response(
-            JSON.stringify({ error: 'Error updating existing user profile' }), 
-            { 
-              status: 500,
-              headers: { 'Content-Type': 'application/json', ...corsHeaders }
-            }
-          );
+          if (processError || !processResult) {
+            console.error('❌ Erro ao processar plano de assinatura:', processError);
+            return new Response(
+              JSON.stringify({ error: 'Error processing subscription plan' }), 
+              { 
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders }
+              }
+            );
+          }
+
+          console.log('✅ Plano de assinatura processado para usuário existente:', subscriberEmail);
+        } else {
+          // Process regular subscription (existing logic)
+          console.log('📝 Ativando assinatura regular para usuário existente...');
+          
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              subscription_status: 'active',
+              payment_approved_at: new Date().toISOString(),
+              subscription_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+            })
+            .eq('id', targetUser.id);
+
+          if (profileError) {
+            console.error('❌ Erro ao atualizar perfil existente:', profileError);
+            return new Response(
+              JSON.stringify({ error: 'Error updating existing user profile' }), 
+              { 
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders }
+              }
+            );
+          }
+
+          console.log('✅ Assinatura ativada para usuário existente:', subscriberEmail);
         }
-
-        console.log('✅ Assinatura ativada para usuário existente:', subscriberEmail);
         
       } else {
         // NOVO FLUXO: Usuário não existe, criar conta e ativar assinatura
@@ -317,23 +368,44 @@ serve(async (req) => {
 
           console.log('✅ Usuário criado com sucesso:', newUser.user?.id);
 
-          // Atualizar perfil do novo usuário COM ASSINATURA ATIVA
-          console.log('📝 Atualizando perfil do novo usuário com assinatura ativa...');
-          const { error: newProfileError } = await supabase
-            .from('profiles')
-            .update({
-              subscription_status: 'active',
-              payment_approved_at: new Date().toISOString(),
-              subscription_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-              first_login: true // Marcar para alterar senha no primeiro login
-            })
-            .eq('id', newUser.user.id);
+          // Atualizar perfil do novo usuário
+          console.log('📝 Atualizando perfil do novo usuário...');
+          
+          if (isSubscriptionPlan && planName) {
+            // Process subscription plan for new user
+            console.log('📋 Processando plano de assinatura para novo usuário:', planName);
+            
+            const { data: processResult, error: processError } = await supabase
+              .rpc('process_subscription_plan', {
+                p_user_id: newUser.user.id,
+                p_plan_name: planName,
+                p_digital_guru_order_id: subscriptionId
+              });
 
-          if (newProfileError) {
-            console.error('❌ Erro ao atualizar perfil do novo usuário:', newProfileError);
-            // Continuar mesmo com erro, o importante é que o usuário foi criado
+            if (processError || !processResult) {
+              console.error('❌ Erro ao processar plano de assinatura para novo usuário:', processError);
+              // Continuar mesmo com erro, o importante é que o usuário foi criado
+            } else {
+              console.log('✅ Plano de assinatura processado para novo usuário');
+            }
           } else {
-            console.log('✅ Perfil do novo usuário atualizado com assinatura ATIVA');
+            // Regular subscription processing
+            const { error: newProfileError } = await supabase
+              .from('profiles')
+              .update({
+                subscription_status: 'active',
+                payment_approved_at: new Date().toISOString(),
+                subscription_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                first_login: true // Marcar para alterar senha no primeiro login
+              })
+              .eq('id', newUser.user.id);
+
+            if (newProfileError) {
+              console.error('❌ Erro ao atualizar perfil do novo usuário:', newProfileError);
+              // Continuar mesmo com erro, o importante é que o usuário foi criado
+            } else {
+              console.log('✅ Perfil do novo usuário atualizado com assinatura ATIVA');
+            }
           }
 
           // Enviar email com credenciais

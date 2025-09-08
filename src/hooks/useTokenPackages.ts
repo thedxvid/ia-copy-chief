@@ -26,12 +26,13 @@ export const useTokenPackages = () => {
       const { data, error } = await supabase
         .from('token_packages')
         .select('*')
+        .eq('package_type', 'additional') // Só pacotes de tokens extras
         .eq('is_active', true)
         .order('tokens_amount', { ascending: true });
 
       if (error) throw error;
       
-      console.log('📦 PACOTES CARREGADOS:', data);
+      console.log('📦 PACOTES DE TOKENS EXTRAS CARREGADOS:', data);
       setPackages(data || []);
     } catch (err) {
       console.error('Erro ao carregar pacotes:', err);
