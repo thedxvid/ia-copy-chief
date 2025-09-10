@@ -25,10 +25,6 @@
     fbq('init', '1924782104747942');
     fbq('track', 'PageView');
     </script>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=1924782104747942&ev=PageView&noscript=1"
-    /></noscript>
-    <!-- End Meta Pixel Code -->
 
     <!-- Favicons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/src/assets/favicon-rounded.png">
@@ -49,6 +45,10 @@
   </head>
 
   <body>
+    <!-- Meta Pixel noscript fallback -->
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1924782104747942&ev=PageView&noscript=1"
+    /></noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
